@@ -48,7 +48,7 @@ pydantic-settings==2.3.3
 pydantic[email]==2.7.4
 
 # HTTP client (pour Meta API, FedaPay, etc.)
-httpx==0.27.0
+httpx>=0.28.1
 
 # Utils
 python-dateutil==2.9.0
@@ -57,7 +57,6 @@ tenacity==8.3.0
 # Testing
 pytest==8.2.2
 pytest-asyncio==0.23.7
-httpx  # aussi utilisé pour les tests FastAPI
 
 # Export (optionnel)
 # openpyxl==3.1.4
