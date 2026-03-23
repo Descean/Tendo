@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChatUp - Feuille de Route</title>
+    <title>Tendo - Feuille de Route</title>
     <style>
         :root {
             --bg: #0f1117;
@@ -342,7 +342,7 @@
 <body>
 
 <div class="header">
-    <h1>ChatUp - Feuille de Route</h1>
+    <h1>Tendo - Feuille de Route</h1>
     <p>Assistant IA Marches Publics via WhatsApp | Backend Python FastAPI</p>
     <div class="last-updated" id="lastUpdated"></div>
 </div>
@@ -396,7 +396,7 @@
 <div class="phases" id="phasesContainer"></div>
 
 <div class="footer">
-    ChatUp &copy; 2026 SHIFT UP | Genere par Claude Code
+    Tendo &copy; 2026 SHIFT UP | Genere par Claude Code
 </div>
 
 <script>
@@ -573,8 +573,8 @@ const ROADMAP = {
                 {
                     title: "Configurer le webhook Meta vers l'URL publique",
                     status: "todo",
-                    desc: "Pointer Meta WhatsApp vers https://api.chatup.bj/webhook/whatsapp",
-                    howto: "1. Utiliser <code>ngrok http 8000</code> pour le dev local<br>2. Dans Facebook App > WhatsApp > Configuration > Webhook URL, coller l'URL ngrok<br>3. Verify Token = chatup_verify_token_2024",
+                    desc: "Pointer Meta WhatsApp vers https://tendo.shiftup.bj/webhook/whatsapp",
+                    howto: "1. Utiliser <code>ngrok http 8000</code> pour le dev local<br>2. Dans Facebook App > WhatsApp > Configuration > Webhook URL, coller l'URL ngrok<br>3. Verify Token = tendo_verify_token_2024",
                     tags: ["config", "api"]
                 },
                 {
@@ -792,21 +792,21 @@ const ROADMAP = {
                     title: "Deployer sur Azure App Service",
                     status: "todo",
                     desc: "Container Docker ou deploiement code direct",
-                    howto: "1. <code>az acr create --name chatupregistry</code><br>2. <code>docker build -t chatup-api .</code><br>3. <code>docker push chatupregistry.azurecr.io/chatup-api</code><br>4. <code>az webapp create</code> avec l'image",
+                    howto: "1. <code>az acr create --name tendoregistry</code><br>2. <code>docker build -t tendo-api .</code><br>3. <code>docker push tendoregistry.azurecr.io/tendo-api</code><br>4. <code>az webapp create</code> avec l'image",
                     tags: ["deploy"]
                 },
                 {
                     title: "Deployer Azure Functions (scraping)",
                     status: "todo",
                     desc: "6 fonctions timer pour le scraping automatique",
-                    howto: "<code>cd functions && func azure functionapp publish chatup-scraping</code>",
+                    howto: "<code>cd functions && func azure functionapp publish tendo-scraping</code>",
                     tags: ["deploy"]
                 },
                 {
                     title: "Configurer domaine + SSL",
                     status: "todo",
-                    desc: "api.chatup.bj pointant vers Azure App Service",
-                    howto: "1. Acheter/configurer le domaine chatup.bj<br>2. Ajouter un CNAME vers Azure<br>3. Activer le certificat SSL (gratuit via Azure)",
+                    desc: "tendo.shiftup.bj pointant vers Azure App Service",
+                    howto: "1. Acheter/configurer le domaine tendo.shiftup.bj<br>2. Ajouter un CNAME vers Azure<br>3. Activer le certificat SSL (gratuit via Azure)",
                     tags: ["deploy", "config"]
                 },
                 {
