@@ -1,0 +1,42 @@
+version: "3.8"
+
+services:
+  tendo:
+    build: .
+    container_name: tendo-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - APP_ENV=production
+      - DATABASE_URL=postgresql+asyncpg://tendo:${POSTGRES_PASSWORD:-tendo2024}@db:5432/tendo
+      - DATABASE_URL_SYNC=postgresql://tendo:${POSTGRES_PASSWORD:-tendo2024}@db:5432/tendo
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; r = httpx.get('http://localhost:8000/health'); assert r.status_code == 200"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  db:
+    image: postgres:16-alpine
+    container_name: tendo-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tendo
+      POSTGRES_USER: tendo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tendo2024}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tendo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatUp - Feuille de Route</title>
+    <style>
+        :root {
+            --bg: #0f1117;
+            --surface: #1a1d27;
+            --surface2: #232733;
+            --border: #2e3345;
+            --text: #e4e7ef;
+            --text-muted: #8b90a0;
+            --accent: #6c5ce7;
+            --accent-light: #a29bfe;
+            --success: #00b894;
+            --success-bg: rgba(0, 184, 148, 0.1);
+            --warning: #fdcb6e;
+            --warning-bg: rgba(253, 203, 110, 0.1);
+            --danger: #e17055;
+            --danger-bg: rgba(225, 112, 85, 0.1);
+            --info: #74b9ff;
+            --info-bg: rgba(116, 185, 255, 0.1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #1a1d27 0%, #2d1f5e 100%);
+            border-bottom: 1px solid var(--border);
+            padding: 2rem;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 2.2rem;
+            background: linear-gradient(135deg, #a29bfe, #6c5ce7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+        .header p {
+            color: var(--text-muted);
+            font-size: 1rem;
+        }
+        .last-updated {
+            color: var(--accent-light);
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+        }
+
+        /* Stats bar */
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            padding: 1.5rem 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.2rem;
+            text-align: center;
+        }
+        .stat-card .number {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+        .stat-card .label {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .stat-card.done .number { color: var(--success); }
+        .stat-card.progress .number { color: var(--warning); }
+        .stat-card.todo .number { color: var(--danger); }
+        .stat-card.total .number { color: var(--accent-light); }
+
+        /* Progress bar global */
+        .global-progress {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem 1.5rem;
+        }
+        .progress-bar-container {
+            background: var(--surface2);
+            border-radius: 10px;
+            height: 14px;
+            overflow: hidden;
+            display: flex;
+        }
+        .progress-fill-done {
+            background: linear-gradient(90deg, #00b894, #55efc4);
+            transition: width 0.8s ease;
+        }
+        .progress-fill-wip {
+            background: linear-gradient(90deg, #fdcb6e, #ffeaa7);
+            transition: width 0.8s ease;
+        }
+        .progress-label {
+            text-align: center;
+            margin-top: 0.5rem;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        /* Methodology */
+        .methodology {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem 2rem;
+        }
+        .methodology-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+        .methodology-card h2 {
+            color: var(--accent-light);
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+        }
+        .method-steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+        }
+        .method-step {
+            background: var(--surface2);
+            border-radius: 8px;
+            padding: 1rem;
+            border-left: 3px solid var(--accent);
+        }
+        .method-step .step-num {
+            color: var(--accent-light);
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .method-step h4 {
+            margin: 0.3rem 0;
+            font-size: 0.95rem;
+        }
+        .method-step p {
+            color: var(--text-muted);
+            font-size: 0.82rem;
+        }
+
+        /* Filter tabs */
+        .filter-bar {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem 1rem;
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .filter-btn {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+        .filter-btn:hover { border-color: var(--accent); color: var(--text); }
+        .filter-btn.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: white;
+        }
+
+        /* Phases */
+        .phases {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem 3rem;
+        }
+        .phase {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+        }
+        .phase-header {
+            padding: 1.2rem 1.5rem;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+            transition: background 0.2s;
+        }
+        .phase-header:hover { background: var(--surface2); }
+        .phase-header h3 { font-size: 1.1rem; display: flex; align-items: center; gap: 0.7rem; }
+        .phase-header .phase-icon { font-size: 1.3rem; }
+        .phase-meta {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .phase-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .badge-done { background: var(--success-bg); color: var(--success); }
+        .badge-wip { background: var(--warning-bg); color: var(--warning); }
+        .badge-todo { background: var(--danger-bg); color: var(--danger); }
+        .badge-blocked { background: var(--info-bg); color: var(--info); }
+
+        .phase-progress {
+            width: 120px;
+            height: 6px;
+            background: var(--surface2);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .phase-progress-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+        .chevron {
+            color: var(--text-muted);
+            transition: transform 0.3s;
+            font-size: 1.2rem;
+        }
+        .phase.open .chevron { transform: rotate(180deg); }
+
+        .phase-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease;
+        }
+        .phase.open .phase-body { max-height: 2000px; }
+
+        .tasks-list { padding: 0 1.5rem 1.5rem; }
+
+        .task {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.8rem;
+            padding: 0.8rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .task:last-child { border-bottom: none; }
+
+        .task-status {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            margin-top: 2px;
+        }
+        .status-done { background: var(--success); color: white; }
+        .status-wip { background: var(--warning); color: #333; animation: pulse 2s infinite; }
+        .status-todo { background: var(--surface2); border: 2px solid var(--border); }
+        .status-blocked { background: var(--info); color: white; }
+
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(253, 203, 110, 0.4); }
+            50% { box-shadow: 0 0 0 6px rgba(253, 203, 110, 0); }
+        }
+
+        .task-content { flex: 1; }
+        .task-title { font-weight: 500; font-size: 0.95rem; }
+        .task-title.done { text-decoration: line-through; color: var(--text-muted); }
+        .task-desc { color: var(--text-muted); font-size: 0.82rem; margin-top: 0.2rem; }
+        .task-howto {
+            margin-top: 0.4rem;
+            padding: 0.5rem 0.8rem;
+            background: var(--surface2);
+            border-radius: 6px;
+            font-size: 0.8rem;
+            color: var(--info);
+            border-left: 2px solid var(--info);
+        }
+        .task-howto code {
+            background: rgba(116, 185, 255, 0.15);
+            padding: 0.1rem 0.3rem;
+            border-radius: 3px;
+            font-family: 'Cascadia Code', 'Consolas', monospace;
+            font-size: 0.78rem;
+        }
+
+        .task-tags { display: flex; gap: 0.4rem; margin-top: 0.3rem; flex-wrap: wrap; }
+        .tag {
+            padding: 0.15rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 500;
+        }
+        .tag-backend { background: rgba(108, 92, 231, 0.15); color: var(--accent-light); }
+        .tag-config { background: rgba(253, 203, 110, 0.15); color: var(--warning); }
+        .tag-api { background: rgba(0, 184, 148, 0.15); color: var(--success); }
+        .tag-test { background: rgba(116, 185, 255, 0.15); color: var(--info); }
+        .tag-deploy { background: rgba(225, 112, 85, 0.15); color: var(--danger); }
+        .tag-scraping { background: rgba(162, 155, 254, 0.15); color: #a29bfe; }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            border-top: 1px solid var(--border);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .stats-bar { grid-template-columns: repeat(2, 1fr); }
+            .method-steps { grid-template-columns: 1fr; }
+            .phase-progress { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>ChatUp - Feuille de Route</h1>
+    <p>Assistant IA Marches Publics via WhatsApp | Backend Python FastAPI</p>
+    <div class="last-updated" id="lastUpdated"></div>
+</div>
+
+<div class="stats-bar" id="statsBar"></div>
+
+<div class="global-progress">
+    <div class="progress-bar-container" id="globalProgress"></div>
+    <div class="progress-label" id="progressLabel"></div>
+</div>
+
+<div class="methodology">
+    <div class="methodology-card">
+        <h2>Demarche Methodologique</h2>
+        <div class="method-steps">
+            <div class="method-step">
+                <div class="step-num">Phase 1 - Fondations</div>
+                <h4>Structure & Modeles</h4>
+                <p>Config, modeles DB, schemas Pydantic, utilitaires. Base solide avant toute logique metier.</p>
+            </div>
+            <div class="method-step">
+                <div class="step-num">Phase 2 - Services</div>
+                <h4>Logique Metier</h4>
+                <p>WhatsApp, Claude AI, paiements, emails, notifications. Chaque service est independant et testable.</p>
+            </div>
+            <div class="method-step">
+                <div class="step-num">Phase 3 - API & Webhook</div>
+                <h4>Endpoints REST</h4>
+                <p>Routers FastAPI, webhook Twilio, flux d'inscription, conversations IA.</p>
+            </div>
+            <div class="method-step">
+                <div class="step-num">Phase 4 - Scraping</div>
+                <h4>Sources de donnees</h4>
+                <p>Scrapers pour chaque source beninoise + template generique. Azure Functions pour l'automatisation.</p>
+            </div>
+            <div class="method-step">
+                <div class="step-num">Phase 5 - Integration</div>
+                <h4>Cles API & Tests</h4>
+                <p>Configuration des services externes reels, tests end-to-end, correction des bugs.</p>
+            </div>
+            <div class="method-step">
+                <div class="step-num">Phase 6 - Deploiement</div>
+                <h4>Production Azure</h4>
+                <p>Docker, Azure App Service, Azure Functions, monitoring, DNS, SSL.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="filter-bar" id="filterBar"></div>
+<div class="phases" id="phasesContainer"></div>
+
+<div class="footer">
+    ChatUp &copy; 2026 SHIFT UP | Genere par Claude Code
+</div>
+
+<script>
+// ============================================================
+//  ROADMAP DATA — Modifier ce bloc pour mettre a jour l'etat
+// ============================================================
+const ROADMAP = {
+    lastUpdated: "2026-03-23 00:30",
+    phases: [
+        {
+            id: "fondations",
+            icon: "&#128736;",
+            title: "Phase 1 — Fondations du projet",
+            tasks: [
+                {
+                    title: "Structure du projet (dossiers, __init__.py)",
+                    status: "done",
+                    desc: "Architecture modulaire : app/, models/, schemas/, routers/, services/, utils/, workers/",
+                    tags: ["backend"]
+                },
+                {
+                    title: "Configuration pydantic-settings (config.py)",
+                    status: "done",
+                    desc: "Variables d'environnement centralisees, support .env",
+                    tags: ["config"]
+                },
+                {
+                    title: "Fichiers projet (requirements.txt, Dockerfile, .env.example, .gitignore)",
+                    status: "done",
+                    desc: "Dependances, containerisation, exemple de config",
+                    tags: ["config"]
+                },
+                {
+                    title: "Modeles SQLAlchemy (User, Subscription, Publication, Notification, EmailTracking)",
+                    status: "done",
+                    desc: "5 modeles avec relations, indexes, types JSON",
+                    tags: ["backend"]
+                },
+                {
+                    title: "Schemas Pydantic (validation API)",
+                    status: "done",
+                    desc: "Schemas de validation pour chaque entite",
+                    tags: ["backend", "api"]
+                },
+                {
+                    title: "Utilitaires (db.py async/sync, redis_client.py, logger.py, security.py JWT)",
+                    status: "done",
+                    desc: "Sessions DB, cache Redis, logging, authentification JWT",
+                    tags: ["backend"]
+                },
+                {
+                    title: "Fallback SQLite pour dev local",
+                    status: "done",
+                    desc: "SQLite + aiosqlite au lieu de PostgreSQL pour le developpement",
+                    tags: ["config"]
+                },
+                {
+                    title: "Alembic migrations (configuration initiale)",
+                    status: "done",
+                    desc: "Alembic configure avec env.py, migration initiale generee et appliquee. Support SQLite (render_as_batch) + PostgreSQL",
+                    tags: ["backend", "config"]
+                }
+            ]
+        },
+        {
+            id: "services",
+            icon: "&#9881;",
+            title: "Phase 2 — Services Metier",
+            tasks: [
+                {
+                    title: "Service WhatsApp — Meta Cloud API (GRATUIT) + Twilio",
+                    status: "done",
+                    desc: "Double provider : Meta WhatsApp Cloud API (1000 conv/mois gratuites) + Twilio (optionnel payant). Auto-switch via WHATSAPP_PROVIDER dans .env",
+                    tags: ["backend"]
+                },
+                {
+                    title: "Service Claude AI (claude.py) — Conversations IA",
+                    status: "done",
+                    desc: "chat(), summarize_publication(), detect_intent() avec fallback mots-cles",
+                    tags: ["backend"]
+                },
+                {
+                    title: "Service Paiement (payment.py) — FedaPay",
+                    status: "done",
+                    desc: "create_payment_link(), verify_transaction(), verify_webhook_signature() — Mobile Money MTN/Moov, plans FCFA",
+                    tags: ["backend"]
+                },
+                {
+                    title: "Service Email (email_manager.py) — SMTP/IMAP",
+                    status: "done",
+                    desc: "send_dossier_request(), check_inbox_for_responses() pour demandes de dossiers",
+                    tags: ["backend"]
+                },
+                {
+                    title: "Service Notifications (notifications.py) — Matching & Alertes",
+                    status: "done",
+                    desc: "matches_user_preferences(), process_new_publications() avec resume IA",
+                    tags: ["backend"]
+                },
+                {
+                    title: "Configurer Meta WhatsApp Cloud API (GRATUIT)",
+                    status: "done",
+                    desc: "App Facebook creee, Phone Number ID et Access Token configures dans .env",
+                    tags: ["config"]
+                },
+                {
+                    title: "Configurer la cle API Claude (Anthropic)",
+                    status: "done",
+                    desc: "Cle API configuree dans .env — mode fallback actif si cle invalide",
+                    tags: ["config"]
+                },
+                {
+                    title: "Configurer FedaPay (compte marchand)",
+                    status: "todo",
+                    desc: "Compte FedaPay avec Mobile Money MTN/Moov active pour le Benin",
+                    howto: "1. S'inscrire sur <code>fedapay.com</code><br>2. KYC + activation Mobile Money XOF<br>3. Copier FEDAPAY_SECRET_KEY et FEDAPAY_PUBLIC_KEY dans <code>.env</code><br>4. Mode sandbox gratuit pour les tests",
+                    tags: ["config"]
+                },
+                {
+                    title: "Configurer email SMTP/IMAP",
+                    status: "done",
+                    desc: "Gmail configure dans .env pour l'envoi de demandes de dossiers",
+                    tags: ["config"]
+                }
+            ]
+        },
+        {
+            id: "api",
+            icon: "&#128268;",
+            title: "Phase 3 — API REST & Webhook WhatsApp",
+            tasks: [
+                {
+                    title: "Webhook WhatsApp — Support Meta Cloud API + Twilio",
+                    status: "done",
+                    desc: "POST /webhook/whatsapp — auto-detection du provider, verification signature Meta, logique metier commune",
+                    tags: ["api"]
+                },
+                {
+                    title: "Flux d'inscription complet (5 etapes conversationnelles)",
+                    status: "done",
+                    desc: "Nom > Entreprise > Secteurs > Regions > Sources, avec menus interactifs",
+                    tags: ["api", "backend"]
+                },
+                {
+                    title: "Router Users (users.py) — API web",
+                    status: "done",
+                    desc: "GET /users/me, PUT /users/me, DELETE /users/me (RGPD), export donnees",
+                    tags: ["api"]
+                },
+                {
+                    title: "Router Publications (publications.py) — Recherche",
+                    status: "done",
+                    desc: "GET /publications/search (filtres avances), GET /publications/{id}, stats",
+                    tags: ["api"]
+                },
+                {
+                    title: "Router Subscriptions (subscriptions.py)",
+                    status: "done",
+                    desc: "GET /subscriptions/plans, GET /subscriptions/me",
+                    tags: ["api"]
+                },
+                {
+                    title: "Router Payments (payments.py) — FedaPay",
+                    status: "done",
+                    desc: "POST /payments/initiate, POST /payments/webhook/fedapay, callback — Mobile Money MTN/Moov",
+                    tags: ["api"]
+                },
+                {
+                    title: "FastAPI main.py — App entry point",
+                    status: "done",
+                    desc: "Lifespan, CORS, rate limiting (slowapi), error handler global, /health",
+                    tags: ["api"]
+                },
+                {
+                    title: "Configurer le webhook Meta vers l'URL publique",
+                    status: "todo",
+                    desc: "Pointer Meta WhatsApp vers https://api.chatup.bj/webhook/whatsapp",
+                    howto: "1. Utiliser <code>ngrok http 8000</code> pour le dev local<br>2. Dans Facebook App > WhatsApp > Configuration > Webhook URL, coller l'URL ngrok<br>3. Verify Token = chatup_verify_token_2024",
+                    tags: ["config", "api"]
+                },
+                {
+                    title: "Tester le flux complet WhatsApp (inscription + question IA)",
+                    status: "todo",
+                    desc: "Envoyer des messages WhatsApp et verifier les reponses du bot",
+                    howto: "1. Configurer le webhook Meta<br>2. Envoyer 'Menu', 'Inscription', puis une question libre<br>3. Verifier les logs uvicorn",
+                    tags: ["test"]
+                },
+                {
+                    title: "Tester le flux de paiement FedaPay",
+                    status: "todo",
+                    desc: "Paiement test en mode sandbox FedaPay, verification webhook",
+                    howto: "1. Utiliser les cles sandbox FedaPay (sk_sandbox_...)<br>2. POST /payments/initiate avec un plan<br>3. Tester le paiement Mobile Money sur <code>process.fedapay.com</code><br>4. Verifier le webhook de confirmation",
+                    tags: ["test"]
+                }
+            ]
+        },
+        {
+            id: "scraping",
+            icon: "&#128375;",
+            title: "Phase 4 — Scraping & Donnees",
+            tasks: [
+                {
+                    title: "BaseScraper (classe abstraite)",
+                    status: "done",
+                    desc: "fetch_page(), generate_reference(), clean_text() — base pour tous les scrapers",
+                    tags: ["scraping"]
+                },
+                {
+                    title: "Scraper marches-publics.bj",
+                    status: "done",
+                    desc: "Pagination, extraction titres/dates/PDF, details par page",
+                    tags: ["scraping"]
+                },
+                {
+                    title: "Scraper ARMP Benin",
+                    status: "done",
+                    desc: "Actualites, decisions, avis — 3 sections scrapees",
+                    tags: ["scraping"]
+                },
+                {
+                    title: "Scraper gouv.bj (opportunites)",
+                    status: "done",
+                    desc: "Portail gouvernemental des marches publics",
+                    tags: ["scraping"]
+                },
+                {
+                    title: "Scraper ADPME",
+                    status: "done",
+                    desc: "WordPress — articles categorie AO avec pagination",
+                    tags: ["scraping"]
+                },
+                {
+                    title: "Scraper ABE",
+                    status: "done",
+                    desc: "Agence Beninoise de l'Environnement — appels d'offres",
+                    tags: ["scraping"]
+                },
+                {
+                    title: "GenericScraper (template configurable)",
+                    status: "done",
+                    desc: "Selecteurs CSS parametrables pour ajouter de nouvelles sources facilement",
+                    tags: ["scraping"]
+                },
+                {
+                    title: "Tester les scrapers sur les sites reels",
+                    status: "done",
+                    desc: "Testes et corriges : gouv.bj (21 pubs), ARMP (50 PDFs decisions), marches-publics.bj (11 liens). Total: 82 publications",
+                    tags: ["test", "scraping"]
+                },
+                {
+                    title: "Ajuster les selecteurs CSS selon la structure reelle des sites",
+                    status: "done",
+                    desc: "Selecteurs adaptes : gouv.bj (articles), ARMP (PDFs dans /storage/ + categories WP), marches-publics.bj (SPA Angular, liens statiques)",
+                    tags: ["scraping"]
+                },
+                {
+                    title: "Ajouter les scrapers internationaux (BAD, AFD, CEDEAO, grants.gov)",
+                    status: "todo",
+                    desc: "Utiliser GenericScraper ou creer des classes dediees",
+                    howto: "Copier le template <code>GenericScraper</code> et configurer pour chaque source. Pour grants.gov, utiliser l'API REST officielle",
+                    tags: ["scraping"]
+                }
+            ]
+        },
+        {
+            id: "workers",
+            icon: "&#9203;",
+            title: "Phase 5 — Workers & Automatisation",
+            tasks: [
+                {
+                    title: "Celery app configuration (celery_app.py)",
+                    status: "done",
+                    desc: "Beat schedule : notifications/30min, emails/1h, abonnements/24h, scraping/24h",
+                    tags: ["backend"]
+                },
+                {
+                    title: "Tache : send_pending_notifications",
+                    status: "done",
+                    desc: "Parcourt publications non traitees, matche avec preferences, envoie alertes",
+                    tags: ["backend"]
+                },
+                {
+                    title: "Tache : run_all_scrapers",
+                    status: "done",
+                    desc: "Execute tous les scrapers, deduplique, insere en base",
+                    tags: ["backend"]
+                },
+                {
+                    title: "Tache : check_email_responses",
+                    status: "done",
+                    desc: "Verifie la boite mail pour les reponses aux demandes de dossiers",
+                    tags: ["backend"]
+                },
+                {
+                    title: "Tache : check_expired_subscriptions",
+                    status: "done",
+                    desc: "Marque les essais et abonnements expires",
+                    tags: ["backend"]
+                },
+                {
+                    title: "Azure Functions (6 fonctions timer)",
+                    status: "done",
+                    desc: "Une fonction par source de scraping, timer CRON configure",
+                    tags: ["backend", "deploy"]
+                },
+                {
+                    title: "Installer et tester Redis localement",
+                    status: "todo",
+                    desc: "Redis est requis pour Celery (broker + backend)",
+                    howto: "Option 1: <code>docker run -d -p 6379:6379 redis:alpine</code><br>Option 2: Installer Redis pour Windows via Memurai ou WSL",
+                    tags: ["config"]
+                },
+                {
+                    title: "Tester Celery worker + beat en local",
+                    status: "todo",
+                    desc: "Verifier que les taches s'executent correctement",
+                    howto: "Terminal 1: <code>celery -A app.workers.celery_app worker -l info</code><br>Terminal 2: <code>celery -A app.workers.celery_app beat -l info</code>",
+                    tags: ["test"]
+                }
+            ]
+        },
+        {
+            id: "tests",
+            icon: "&#128300;",
+            title: "Phase 6 — Tests & Qualite",
+            tasks: [
+                {
+                    title: "Tests unitaires services (pytest) — 57/57 passent",
+                    status: "done",
+                    desc: "intent detection, notification matching, FedaPay plans/webhook/callback, scrapers (registry, base, errors), Claude AI fallback, models, API endpoints. SQLite in-memory",
+                    tags: ["test"]
+                },
+                {
+                    title: "Tests API endpoints (httpx AsyncClient)",
+                    status: "done",
+                    desc: "6 tests API : root, health, publications search/stats, subscriptions plans, webhook verify",
+                    tags: ["test", "api"]
+                },
+                {
+                    title: "Tests modeles DB (SQLAlchemy async)",
+                    status: "done",
+                    desc: "4 tests : creation user, publication, subscription relationship, notification",
+                    tags: ["test"]
+                },
+                {
+                    title: "Tests unitaires scrapers (mock HTML)",
+                    status: "todo",
+                    desc: "Tester avec des pages HTML mockees (pas de requetes reelles en CI)",
+                    howto: "Utiliser <code>responses</code> ou <code>httpretty</code> pour mocker les requetes HTTP",
+                    tags: ["test", "scraping"]
+                },
+                {
+                    title: "Tests webhook WhatsApp (simulation Meta/Twilio)",
+                    status: "todo",
+                    desc: "Simuler des messages entrants et verifier les reponses",
+                    howto: "POST vers /webhook/whatsapp avec un payload Meta ou Twilio simule",
+                    tags: ["test", "api"]
+                },
+                {
+                    title: "Documentation OpenAPI complete",
+                    status: "done",
+                    desc: "FastAPI genere automatiquement /docs (Swagger) et /redoc",
+                    tags: ["api"]
+                }
+            ]
+        },
+        {
+            id: "deploy",
+            icon: "&#128640;",
+            title: "Phase 7 — Deploiement Production",
+            tasks: [
+                {
+                    title: "Dockerfile optimise (multi-stage)",
+                    status: "done",
+                    desc: "Build multi-stage, user non-root, healthcheck, 2 workers uvicorn",
+                    tags: ["deploy"]
+                },
+                {
+                    title: "Provisionner PostgreSQL Azure",
+                    status: "todo",
+                    desc: "Azure Database for PostgreSQL — Flexible Server",
+                    howto: "1. Azure Portal > Creer PostgreSQL Flexible Server<br>2. Copier la connection string dans DATABASE_URL<br>3. Executer les migrations Alembic",
+                    tags: ["deploy", "config"]
+                },
+                {
+                    title: "Provisionner Redis Azure",
+                    status: "todo",
+                    desc: "Azure Cache for Redis pour Celery",
+                    howto: "Azure Portal > Creer Azure Cache for Redis > Basic C0. Copier REDIS_URL dans .env",
+                    tags: ["deploy", "config"]
+                },
+                {
+                    title: "Deployer sur Azure App Service",
+                    status: "todo",
+                    desc: "Container Docker ou deploiement code direct",
+                    howto: "1. <code>az acr create --name chatupregistry</code><br>2. <code>docker build -t chatup-api .</code><br>3. <code>docker push chatupregistry.azurecr.io/chatup-api</code><br>4. <code>az webapp create</code> avec l'image",
+                    tags: ["deploy"]
+                },
+                {
+                    title: "Deployer Azure Functions (scraping)",
+                    status: "todo",
+                    desc: "6 fonctions timer pour le scraping automatique",
+                    howto: "<code>cd functions && func azure functionapp publish chatup-scraping</code>",
+                    tags: ["deploy"]
+                },
+                {
+                    title: "Configurer domaine + SSL",
+                    status: "todo",
+                    desc: "api.chatup.bj pointant vers Azure App Service",
+                    howto: "1. Acheter/configurer le domaine chatup.bj<br>2. Ajouter un CNAME vers Azure<br>3. Activer le certificat SSL (gratuit via Azure)",
+                    tags: ["deploy", "config"]
+                },
+                {
+                    title: "Variables d'environnement production",
+                    status: "todo",
+                    desc: "Configurer toutes les cles API en production (pas dans le code)",
+                    howto: "Azure Portal > App Service > Configuration > Application Settings",
+                    tags: ["deploy", "config"]
+                },
+                {
+                    title: "Monitoring & Alertes",
+                    status: "todo",
+                    desc: "Azure Application Insights pour logs, metriques, alertes",
+                    howto: "Activer Application Insights sur l'App Service, configurer des alertes sur les erreurs 500",
+                    tags: ["deploy"]
+                }
+            ]
+        }
+    ]
+};
+
+// ============================================================
+//  RENDERING ENGINE
+// ============================================================
+
+function getStatusCounts() {
+    let done = 0, wip = 0, todo = 0, blocked = 0;
+    ROADMAP.phases.forEach(phase => {
+        phase.tasks.forEach(task => {
+            if (task.status === "done") done++;
+            else if (task.status === "wip") wip++;
+            else if (task.status === "blocked") blocked++;
+            else todo++;
+        });
+    });
+    return { done, wip, todo, blocked, total: done + wip + todo + blocked };
+}
+
+function renderStats() {
+    const { done, wip, todo, total } = getStatusCounts();
+    document.getElementById("statsBar").innerHTML = `
+        <div class="stat-card done"><div class="number">${done}</div><div class="label">Terminees</div></div>
+        <div class="stat-card progress"><div class="number">${wip}</div><div class="label">En cours</div></div>
+        <div class="stat-card todo"><div class="number">${todo}</div><div class="label">A faire</div></div>
+        <div class="stat-card total"><div class="number">${total}</div><div class="label">Total</div></div>
+    `;
+}
+
+function renderGlobalProgress() {
+    const { done, wip, total } = getStatusCounts();
+    const donePct = (done / total * 100).toFixed(1);
+    const wipPct = (wip / total * 100).toFixed(1);
+    document.getElementById("globalProgress").innerHTML = `
+        <div class="progress-fill-done" style="width:${donePct}%"></div>
+        <div class="progress-fill-wip" style="width:${wipPct}%"></div>
+    `;
+    document.getElementById("progressLabel").textContent =
+        `Progression globale : ${donePct}% termine, ${wipPct}% en cours — ${done}/${total} taches`;
+}
+
+function getPhaseStatus(phase) {
+    const done = phase.tasks.filter(t => t.status === "done").length;
+    const wip = phase.tasks.filter(t => t.status === "wip").length;
+    if (done === phase.tasks.length) return "done";
+    if (wip > 0) return "wip";
+    if (done > 0) return "wip";
+    return "todo";
+}
+
+function getPhaseProgressColor(phase) {
+    const status = getPhaseStatus(phase);
+    if (status === "done") return "var(--success)";
+    if (status === "wip") return "linear-gradient(90deg, var(--success), var(--warning))";
+    return "var(--border)";
+}
+
+function getBadgeClass(status) {
+    return { done: "badge-done", wip: "badge-wip", todo: "badge-todo", blocked: "badge-blocked" }[status] || "badge-todo";
+}
+
+function getBadgeText(status) {
+    return { done: "Termine", wip: "En cours", todo: "A faire", blocked: "Bloque" }[status] || "A faire";
+}
+
+function getStatusIcon(status) {
+    return { done: "&#10003;", wip: "&#9679;", todo: "", blocked: "!" }[status] || "";
+}
+
+let currentFilter = "all";
+
+function renderFilterBar() {
+    const tags = new Set();
+    ROADMAP.phases.forEach(p => p.tasks.forEach(t => (t.tags || []).forEach(tag => tags.add(tag))));
+
+    let html = `<button class="filter-btn active" onclick="setFilter('all')">Tout</button>`;
+    html += `<button class="filter-btn" onclick="setFilter('done')">Termines</button>`;
+    html += `<button class="filter-btn" onclick="setFilter('todo')">A faire</button>`;
+    tags.forEach(tag => {
+        html += `<button class="filter-btn" onclick="setFilter('tag:${tag}')">${tag}</button>`;
+    });
+    document.getElementById("filterBar").innerHTML = html;
+}
+
+function setFilter(filter) {
+    currentFilter = filter;
+    document.querySelectorAll(".filter-btn").forEach(btn => {
+        btn.classList.toggle("active",
+            (filter === "all" && btn.textContent === "Tout") ||
+            (filter === "done" && btn.textContent === "Termines") ||
+            (filter === "todo" && btn.textContent === "A faire") ||
+            (filter === "tag:" + btn.textContent)
+        );
+    });
+    renderPhases();
+}
+
+function taskMatchesFilter(task) {
+    if (currentFilter === "all") return true;
+    if (currentFilter === "done") return task.status === "done";
+    if (currentFilter === "todo") return task.status === "todo" || task.status === "blocked";
+    if (currentFilter.startsWith("tag:")) return (task.tags || []).includes(currentFilter.slice(4));
+    return true;
+}
+
+function renderPhases() {
+    const container = document.getElementById("phasesContainer");
+    let html = "";
+
+    ROADMAP.phases.forEach((phase, idx) => {
+        const filteredTasks = phase.tasks.filter(taskMatchesFilter);
+        if (filteredTasks.length === 0) return;
+
+        const done = phase.tasks.filter(t => t.status === "done").length;
+        const total = phase.tasks.length;
+        const pct = (done / total * 100).toFixed(0);
+        const status = getPhaseStatus(phase);
+        const isOpen = status !== "done";
+
+        html += `
+        <div class="phase ${isOpen ? 'open' : ''}" id="phase-${phase.id}">
+            <div class="phase-header" onclick="togglePhase('${phase.id}')">
+                <h3><span class="phase-icon">${phase.icon}</span> ${phase.title}</h3>
+                <div class="phase-meta">
+                    <span class="phase-badge ${getBadgeClass(status)}">${getBadgeText(status)} ${done}/${total}</span>
+                    <div class="phase-progress">
+                        <div class="phase-progress-fill" style="width:${pct}%; background:${getPhaseProgressColor(phase)}"></div>
+                    </div>
+                    <span class="chevron">&#9660;</span>
+                </div>
+            </div>
+            <div class="phase-body">
+                <div class="tasks-list">
+                    ${filteredTasks.map(task => renderTask(task)).join("")}
+                </div>
+            </div>
+        </div>`;
+    });
+
+    container.innerHTML = html;
+}
+
+function renderTask(task) {
+    const titleClass = task.status === "done" ? "done" : "";
+    const tagsHtml = (task.tags || []).map(t => `<span class="tag tag-${t}">${t}</span>`).join("");
+    const howtoHtml = task.howto ? `<div class="task-howto">${task.howto}</div>` : "";
+
+    return `
+    <div class="task">
+        <div class="task-status status-${task.status}">${getStatusIcon(task.status)}</div>
+        <div class="task-content">
+            <div class="task-title ${titleClass}">${task.title}</div>
+            <div class="task-desc">${task.desc}</div>
+            ${howtoHtml}
+            <div class="task-tags">${tagsHtml}</div>
+        </div>
+    </div>`;
+}
+
+function togglePhase(id) {
+    document.getElementById("phase-" + id).classList.toggle("open");
+}
+
+// Init
+document.getElementById("lastUpdated").textContent = "Derniere mise a jour : " + ROADMAP.lastUpdated;
+renderStats();
+renderGlobalProgress();
+renderFilterBar();
+renderPhases();
+</script>
+</body>
+</html>

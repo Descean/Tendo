@@ -1,0 +1,15 @@
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+.env.local
+tendo.db
+.git/
+.github/
+tests/
+*.md
+ROADMAP.html
+Prompt.txt
+.pytest_cache/
+.mypy_cache/

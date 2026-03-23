@@ -1,0 +1,380 @@
+PROMPT TECHNIQUE POUR CLAUDE CODE – CHATUP
+Contexte
+Tu es un développeur senior backend spécialisé en Python FastAPI, intégrations WhatsApp Business API et scraping. Tu dois générer le code complet du projet ChatUp, un assistant IA expert en marchés publics accessible via WhatsApp. Le service cible le Bénin et l’Afrique de l’Ouest, avec une extension internationale.
+
+Objectifs
+Créer un backend robuste, modulaire, déployable sur Azure (App Service + Functions) avec les fonctionnalités suivantes :
+
+Inscription et gestion des utilisateurs (WhatsApp phone number, abonnement, préférences).
+
+Scraping quotidien des sources d’appels d’offres (Bénin, CEDEAO, bailleurs).
+
+Envoi d’alertes WhatsApp personnalisées via Twilio.
+
+Gestion des conversations avec Claude AI (questions libres sur les marchés publics).
+
+Automatisation des demandes de dossiers (email vers autorités contractantes).
+
+Surveillance de boîtes mail (IMAP) pour récupérer les réponses.
+
+Paiements via Flutterwave (Mobile Money, carte) pour les abonnements.
+
+Application web légère (Next.js) suggérée mais non incluse dans ce backend – fournir des APIs REST pour celle-ci.
+
+Technologies imposées
+Langage : Python 3.10+
+
+Framework : FastAPI
+
+Base de données : PostgreSQL (SQLAlchemy ORM)
+
+Cache / file d’attente : Redis (pour les tâches asynchrones)
+
+WhatsApp : Twilio WhatsApp Business API (webhooks)
+
+IA conversationnelle : API Claude (Anthropic)
+
+Scraping : BeautifulSoup4 + Scrapy (exécuté via Azure Functions)
+
+Emails : IMAP client (imaplib) + SMTP (smtplib)
+
+Paiements : Flutterwave API
+
+Déploiement : Azure App Service + Azure Functions (scraping programmé)
+
+Variables d’environnement : Utiliser pydantic-settings
+
+Structure du projet
+text
+chatup-backend/
+├── app/
+│   ├── main.py                 # FastAPI app, routers
+│   ├── config.py               # Config settings
+│   ├── models/                 # SQLAlchemy models
+│   │   ├── user.py
+│   │   ├── subscription.py
+│   │   ├── notification.py
+│   │   ├── publication.py
+│   │   └── email_tracking.py
+│   ├── schemas/                # Pydantic schemas
+│   ├── routers/                # API endpoints
+│   │   ├── webhook.py          # Twilio webhook
+│   │   ├── users.py
+│   │   ├── subscriptions.py
+│   │   ├── publications.py
+│   │   └── payments.py
+│   ├── services/               # Business logic
+│   │   ├── whatsapp.py         # Send messages via Twilio
+│   │   ├── claude.py           # Claude AI integration
+│   │   ├── scraping/           # Scrapers (to be used in Azure Functions)
+│   │   ├── email_manager.py    # Send emails, monitor inbox
+│   │   ├── payment.py          # Flutterwave
+│   │   └── notifications.py    # Alert sending logic
+│   ├── utils/                  # Helpers
+│   │   ├── db.py               # Database session
+│   │   ├── redis_client.py
+│   │   └── logger.py
+│   └── workers/                # Background tasks (Redis queue)
+│       └── tasks.py
+├── functions/                  # Azure Functions (separate)
+│   ├── scrape_marches_bj/
+│   ├── scrape_ecowas/
+│   └── ...
+├── requirements.txt
+├── Dockerfile
+└── .env.example
+1. Modèles de données (SQLAlchemy)
+User
+id (int, PK)
+
+phone_number (str, unique, index)
+
+name (str)
+
+company (str, nullable)
+
+sectors (JSON list of strings, ex: ["BTP","Fournitures"])
+
+regions (JSON list of strings, ex: ["Cotonou","Djougou"])
+
+preferred_sources (JSON list, ex: ["ARMP","BAD"])
+
+created_at (datetime)
+
+is_active (bool)
+
+trial_end (datetime, nullable)
+
+subscription_status (enum: 'trial', 'active', 'expired', 'canceled')
+
+subscription_plan (enum: 'essentiel', 'premium', null)
+
+email_monitoring_consent (bool) – pour surveiller sa boîte mail
+
+Subscription
+id (int, PK)
+
+user_id (FK)
+
+plan (str)
+
+start_date (datetime)
+
+end_date (datetime)
+
+payment_id (str, nullable)
+
+amount (float)
+
+status (enum: 'pending', 'paid', 'failed')
+
+Publication
+id (int, PK)
+
+source (str) – ex: "marches-publics.bj", "ARMP", "AFD"
+
+reference (str, unique) – ex: "AO-2026-0012"
+
+title (str)
+
+summary (text)
+
+budget (float, nullable)
+
+deadline (datetime, nullable)
+
+pdf_url (str, nullable)
+
+html_content (text, nullable) – pour analyse
+
+category (str) – "marché", "appel à projets", "financement"
+
+sectors (JSON list)
+
+regions (JSON list)
+
+published_date (datetime)
+
+created_at (datetime)
+
+is_processed (bool) – si déjà envoyée en notification
+
+Notification
+id (int, PK)
+
+user_id (FK)
+
+publication_id (FK)
+
+sent_at (datetime)
+
+opened (bool, default False)
+
+interaction_type (str, nullable) – "resume", "demande_dossier", "ignore"
+
+EmailTracking
+id (int, PK)
+
+user_id (FK)
+
+publication_id (FK, nullable)
+
+email_sent_to (str) – adresse de l’autorité contractante
+
+subject (str)
+
+sent_at (datetime)
+
+response_received (bool)
+
+response_content (text, nullable)
+
+response_received_at (datetime, nullable)
+
+2. Configuration (pydantic-settings)
+Variables d’environnement nécessaires :
+
+DATABASE_URL
+
+REDIS_URL
+
+TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_NUMBER
+
+CLAUDE_API_KEY
+
+FLUTTERWAVE_SECRET_KEY, FLUTTERWAVE_PUBLIC_KEY
+
+SMTP_SERVER, SMTP_PORT, SMTP_USER, SMTP_PASSWORD
+
+SECRET_KEY (JWT ou cookie)
+
+SCRAPING_SCHEDULE (cron string)
+
+ADMIN_EMAILS (liste)
+
+3. Scraping (Azure Functions)
+Pour chaque source, créer une Azure Function déclenchée par timer (ex: quotidien). La fonction récupère les nouvelles publications, les nettoie et les insère dans la table publication.
+
+Liste des sources avec stratégie :
+Bénin – Portail des marchés publics
+URL : https://www.marches-publics.bj
+
+Sélecteurs : Les avis sont listés dans une table. Extraire le lien, le titre, la date de publication, le lien PDF.
+
+Attention : le site peut nécessiter une navigation par pagination. Utiliser requests + BeautifulSoup.
+
+Bénin – ARMP
+URL : https://armp.bj
+
+Les actualités et décisions sont dans une section "Actualités". Extraire les titres, dates, liens vers les PDF.
+
+Bénin – Gouvernement Opportunités
+URL : https://www.gouv.bj/opportunites/marches-publics/
+
+Structure similaire, parser la liste.
+
+ADPME
+URL : https://epme.adpme.bj/category/ao/
+
+Extraire les articles de la catégorie.
+
+ABE
+URL : https://www.abe.bj/appels-doffres/
+
+Même principe.
+
+CEDEAO Procurement
+URL : https://ecoslate.github.io/doing-business-in-ecowas/ecowas-procurement/
+
+C’est une page statique, mais peut contenir des liens vers des documents. Il faudra peut-être extraire les liens externes.
+
+SenOffre
+URL : https://senoffre.com
+
+Plateforme d’appels d’offres (peut nécessiter un abonnement). Pour l’instant on peut scraper les avis publics.
+
+Marchés Online
+URL : https://www.marchesonline.com
+
+Agrégateur. Extraire les derniers avis.
+
+Banque Africaine de Développement
+URL : https://eprocurement.afdb.org
+
+Utiliser leur portail e-procurement. Les appels d’offres sont listés. Il faut gérer la session.
+
+AFD Appels à projets
+URL : https://www.afd.fr/fr/appels-a-projets
+
+RSS ou scraping des pages.
+
+USAID (grants.gov)
+Pas de scraping direct ; utiliser l’API grants.gov pour récupérer les opportunités en Afrique de l’Ouest.
+
+Pour chaque source, nous devons implémenter une classe Scraper avec une méthode run() qui retourne une liste de publications dict. Les fonctions Azure les appelleront et inséreront en base.
+
+4. Webhook WhatsApp (Twilio)
+Endpoint : POST /webhook/whatsapp
+
+Twilio envoie un webhook à chaque message entrant.
+
+Le message est traité par une fonction asynchrone :
+
+Récupérer l’utilisateur par From (phone number). S’il n’existe pas, créer un utilisateur (étape pré-inscription).
+Analyser l’intention :
+Si le message est un texte simple, utiliser Claude AI (via claude.py) pour répondre.
+Si l’utilisateur tape "Menu", afficher les options.
+Si l’utilisateur tape "Inscription", lancer le flux d’inscription.
+Si l’utilisateur tape "Abonnement", afficher les plans.
+Si l’utilisateur tape "Support", transférer à un humain (Zendesk).
+Si l’utilisateur tape "Historique", retourner ses dernières notifications.
+Si l’utilisateur tape "Paiement", générer un lien de paiement Flutterwave.
+Envoyer la réponse via Twilio (message texte, boutons, listes, selon le type).
+Utiliser les modèles de message pré-approuvés pour les notifications proactives.
+
+5. Logique d’envoi des notifications
+Un worker (Redis queue) périodique parcourt les publications non envoyées (is_processed=False) et pour chaque utilisateur avec des critères correspondants (secteur, région, source), envoie un message WhatsApp (via Twilio) et crée une notification. Utiliser les templates Meta.
+
+Les critères de matching : stocker les préférences utilisateurs (secteurs, régions, sources) et comparer avec les champs de la publication.
+
+6. Flux d’inscription
+Utilisateur envoie "Inscription".
+
+Bot répond avec un menu interactif ou une liste pour collecter :
+
+Nom
+
+Entreprise (optionnel)
+
+Secteurs (choix multiples)
+
+Régions
+
+Sources préférées
+
+Après validation, enregistrer l’utilisateur en base, activer l’essai gratuit (7 jours), et confirmer.
+
+Envoyer un message de bienvenue.
+
+7. Demande automatique de dossier
+Flux :
+
+Utilisateur, dans une alerte, clique sur "Demander le dossier" ou envoie une commande du type "/demander_dossier [reference]".
+
+Le service récupère la publication et l’adresse email de l’autorité contractante (extraite de l’avis ou du site). Si non trouvée, demander à l’utilisateur.
+
+Le bot envoie un email via SMTP (adresse de l’autorité) avec un objet standard, en copie l’utilisateur.
+
+Le bot enregistre dans EmailTracking.
+
+Périodiquement, un worker surveille la boîte mail de l’utilisateur (si consentement donné) pour détecter une réponse (matching de l’objet ou de l’expéditeur). Dès la réponse reçue, le bot la transmet sur WhatsApp.
+
+8. Intégration Claude AI
+Lorsqu’un message utilisateur n’est pas reconnu comme commande, on appelle l’API Claude avec un prompt système décrivant le rôle d’expert en marchés publics et en utilisant la conversation récente comme contexte.
+
+On peut également lui fournir des extraits de publications pertinentes si l’utilisateur fait référence à un numéro d’AO.
+
+La réponse est renvoyée à l’utilisateur.
+
+9. Paiements Flutterwave
+Endpoint POST /payments/initiate crée un lien de paiement pour l’utilisateur avec un montant selon le plan.
+
+Flutterwave notifie sur webhook/payments après paiement. Vérifier le statut et mettre à jour l’abonnement de l’utilisateur.
+
+10. API pour l’application web (Next.js)
+Fournir des endpoints protégés par JWT (généré depuis le numéro WhatsApp ou email) pour :
+
+GET /users/me : profil utilisateur.
+
+GET /users/me/notifications : historique.
+
+GET /users/me/publications : publications filtrées.
+
+POST /users/me/export : générer rapport Excel/PDF.
+
+GET /publications/search : recherche avancée.
+
+11. Sécurité et conformité
+Utiliser HTTPS en production.
+
+Tous les endpoints sensibles nécessitent authentification (API Key ou JWT).
+
+Rate limiting par IP/phone number (FastAPI slowapi).
+
+Stocker les mots de passe ? Pas de mots de passe, l’authentification se fait via le numéro WhatsApp (lien magique) ou JWT envoyé après validation.
+
+Conformité RGPD : permettre à l’utilisateur de demander l’export et la suppression de ses données.
+
+12. Tests et documentation
+Écrire des tests unitaires pour les services (pytest).
+
+Fournir une documentation OpenAPI (FastAPI génère automatiquement /docs).
+
+Inclure un fichier README.md avec instructions d’installation et déploiement.
+
+Livrables attendus
+Je veux que tu génères le code complet du projet selon la structure ci-dessus, avec les fichiers nécessaires (requirements.txt, Dockerfile, .env.example, etc.). Le code doit être fonctionnel, bien commenté, et prêt à être déployé. Pour le scraping, fournis au moins les scrapers pour les sources béninoises (marches-publics.bj, ARMP, gouv.bj, ADPME, ABE). Pour les autres sources, donne un template générique.
+
+Tu utiliseras des bonnes pratiques de développement (async où possible, gestion des erreurs, logging). Le code doit être modulaire et extensible.
+
+Fin du prompt.

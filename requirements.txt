@@ -1,0 +1,64 @@
+# FastAPI & Server
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+python-multipart==0.0.9
+
+# Database
+sqlalchemy==2.0.30
+aiosqlite==0.20.0
+alembic==1.13.1
+# PostgreSQL (décommenter en production)
+# asyncpg==0.29.0
+# psycopg2-binary==2.9.9
+
+# Scheduler (intégré, pas besoin de Redis/Celery pour le MVP)
+apscheduler==3.10.4
+
+# Redis & Celery (optionnel, pour la mise à l'échelle)
+# redis==5.0.4
+# celery==5.4.0
+
+# WhatsApp – Meta Cloud API (GRATUIT, via httpx déjà inclus)
+# Twilio (OPTIONNEL, payant – décommenter si nécessaire)
+# twilio==9.1.0
+
+# AI — Gemini (GRATUIT: 15 req/min, 1M tokens/jour) + Claude (premium)
+google-genai==1.14.0
+anthropic==0.28.0
+
+# Scraping
+beautifulsoup4==4.12.3
+requests==2.32.3
+lxml==5.2.2
+# scrapy supprimé (trop lourd, pas utilisé)
+
+# Email
+aiosmtplib==3.0.1
+aioimaplib==1.1.0
+
+# Payments (FedaPay – via httpx, pas besoin de SDK)
+
+# Auth & Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+slowapi==0.1.9
+
+# Config
+pydantic-settings==2.3.3
+pydantic[email]==2.7.4
+
+# HTTP client (pour Meta API, FedaPay, etc.)
+httpx==0.27.0
+
+# Utils
+python-dateutil==2.9.0
+tenacity==8.3.0
+
+# Testing
+pytest==8.2.2
+pytest-asyncio==0.23.7
+httpx  # aussi utilisé pour les tests FastAPI
+
+# Export (optionnel)
+# openpyxl==3.1.4
+# fpdf2==2.7.9
