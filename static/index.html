@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tendo — Assistant IA Marchés Publics</title>
+    <meta name="description" content="Tendo surveille les marchés publics au Bénin et en Afrique de l'Ouest pour vous. Recevez des alertes WhatsApp personnalisées.">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: #f8f9fa;
+            color: #333;
+            line-height: 1.7;
+        }
+
+        /* Hero */
+        .hero {
+            background: linear-gradient(135deg, #1a1d27 0%, #2d1f5e 50%, #4a2d8a 100%);
+            color: white;
+            padding: 4rem 2rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.03) 0%, transparent 60%);
+            animation: pulse 8s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        .hero-content { position: relative; z-index: 1; max-width: 700px; margin: 0 auto; }
+        .logo { font-size: 3.5rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 0.5rem; }
+        .logo span { color: #8b6cf6; }
+        .tagline { font-size: 1.3rem; opacity: 0.9; margin-bottom: 1rem; font-weight: 300; }
+        .subtitle { font-size: 1rem; opacity: 0.7; max-width: 500px; margin: 0 auto 2rem; }
+        .cta-btn {
+            display: inline-block;
+            background: #25D366;
+            color: white;
+            text-decoration: none;
+            padding: 1rem 2.5rem;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(37, 211, 102, 0.3);
+        }
+        .cta-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 30px rgba(37, 211, 102, 0.4);
+        }
+        .cta-btn svg { vertical-align: middle; margin-right: 8px; }
+        .badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.15);
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            margin-top: 1.5rem;
+            backdrop-filter: blur(10px);
+        }
+
+        /* Stats */
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 3rem;
+            padding: 2rem;
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .stat { text-align: center; }
+        .stat-number { font-size: 2rem; font-weight: 800; color: #2d1f5e; }
+        .stat-label { font-size: 0.85rem; color: #6c757d; }
+
+        /* Features */
+        .features {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 4rem 2rem;
+        }
+        .features h2 {
+            text-align: center;
+            font-size: 2rem;
+            color: #1a1d27;
+            margin-bottom: 0.5rem;
+        }
+        .features .section-sub {
+            text-align: center;
+            color: #6c757d;
+            margin-bottom: 3rem;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+        }
+        .feature-card {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+            transition: transform 0.2s;
+        }
+        .feature-card:hover { transform: translateY(-4px); }
+        .feature-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .feature-card h3 { color: #1a1d27; margin-bottom: 0.5rem; font-size: 1.1rem; }
+        .feature-card p { color: #6c757d; font-size: 0.95rem; }
+
+        .icon-veille { background: #e8f4fd; }
+        .icon-alert { background: #fef3e2; }
+        .icon-ai { background: #f0e8fd; }
+        .icon-pay { background: #e8fde8; }
+        .icon-email { background: #fde8e8; }
+        .icon-scrape { background: #e8fdfa; }
+
+        /* Pricing */
+        .pricing {
+            background: linear-gradient(135deg, #f0f0ff, #f8f9fa);
+            padding: 4rem 2rem;
+        }
+        .pricing h2 {
+            text-align: center;
+            font-size: 2rem;
+            color: #1a1d27;
+            margin-bottom: 0.5rem;
+        }
+        .pricing .section-sub {
+            text-align: center;
+            color: #6c757d;
+            margin-bottom: 3rem;
+        }
+        .pricing-grid {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            flex-wrap: wrap;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .plan {
+            background: white;
+            border-radius: 16px;
+            padding: 2.5rem 2rem;
+            width: 340px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+            position: relative;
+        }
+        .plan.featured {
+            border: 2px solid #2d1f5e;
+            transform: scale(1.03);
+        }
+        .plan-badge {
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #2d1f5e;
+            color: white;
+            padding: 0.3rem 1rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        .plan h3 { font-size: 1.3rem; color: #1a1d27; margin-bottom: 0.5rem; }
+        .plan .price { font-size: 2.5rem; font-weight: 800; color: #2d1f5e; }
+        .plan .price span { font-size: 1rem; font-weight: 400; color: #6c757d; }
+        .plan ul { list-style: none; margin: 1.5rem 0; padding: 0; }
+        .plan ul li {
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 0.95rem;
+        }
+        .plan ul li::before { content: '✓ '; color: #25D366; font-weight: bold; }
+        .plan-btn {
+            display: block;
+            text-align: center;
+            padding: 0.9rem;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .plan-btn.primary {
+            background: #2d1f5e;
+            color: white;
+        }
+        .plan-btn.secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        /* How it works */
+        .how-it-works {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 4rem 2rem;
+        }
+        .how-it-works h2 {
+            text-align: center;
+            font-size: 2rem;
+            color: #1a1d27;
+            margin-bottom: 3rem;
+        }
+        .steps { display: flex; flex-direction: column; gap: 2rem; }
+        .step {
+            display: flex;
+            align-items: flex-start;
+            gap: 1.5rem;
+        }
+        .step-number {
+            width: 50px;
+            height: 50px;
+            min-width: 50px;
+            border-radius: 50%;
+            background: #2d1f5e;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            font-weight: 800;
+        }
+        .step h3 { color: #1a1d27; margin-bottom: 0.3rem; }
+        .step p { color: #6c757d; }
+
+        /* Footer */
+        footer {
+            background: #1a1d27;
+            color: rgba(255,255,255,0.7);
+            padding: 3rem 2rem;
+            text-align: center;
+        }
+        footer a { color: #8b6cf6; text-decoration: none; }
+        footer a:hover { text-decoration: underline; }
+        .footer-links { margin: 1rem 0; }
+        .footer-links a { margin: 0 1rem; font-size: 0.9rem; }
+        .footer-company { font-size: 0.85rem; margin-top: 1rem; opacity: 0.6; }
+
+        /* API info */
+        .api-info {
+            background: #1a1d27;
+            color: white;
+            max-width: 700px;
+            margin: 0 auto 0;
+            padding: 1.5rem 2rem;
+            border-radius: 12px;
+            text-align: center;
+            transform: translateY(50%);
+            position: relative;
+            z-index: 2;
+        }
+        .api-info code {
+            background: rgba(255,255,255,0.1);
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 600px) {
+            .logo { font-size: 2.5rem; }
+            .tagline { font-size: 1.1rem; }
+            .stats { flex-direction: column; gap: 1rem; }
+            .plan { width: 100%; }
+            .plan.featured { transform: none; }
+            .step { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Hero -->
+<section class="hero">
+    <div class="hero-content">
+        <div class="logo">Ten<span>do</span></div>
+        <p class="tagline">Votre assistant IA pour les marchés publics</p>
+        <p class="subtitle">
+            Tendo surveille automatiquement les appels d'offres au Bénin et en Afrique de l'Ouest,
+            et vous alerte sur WhatsApp en temps réel.
+        </p>
+        <a href="https://wa.me/22940809108?text=menu" class="cta-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.126.553 4.121 1.52 5.86L0 24l6.335-1.494C8.012 23.46 9.96 24 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.82 0-3.56-.467-5.08-1.335l-.36-.214-3.76.886.95-3.66-.236-.374C2.48 15.66 2 13.86 2 12 2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>
+            Essayer gratuitement
+        </a>
+        <div class="badge">7 jours d'essai gratuit — Sans engagement</div>
+    </div>
+</section>
+
+<!-- Stats -->
+<section class="stats">
+    <div class="stat">
+        <div class="stat-number">5+</div>
+        <div class="stat-label">Sources surveillées</div>
+    </div>
+    <div class="stat">
+        <div class="stat-number">24/7</div>
+        <div class="stat-label">Surveillance continue</div>
+    </div>
+    <div class="stat">
+        <div class="stat-number">100%</div>
+        <div class="stat-label">Via WhatsApp</div>
+    </div>
+</section>
+
+<!-- Features -->
+<section class="features">
+    <h2>Tout ce dont vous avez besoin</h2>
+    <p class="section-sub">Un assistant complet pour ne plus jamais rater un appel d'offres</p>
+    <div class="feature-grid">
+        <div class="feature-card">
+            <div class="feature-icon icon-veille">&#128270;</div>
+            <h3>Veille automatisée</h3>
+            <p>Tendo scrape automatiquement les plateformes de marchés publics : SYGMAP, journaux officiels, sites ministériels.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon icon-alert">&#128276;</div>
+            <h3>Alertes personnalisées</h3>
+            <p>Recevez uniquement les appels d'offres qui correspondent à vos secteurs et régions d'intérêt.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon icon-ai">&#129302;</div>
+            <h3>IA conversationnelle</h3>
+            <p>Posez vos questions en langage naturel. Tendo comprend vos besoins et vous guide dans vos démarches.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon icon-pay">&#128179;</div>
+            <h3>Paiement Mobile Money</h3>
+            <p>Payez facilement via MTN ou Moov Money grâce à notre intégration FedaPay. Simple et sécurisé.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon icon-email">&#128231;</div>
+            <h3>Suivi par email</h3>
+            <p>Optez pour un suivi email en complément de WhatsApp. Recevez des récapitulatifs détaillés.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon icon-scrape">&#127757;</div>
+            <h3>Multi-sources</h3>
+            <p>SYGMAP, ARMP, journaux officiels, sites gouvernementaux... Tendo couvre toutes les sources pertinentes.</p>
+        </div>
+    </div>
+</section>
+
+<!-- How it works -->
+<section class="how-it-works">
+    <h2>Comment ca marche ?</h2>
+    <div class="steps">
+        <div class="step">
+            <div class="step-number">1</div>
+            <div>
+                <h3>Envoyez "menu" sur WhatsApp</h3>
+                <p>Scannez le QR code ou cliquez sur le bouton WhatsApp. Envoyez votre premier message pour activer votre compte.</p>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-number">2</div>
+            <div>
+                <h3>Configurez vos preferences</h3>
+                <p>Choisissez vos secteurs d'activité (BTP, informatique, santé...) et vos régions d'intérêt.</p>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-number">3</div>
+            <div>
+                <h3>Recevez des alertes</h3>
+                <p>Tendo surveille les nouvelles publications et vous envoie les opportunités qui correspondent à votre profil.</p>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-number">4</div>
+            <div>
+                <h3>Posez vos questions</h3>
+                <p>Besoin d'un résumé ? D'un conseil sur un dossier ? Discutez avec Tendo comme avec un expert.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Pricing -->
+<section class="pricing">
+    <h2>Tarifs simples et transparents</h2>
+    <p class="section-sub">Commencez gratuitement, passez au premium quand vous etes pret</p>
+    <div class="pricing-grid">
+        <div class="plan">
+            <h3>Essentiel</h3>
+            <div class="price">5 000 <span>XOF/mois</span></div>
+            <ul>
+                <li>Alertes WhatsApp quotidiennes</li>
+                <li>3 secteurs de veille</li>
+                <li>Résumés IA des appels d'offres</li>
+                <li>Support par WhatsApp</li>
+                <li>Historique 30 jours</li>
+            </ul>
+            <a href="https://wa.me/22940809108?text=abonnement" class="plan-btn secondary">Choisir Essentiel</a>
+        </div>
+        <div class="plan featured">
+            <div class="plan-badge">Populaire</div>
+            <h3>Premium</h3>
+            <div class="price">15 000 <span>XOF/mois</span></div>
+            <ul>
+                <li>Tout l'Essentiel, plus :</li>
+                <li>Secteurs et régions illimités</li>
+                <li>Alertes en temps réel</li>
+                <li>Suivi email + WhatsApp</li>
+                <li>Analyse IA avancée des dossiers</li>
+                <li>Support prioritaire</li>
+            </ul>
+            <a href="https://wa.me/22940809108?text=premium" class="plan-btn primary">Choisir Premium</a>
+        </div>
+    </div>
+</section>
+
+<!-- API info -->
+<div style="padding: 0 2rem;">
+    <div class="api-info">
+        API REST disponible &mdash; Documentation : <code><a href="/docs" style="color: #8b6cf6;">/docs</a></code> &nbsp;|&nbsp; Health : <code><a href="/health" style="color: #8b6cf6;">/health</a></code>
+    </div>
+</div>
+
+<!-- Footer -->
+<footer style="padding-top: 5rem;">
+    <div class="logo" style="font-size: 1.5rem; color: white; margin-bottom: 0.5rem;">Ten<span style="color: #8b6cf6;">do</span></div>
+    <p>Assistant IA pour les marchés publics au Bénin et en Afrique de l'Ouest</p>
+    <div class="footer-links">
+        <a href="/privacy">Confidentialité</a>
+        <a href="/terms">Conditions d'utilisation</a>
+        <a href="/delete-data">Suppression des données</a>
+        <a href="/docs">API</a>
+    </div>
+    <p class="footer-company">
+        &copy; 2026 SHIFT UP SARL &mdash; Cotonou, Bénin<br>
+        Propulsé par l'intelligence artificielle
+    </p>
+</footer>
+
+</body>
+</html>

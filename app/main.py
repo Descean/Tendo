@@ -99,14 +99,13 @@ app.include_router(admin.router)
 
 
 # ── Routes de base ──
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
 async def root():
-    return {
-        "app": settings.app_name,
-        "version": "1.0.0",
-        "description": "Tendo — Assistant IA Marchés Publics via WhatsApp",
-        "docs": "/docs",
-    }
+    """Page d'accueil professionnelle."""
+    index_file = Path(__file__).parent.parent / "static" / "index.html"
+    if index_file.exists():
+        return HTMLResponse(content=index_file.read_text(encoding="utf-8"))
+    return HTMLResponse(content="<h1>Tendo API</h1><p><a href='/docs'>Documentation</a></p>")
 
 
 @app.get("/privacy", response_class=HTMLResponse)
@@ -114,6 +113,20 @@ async def privacy_policy():
     """Page de politique de confidentialité (requise par Meta)."""
     privacy_file = Path(__file__).parent.parent / "static" / "privacy.html"
     return HTMLResponse(content=privacy_file.read_text(encoding="utf-8"))
+
+
+@app.get("/terms", response_class=HTMLResponse)
+async def terms():
+    """Page des conditions d'utilisation (requise par Meta)."""
+    terms_file = Path(__file__).parent.parent / "static" / "terms.html"
+    return HTMLResponse(content=terms_file.read_text(encoding="utf-8"))
+
+
+@app.get("/delete-data", response_class=HTMLResponse)
+async def delete_data():
+    """Page de suppression des données (requise par Meta)."""
+    delete_file = Path(__file__).parent.parent / "static" / "delete-data.html"
+    return HTMLResponse(content=delete_file.read_text(encoding="utf-8"))
 
 
 @app.get("/health")

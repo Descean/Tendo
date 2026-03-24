@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tendo — Suppression des Données</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #f8f9fa; color: #333; line-height: 1.7; }
+        .container { max-width: 800px; margin: 0 auto; padding: 2rem 1.5rem; }
+        header { background: linear-gradient(135deg, #1a1d27, #2d1f5e); color: white; padding: 2rem; text-align: center; }
+        header h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+        header p { opacity: 0.8; font-size: 0.95rem; }
+        h2 { color: #2d1f5e; margin: 2rem 0 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid #e9ecef; }
+        p, li { margin-bottom: 0.8rem; }
+        ul { padding-left: 1.5rem; }
+        .highlight { background: #e8f4fd; border-left: 4px solid #2d1f5e; padding: 1rem 1.5rem; margin: 1rem 0; border-radius: 0 8px 8px 0; }
+        .warning { background: #fff3cd; border-left: 4px solid #ffc107; padding: 1rem 1.5rem; margin: 1rem 0; border-radius: 0 8px 8px 0; }
+        .method-card { background: white; border-radius: 12px; padding: 1.5rem; margin: 1rem 0; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .method-card h3 { color: #2d1f5e; margin-bottom: 0.5rem; }
+        .step-list { counter-reset: step; list-style: none; padding: 0; }
+        .step-list li { counter-increment: step; padding: 0.5rem 0 0.5rem 2.5rem; position: relative; }
+        .step-list li::before {
+            content: counter(step);
+            position: absolute; left: 0; top: 0.5rem;
+            width: 28px; height: 28px; border-radius: 50%;
+            background: #2d1f5e; color: white;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.85rem; font-weight: 700;
+        }
+        footer { text-align: center; padding: 2rem; color: #6c757d; font-size: 0.85rem; border-top: 1px solid #e9ecef; margin-top: 3rem; }
+        a { color: #2d1f5e; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Tendo</h1>
+    <p>Suppression des Données Utilisateur</p>
+</header>
+
+<div class="container">
+
+    <p><strong>Dernière mise à jour :</strong> 23 mars 2026</p>
+
+    <div class="highlight">
+        Conformément à la loi béninoise (loi n° 2017-20 portant code du numérique) et au RGPD, vous avez le droit de demander la suppression complète de vos données personnelles à tout moment.
+    </div>
+
+    <h2>1. Données concernées</h2>
+    <p>La suppression de votre compte entraîne la suppression définitive de :</p>
+    <ul>
+        <li><strong>Votre profil</strong> — numéro de téléphone, nom, entreprise</li>
+        <li><strong>Vos préférences</strong> — secteurs, régions, sources de veille</li>
+        <li><strong>Votre historique</strong> — messages échangés avec Tendo</li>
+        <li><strong>Vos notifications</strong> — historique des alertes reçues</li>
+        <li><strong>Votre abonnement</strong> — données de souscription (les transactions FedaPay restent conservées chez FedaPay pour des raisons légales)</li>
+    </ul>
+
+    <h2>2. Comment demander la suppression</h2>
+
+    <div class="method-card">
+        <h3>Methode 1 : Via WhatsApp (le plus simple)</h3>
+        <ol class="step-list">
+            <li>Ouvrez la conversation WhatsApp avec Tendo</li>
+            <li>Envoyez le message <strong>"Supprimer mon compte"</strong></li>
+            <li>Confirmez votre demande quand Tendo vous le demande</li>
+            <li>Vos données seront supprimées sous 48 heures</li>
+        </ol>
+    </div>
+
+    <div class="method-card">
+        <h3>Methode 2 : Par email</h3>
+        <ol class="step-list">
+            <li>Envoyez un email à <a href="mailto:privacy@shiftup.bj">privacy@shiftup.bj</a></li>
+            <li>Indiquez votre numéro de téléphone WhatsApp dans l'email</li>
+            <li>Précisez "Demande de suppression de données" en objet</li>
+            <li>Nous traiterons votre demande sous 72 heures maximum</li>
+        </ol>
+    </div>
+
+    <h2>3. Délais de traitement</h2>
+    <ul>
+        <li><strong>Via WhatsApp :</strong> suppression sous 48 heures</li>
+        <li><strong>Via email :</strong> suppression sous 72 heures</li>
+        <li>Vous recevrez une confirmation par WhatsApp ou email une fois la suppression effectuée</li>
+    </ul>
+
+    <div class="warning">
+        <strong>Attention :</strong> La suppression de vos données est <strong>irréversible</strong>. Si vous avez un abonnement actif, celui-ci sera annulé sans remboursement pour la période en cours. Vous pourrez créer un nouveau compte ultérieurement si vous le souhaitez.
+    </div>
+
+    <h2>4. Données conservées après suppression</h2>
+    <p>Certaines données peuvent être conservées après la suppression de votre compte :</p>
+    <ul>
+        <li><strong>Transactions financières</strong> — conservées 5 ans conformément aux obligations comptables</li>
+        <li><strong>Logs techniques anonymisés</strong> — conservés 3 mois pour la sécurité du service</li>
+    </ul>
+    <p>Ces données résiduelles sont anonymisées et ne permettent pas de vous identifier.</p>
+
+    <h2>5. Contact</h2>
+    <p>Pour toute question relative à la suppression de vos données :</p>
+    <ul>
+        <li><strong>Email :</strong> <a href="mailto:privacy@shiftup.bj">privacy@shiftup.bj</a></li>
+        <li><strong>WhatsApp :</strong> Envoyez "Support" au numéro Tendo</li>
+        <li><strong>Adresse :</strong> SHIFT UP SARL — Cotonou, Bénin</li>
+    </ul>
+
+</div>
+
+<footer>
+    Tendo &copy; 2026 SHIFT UP SARL — Cotonou, Bénin<br>
+    <a href="/">Accueil</a> &nbsp;|&nbsp; <a href="/privacy">Confidentialité</a> &nbsp;|&nbsp; <a href="/terms">Conditions d'utilisation</a>
+</footer>
+
+</body>
+</html>
