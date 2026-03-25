@@ -178,11 +178,11 @@ async def _activate_subscription(
     try:
         await send_message(
             user.phone_number,
-            f"✅ *Paiement confirmé !*\n\n"
+            f"PAIEMENT CONFIRME\n\n"
             f"Plan : {PLANS.get(plan, {}).get('name', plan)}\n"
             f"Montant : {amount:,.0f} FCFA\n"
             f"Valable jusqu'au : {subscription.end_date.strftime('%d/%m/%Y')}\n\n"
-            f"Merci pour votre confiance ! 🎉",
+            f"Merci pour votre confiance. Tapez *Menu* pour acceder a vos fonctionnalites.",
         )
     except Exception as e:
         logger.error(f"Erreur notification paiement: {e}")
