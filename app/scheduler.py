@@ -42,21 +42,25 @@ async def job_run_scrapers():
                     if existing.scalar_one_or_none():
                         continue
 
+                    # Nettoyer les champs date : string vide -> None
+                    published_date = pub_data.get("published_date") or None
+                    deadline = pub_data.get("deadline") or None
+
                     publication = Publication(
                         source=pub_data["source"],
                         reference=pub_data["reference"],
                         title=pub_data["title"],
                         summary=pub_data.get("summary", ""),
-                        budget=pub_data.get("budget"),
-                        deadline=pub_data.get("deadline"),
-                        pdf_url=pub_data.get("pdf_url"),
+                        budget=pub_data.get("budget") or None,
+                        deadline=deadline,
+                        pdf_url=pub_data.get("pdf_url") or None,
                         html_content=pub_data.get("html_content", ""),
                         category=pub_data.get("category", "marché"),
                         sectors=pub_data.get("sectors", []),
                         regions=pub_data.get("regions", []),
-                        published_date=pub_data.get("published_date"),
-                        authority_email=pub_data.get("authority_email"),
-                        authority_name=pub_data.get("authority_name"),
+                        published_date=published_date,
+                        authority_email=pub_data.get("authority_email") or None,
+                        authority_name=pub_data.get("authority_name") or None,
                     )
                     db.add(publication)
                     total_new += 1

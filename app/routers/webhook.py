@@ -247,11 +247,9 @@ def _validate_name(text: str) -> bool:
     cleaned = text.strip()
     if len(cleaned) < 2:
         return False
-    # Doit contenir au moins 2 lettres
     letter_count = sum(1 for c in cleaned if c.isalpha())
     if letter_count < 2:
         return False
-    # Ne doit pas etre un chiffre seul ou un mot-cle
     if cleaned.lower() in COMMAND_WORDS:
         return False
     return True
@@ -267,6 +265,40 @@ def _parse_numeric_choices(text: str, valid_map: dict) -> list:
     return selected
 
 
+async def _ai_parse_choices(text: str, category: str, valid_map: dict) -> list:
+    """Utilise l'IA pour interpreter les reponses en langage naturel.
+
+    Si l'utilisateur tape des numeros -> parsing classique.
+    Sinon -> l'IA identifie les correspondances dans la liste.
+    """
+    # D'abord essayer le parsing numerique classique
+    numeric = _parse_numeric_choices(text, valid_map)
+    if numeric:
+        return numeric
+
+    # Sinon, demander a l'IA d'interpreter le texte libre
+    options_text = "\n".join(f"{k} = {v}" for k, v in valid_map.items())
+    prompt = (
+        f"L'utilisateur repond a la question '{category}' avec : \"{text}\"\n\n"
+        f"Voici les options disponibles :\n{options_text}\n\n"
+        f"Identifie les numeros correspondants a sa reponse. "
+        f"Reponds UNIQUEMENT avec les numeros separes par des virgules, sans texte.\n"
+        f"Si aucune option ne correspond, reponds : AUCUN\n"
+        f"Exemples : '1,3,4' ou '2' ou 'AUCUN'"
+    )
+    system = "Tu es un assistant qui extrait des choix numeriques a partir de texte libre. Reponds uniquement avec les numeros ou AUCUN."
+
+    try:
+        result = await claude.chat(prompt, is_premium=False)
+        if result and result.strip().upper() != "AUCUN":
+            # Parser la reponse de l'IA
+            return _parse_numeric_choices(result.strip(), valid_map)
+    except Exception:
+        pass
+
+    return []
+
+
 async def _handle_registration_flow(user: User, body: str, db: AsyncSession) -> str:
     """Gere le flux d'inscription pas a pas avec validation."""
     state = user.conversation_state
@@ -280,32 +312,83 @@ async def _handle_registration_flow(user: User, body: str, db: AsyncSession) -> 
         return "Inscription annulee.\nTapez *Menu* pour revenir au menu principal."
 
     if state == "inscription_nom":
-        if not _validate_name(text):
-            return (
-                "Le nom saisi n'est pas valide. "
-                "Veuillez entrer votre prenom et nom (minimum 2 caracteres, lettres uniquement).\n\n"
-                "Exemple : Jean Dupont\n\n"
-                "Tapez *Annuler* pour quitter l'inscription."
-            )
-        data["name"] = text.title()  # Mise en forme : Jean Dupont
+        # L'IA peut aider a extraire un vrai nom d'une phrase
+        name_candidate = text.strip()
+
+        # Si l'utilisateur ecrit une phrase ("Je m'appelle Jean Dupont"), extraire le nom
+        if len(text.split()) > 3 or not _validate_name(text):
+            try:
+                ai_result = await claude.chat(
+                    f"L'utilisateur repond a 'Quel est votre nom complet ?' avec : \"{text}\"\n"
+                    "Extrais uniquement le prenom et le nom. "
+                    "Reponds UNIQUEMENT avec le nom, rien d'autre. "
+                    "Si ce n'est pas un nom valide, reponds : INVALIDE",
+                    is_premium=False,
+                )
+                ai_result = ai_result.strip().strip('"').strip("'")
+                if ai_result and ai_result.upper() != "INVALIDE" and _validate_name(ai_result):
+                    name_candidate = ai_result
+                elif not _validate_name(name_candidate):
+                    return (
+                        "Je n'ai pas pu identifier votre nom.\n"
+                        "Veuillez entrer votre prenom et nom.\n\n"
+                        "Exemple : Jean Dupont\n\n"
+                        "Tapez *Annuler* pour quitter l'inscription."
+                    )
+            except Exception:
+                if not _validate_name(name_candidate):
+                    return (
+                        "Veuillez entrer votre prenom et nom (minimum 2 caracteres).\n\n"
+                        "Exemple : Jean Dupont\n\n"
+                        "Tapez *Annuler* pour quitter l'inscription."
+                    )
+
+        data["name"] = name_candidate.title()
         user.conversation_data = data
         user.conversation_state = "inscription_entreprise"
         return (
             "Nom enregistre : " + data["name"] + "\n\n"
             "Quel est le nom de votre entreprise ?\n"
-            "Tapez *Passer* si vous etes un particulier."
+            "Tapez *Passer* si vous etes un particulier ou freelancer."
         )
 
     elif state == "inscription_entreprise":
-        if text.lower() not in ("passer", "pass", "non", "-"):
-            if len(text) < 2:
-                return "Veuillez entrer un nom d'entreprise valide (minimum 2 caracteres) ou tapez *Passer*."
-            data["company"] = text.strip()
+        skip_words = ("passer", "pass", "non", "-", "aucune", "aucun", "pas d'entreprise", "independant")
+        msg_lower = text.lower().strip()
+
+        # Detecter si l'utilisateur veut passer (meme en phrase)
+        is_skip = msg_lower in skip_words or any(w in msg_lower for w in ("freelance", "particulier", "independant", "pas d'entreprise", "je n'ai pas"))
+
+        if not is_skip:
+            # Extraire le nom d'entreprise d'une phrase si necessaire
+            company = text.strip()
+            if len(text.split()) > 4:
+                try:
+                    ai_result = await claude.chat(
+                        f"L'utilisateur repond a 'Nom de votre entreprise ?' avec : \"{text}\"\n"
+                        "Extrais uniquement le nom de l'entreprise. "
+                        "Reponds UNIQUEMENT avec le nom, rien d'autre. "
+                        "Si c'est un freelancer/independant/particulier, reponds : PASSER",
+                        is_premium=False,
+                    )
+                    ai_result = ai_result.strip().strip('"').strip("'")
+                    if ai_result.upper() == "PASSER":
+                        is_skip = True
+                    elif len(ai_result) >= 2:
+                        company = ai_result
+                except Exception:
+                    pass
+
+            if not is_skip:
+                if len(company) < 2:
+                    return "Veuillez entrer un nom d'entreprise valide ou tapez *Passer*."
+                data["company"] = company
+
         user.conversation_data = data
         user.conversation_state = "inscription_secteurs"
         return (
             "SECTEURS D'INTERET\n\n"
-            "Choisissez vos secteurs en envoyant les numeros correspondants :\n\n"
+            "Choisissez vos secteurs (numeros ou texte libre) :\n\n"
             "1 - BTP\n"
             "2 - Fournitures\n"
             "3 - Services\n"
@@ -316,18 +399,17 @@ async def _handle_registration_flow(user: User, body: str, db: AsyncSession) -> 
             "8 - Environnement\n"
             "9 - Transport\n"
             "10 - Energie\n\n"
-            "Envoyez les numeros separes par des virgules.\n"
-            "Exemple : 1,3,4"
+            "Vous pouvez envoyer les numeros (ex: 1,3,4) ou ecrire directement vos secteurs."
         )
 
     elif state == "inscription_secteurs":
-        selected = _parse_numeric_choices(text, SECTEURS_MAP)
+        selected = await _ai_parse_choices(text, "secteurs d'interet", SECTEURS_MAP)
         if not selected:
             return (
-                "Aucun secteur valide detecte.\n"
-                "Veuillez envoyer les numeros des secteurs separes par des virgules.\n"
-                "Exemple : 1,3,5\n\n"
-                "Numeros valides : 1 a 10"
+                "Je n'ai pas pu identifier vos secteurs.\n"
+                "Vous pouvez envoyer les numeros (ex: 1,3,5) ou ecrire directement.\n"
+                "Exemples : \"BTP et informatique\" ou \"1,4\"\n\n"
+                "Secteurs : BTP, Fournitures, Services, TIC, Sante, Education, Agriculture, Environnement, Transport, Energie"
             )
         data["sectors"] = selected
         user.conversation_data = data
@@ -345,17 +427,15 @@ async def _handle_registration_flow(user: User, body: str, db: AsyncSession) -> 
             "8 - Lokossa\n"
             "9 - Tout le Benin\n"
             "10 - CEDEAO\n\n"
-            "Envoyez les numeros separes par des virgules."
+            "Numeros ou texte libre (ex: \"Cotonou et Parakou\" ou \"9\" pour tout le Benin)."
         )
 
     elif state == "inscription_regions":
-        selected = _parse_numeric_choices(text, REGIONS_MAP)
+        selected = await _ai_parse_choices(text, "regions d'interet au Benin", REGIONS_MAP)
         if not selected:
             return (
-                "Aucune region valide detectee.\n"
-                "Veuillez envoyer les numeros des regions separes par des virgules.\n"
-                "Exemple : 1,2,9\n\n"
-                "Numeros valides : 1 a 10"
+                "Je n'ai pas pu identifier vos regions.\n"
+                "Exemples : \"Cotonou et Porto-Novo\" ou \"1,2\" ou \"9\" pour tout le Benin."
             )
         data["regions"] = selected
         user.conversation_data = data
@@ -371,17 +451,20 @@ async def _handle_registration_flow(user: User, body: str, db: AsyncSession) -> 
             "6 - BAD (Banque Africaine de Developpement)\n"
             "7 - AFD (Agence Francaise de Developpement)\n"
             "8 - Toutes les sources\n\n"
-            "Envoyez les numeros separes par des virgules."
+            "Numeros ou texte libre. Tapez 8 ou \"toutes\" pour tout surveiller."
         )
 
     elif state == "inscription_sources":
-        selected = _parse_numeric_choices(text, SOURCES_MAP)
+        # Gerer "toutes", "tout", "all" en texte libre
+        if text.strip().lower() in ("toutes", "tout", "toutes les sources", "all", "8"):
+            selected = [v for k, v in SOURCES_MAP.items() if k != "8"]
+        else:
+            selected = await _ai_parse_choices(text, "sources de marches publics a surveiller", SOURCES_MAP)
+
         if not selected:
             return (
-                "Aucune source valide detectee.\n"
-                "Veuillez envoyer les numeros des sources separes par des virgules.\n"
-                "Exemple : 1,2,3 ou 8 pour toutes\n\n"
-                "Numeros valides : 1 a 8"
+                "Je n'ai pas pu identifier vos sources.\n"
+                "Exemples : \"ARMP et gouv.bj\" ou \"1,2,3\" ou \"toutes\"."
             )
         if "Toutes" in selected:
             selected = [v for k, v in SOURCES_MAP.items() if k != "8"]
