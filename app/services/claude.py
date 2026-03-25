@@ -1,16 +1,15 @@
 """Service IA Conversationnelle -- Tendo.
 
-Architecture multi-fournisseur :
-1. Google Gemini Flash (GRATUIT : 15 req/min, 1M tokens/jour) -> par defaut
-2. Claude (Anthropic) -> pour les abonnes premium (meilleure qualite)
-3. Fallback local -> si aucune API n'est disponible
-
-Le bot a 2 modes :
-- Mode COMMERCIAL (nouveaux utilisateurs / trial) : conversationnel, engageant
-- Mode EXPERT (abonnes premium) : assistant professionnel marches publics
+Architecture multi-fournisseur (cascade) :
+1. Groq (Llama 3.3 70B, GRATUIT : 30 req/min) -> rapide, fiable
+2. Google Gemini Flash (GRATUIT : 15 req/min) -> fallback
+3. Claude (Anthropic) -> pour les abonnes premium uniquement
+4. Fallback local -> si aucune API n'est disponible
 """
 
 from typing import Optional, List
+
+import httpx
 
 from app.config import settings
 from app.utils.logger import logger
@@ -30,7 +29,7 @@ def _get_gemini():
     try:
         from google import genai
         _gemini_model = genai.Client(api_key=settings.gemini_api_key)
-        logger.info("[IA] Gemini Flash initialise (gratuit)")
+        logger.info("[IA] Gemini Flash initialise")
         return _gemini_model
     except Exception as e:
         logger.error(f"[IA] Erreur init Gemini: {e}")
@@ -87,7 +86,7 @@ ESSAI GRATUIT : 7 jours. Plan Essentiel : 5 000 FCFA/mois. Plan Premium : 15 000
 REGLES STRICTES :
 - Reponds toujours en francais
 - Messages courts adaptes a WhatsApp (3 a 5 phrases maximum)
-- AUCUN emoji : pas de symboles comme des etoiles, des coeurs, des fleches, etc.
+- AUCUN emoji : pas de symboles, etoiles, coeurs, fleches, etc.
 - Si l'utilisateur pose une question technique pointue sur les marches publics, reponds brievement et mentionne que l'assistant premium offre des analyses plus approfondies
 - Ne fournis jamais de conseils juridiques formels
 - Ne repete pas les memes formules d'accueil a chaque message"""
@@ -124,8 +123,9 @@ async def chat(
 ) -> str:
     """Envoie un message et retourne la reponse.
 
-    - Premium -> Claude (meilleure qualite) ou Gemini en fallback
-    - Non-premium -> Gemini (gratuit) ou fallback local
+    Cascade :
+    - Premium -> Claude > Groq > Gemini > fallback
+    - Non-premium -> Groq > Gemini > fallback
     """
     system_prompt = EXPERT_PROMPT if is_premium else COMMERCIAL_PROMPT
     if publication_context:
@@ -137,6 +137,11 @@ async def chat(
         if result:
             return result
 
+    # Essayer Groq (gratuit, rapide)
+    result = await _chat_groq(user_message, system_prompt, conversation_history)
+    if result:
+        return result
+
     # Essayer Gemini (gratuit)
     result = await _chat_gemini(user_message, system_prompt, conversation_history)
     if result:
@@ -146,12 +151,64 @@ async def chat(
     return _fallback_chat(user_message, is_premium)
 
 
+# ================================================
+#  GROQ (Llama 3.3 70B — GRATUIT, 30 req/min)
+# ================================================
+
+async def _chat_groq(
+    user_message: str,
+    system_prompt: str,
+    conversation_history: Optional[List[dict]] = None,
+) -> Optional[str]:
+    """Chat via Groq API (compatible OpenAI). Gratuit, tres rapide."""
+    if not settings.groq_api_key:
+        return None
+
+    messages = [{"role": "system", "content": system_prompt}]
+    if conversation_history:
+        messages.extend(conversation_history[-6:])
+    messages.append({"role": "user", "content": user_message})
+
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {settings.groq_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "llama-3.3-70b-versatile",
+                    "messages": messages,
+                    "max_tokens": 500,
+                    "temperature": 0.7,
+                },
+            )
+            data = response.json()
+
+        if response.status_code == 200:
+            reply = data["choices"][0]["message"]["content"].strip()
+            logger.info(f"[Groq] Reponse: {len(reply)} caracteres")
+            return reply
+        else:
+            logger.error(f"[Groq] Erreur {response.status_code}: {data}")
+            return None
+
+    except Exception as e:
+        logger.error(f"[Groq] Erreur: {e}")
+        return None
+
+
+# ================================================
+#  GEMINI (gratuit, fallback)
+# ================================================
+
 async def _chat_gemini(
     user_message: str,
     system_prompt: str,
     conversation_history: Optional[List[dict]] = None,
 ) -> Optional[str]:
-    """Chat via Google Gemini (gratuit) -- nouveau SDK google-genai."""
+    """Chat via Google Gemini (gratuit)."""
     client = _get_gemini()
     if client is None:
         return None
@@ -174,7 +231,7 @@ async def _chat_gemini(
         ))
 
         response = client.models.generate_content(
-            model="gemini-2.0-flash-lite",
+            model="gemini-2.0-flash",
             contents=contents,
             config=types.GenerateContentConfig(
                 system_instruction=system_prompt,
@@ -191,6 +248,10 @@ async def _chat_gemini(
         logger.error(f"[Gemini] Erreur: {e}")
         return None
 
+
+# ================================================
+#  CLAUDE (premium uniquement)
+# ================================================
 
 async def _chat_claude(
     user_message: str,
@@ -222,6 +283,10 @@ async def _chat_claude(
         return None
 
 
+# ================================================
+#  RESUME DE PUBLICATIONS
+# ================================================
+
 async def summarize_publication(title: str, content: str) -> str:
     """Resume un appel d'offres pour l'alerte WhatsApp."""
     prompt = f"""Resume cet appel d'offres en 3-4 lignes maximum pour un message WhatsApp.
@@ -231,15 +296,23 @@ Ne mets aucun emoji.
 Titre : {title}
 Contenu : {content[:3000]}"""
 
+    system = "Tu resumes des appels d'offres de maniere concise pour des alertes WhatsApp. Reponds en francais. Aucun emoji."
+
+    # Essayer Groq d'abord
+    result = await _chat_groq(prompt, system)
+    if result:
+        return result
+
+    # Essayer Gemini
     client = _get_gemini()
     if client:
         try:
             from google.genai import types
             response = client.models.generate_content(
-                model="gemini-2.0-flash-lite",
+                model="gemini-2.0-flash",
                 contents=prompt,
                 config=types.GenerateContentConfig(
-                    system_instruction="Tu resumes des appels d'offres de maniere concise pour des alertes WhatsApp. Reponds en francais. Aucun emoji.",
+                    system_instruction=system,
                     max_output_tokens=300,
                     temperature=0.3,
                 ),
@@ -248,13 +321,14 @@ Contenu : {content[:3000]}"""
         except Exception as e:
             logger.error(f"[Gemini] Erreur resume: {e}")
 
+    # Fallback Claude
     client = _get_claude()
     if client:
         try:
             response = client.messages.create(
                 model="claude-sonnet-4-20250514",
                 max_tokens=300,
-                system="Tu resumes des appels d'offres de maniere concise pour des alertes WhatsApp. Reponds en francais. Aucun emoji.",
+                system=system,
                 messages=[{"role": "user", "content": prompt}],
             )
             return response.content[0].text
@@ -265,21 +339,20 @@ Contenu : {content[:3000]}"""
     return f"{summary}..." if len(content) > 200 else summary or title
 
 
+# ================================================
+#  DETECTION D'INTENTION (locale, gratuite)
+# ================================================
+
 async def detect_intent(message: str) -> dict:
     """Detecte l'intention d'un message utilisateur (local uniquement)."""
     local_intent = _simple_intent_detection(message)
     return {"intent": local_intent, "raw_message": message}
 
 
-# ================================================
-#  DETECTION LOCALE (100% gratuite)
-# ================================================
-
 def _simple_intent_detection(message: str) -> str:
     """Detection d'intention par mots-cles pour les commandes explicites."""
     msg = message.lower().strip()
 
-    # Raccourcis numeriques du menu
     if msg in ("1", "01"):
         return "INSCRIPTION"
     if msg in ("2", "02"):
@@ -291,7 +364,6 @@ def _simple_intent_detection(message: str) -> str:
     if msg in ("5", "05"):
         return "SUPPORT"
 
-    # Mots-cles explicites
     if msg in ("menu", "aide", "help", "accueil", "start"):
         return "MENU"
     if any(w in msg for w in ("inscription", "inscrire", "register", "profil", "preferences")):

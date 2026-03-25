@@ -37,7 +37,8 @@ class Settings(BaseSettings):
     twilio_auth_token: str = ""
     twilio_whatsapp_number: str = "whatsapp:+14155238886"
 
-    # IA Conversationnelle
+    # IA Conversationnelle (cascade : Groq > Gemini > Claude > fallback)
+    groq_api_key: str = ""  # Groq (gratuit: 30 req/min, Llama 3.3 70B)
     claude_api_key: str = ""
     gemini_api_key: str = ""  # Google Gemini (gratuit: 15 req/min, 1M tokens/jour)
 
