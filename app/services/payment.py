@@ -152,14 +152,37 @@ async def verify_transaction(transaction_id: str) -> dict:
 
 
 def verify_webhook_signature(payload: bytes, signature: str) -> bool:
-    """Vérifie la signature du webhook FedaPay (HMAC-SHA256)."""
+    """Verifie la signature du webhook FedaPay (HMAC-SHA256).
+
+    FedaPay peut envoyer la signature sous differents formats :
+    - Hex brut : "abcdef1234..."
+    - Prefixe : "sha256=abcdef1234..."
+    """
     if not settings.fedapay_webhook_secret:
-        logger.warning("FEDAPAY_WEBHOOK_SECRET non configuré — webhook accepté sans vérification")
+        logger.warning("FEDAPAY_WEBHOOK_SECRET non configure — webhook accepte sans verification")
         return True
 
+    if not signature:
+        return False
+
+    # Calculer le HMAC attendu
     expected = hmac.new(
         settings.fedapay_webhook_secret.encode(),
         payload,
         hashlib.sha256,
     ).hexdigest()
-    return hmac.compare_digest(expected, signature)
+
+    # Essayer le format brut
+    if hmac.compare_digest(expected, signature):
+        return True
+
+    # Essayer avec prefixe sha256=
+    if signature.startswith("sha256="):
+        return hmac.compare_digest(expected, signature[7:])
+
+    # Essayer en comparant avec le prefixe
+    if hmac.compare_digest(f"sha256={expected}", signature):
+        return True
+
+    logger.debug(f"Signature attendue: {expected[:20]}..., recue: {signature[:20]}...")
+    return False
