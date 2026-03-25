@@ -1,5 +1,11 @@
-"""Service de notifications – matching et envoi d'alertes WhatsApp."""
+"""Service de notifications – matching et envoi d'alertes WhatsApp.
 
+Gere le rate limiting pour respecter :
+- Groq : 30 requetes/min
+- WhatsApp : limite par paire (expediteur/destinataire)
+"""
+
+import asyncio
 from typing import List
 
 from sqlalchemy import select, and_
@@ -11,29 +17,36 @@ from app.models.notification import Notification
 from app.services import whatsapp, claude
 from app.utils.logger import logger
 
+# Delai entre chaque envoi WhatsApp (secondes) pour eviter le rate limit
+SEND_DELAY = 3
+# Nombre max de publications par cycle de notification
+MAX_PUBLICATIONS_PER_CYCLE = 20
+# Nombre max de notifications par utilisateur par cycle
+MAX_PER_USER_PER_CYCLE = 10
+
 
 def matches_user_preferences(user: User, publication: Publication) -> bool:
-    """Vérifie si une publication correspond aux préférences d'un utilisateur."""
-    # Si l'utilisateur n'a pas de préférences, il reçoit tout
+    """Verifie si une publication correspond aux preferences d'un utilisateur."""
+    # Si l'utilisateur n'a pas de preferences, il recoit tout
     if not user.sectors and not user.regions and not user.preferred_sources:
         return True
 
-    # Vérifier les secteurs
+    # Verifier les secteurs
     if user.sectors and publication.sectors:
         if any(s in user.sectors for s in publication.sectors):
             return True
 
-    # Vérifier les régions
+    # Verifier les regions
     if user.regions and publication.regions:
         if any(r in user.regions for r in publication.regions):
             return True
 
-    # Vérifier les sources préférées
+    # Verifier les sources preferees
     if user.preferred_sources:
         if publication.source in user.preferred_sources:
             return True
 
-    # Si l'utilisateur a des critères mais aucun ne matche
+    # Si l'utilisateur a des criteres mais aucun ne matche
     if user.sectors or user.regions or user.preferred_sources:
         return False
 
@@ -41,22 +54,29 @@ def matches_user_preferences(user: User, publication: Publication) -> bool:
 
 
 async def process_new_publications(db: AsyncSession) -> int:
-    """Traite les publications non envoyées et envoie les alertes correspondantes.
+    """Traite les publications non envoyees et envoie les alertes correspondantes.
+
+    Applique un rate limiting strict pour eviter de saturer Groq et WhatsApp.
 
     Returns:
-        Nombre de notifications envoyées.
+        Nombre de notifications envoyees.
     """
-    # Récupérer les publications non traitées
+    # Recuperer les publications non traitees (limitees pour eviter les floods)
     result = await db.execute(
-        select(Publication).where(Publication.is_processed == False)
+        select(Publication)
+        .where(Publication.is_processed == False)
+        .order_by(Publication.created_at.desc())
+        .limit(MAX_PUBLICATIONS_PER_CYCLE)
     )
     publications = result.scalars().all()
 
     if not publications:
-        logger.info("Aucune nouvelle publication à traiter")
+        logger.info("Aucune nouvelle publication a traiter")
         return 0
 
-    # Récupérer les utilisateurs actifs avec abonnement valide
+    logger.info(f"[Notifications] {len(publications)} publications a traiter")
+
+    # Recuperer les utilisateurs actifs avec abonnement valide
     result = await db.execute(
         select(User).where(
             and_(
@@ -70,16 +90,39 @@ async def process_new_publications(db: AsyncSession) -> int:
     )
     users = result.scalars().all()
 
+    if not users:
+        logger.info("[Notifications] Aucun utilisateur actif")
+        # Marquer quand meme comme traitees
+        for pub in publications:
+            pub.is_processed = True
+        await db.commit()
+        return 0
+
     sent_count = 0
+    # Compteur par utilisateur pour limiter le flood
+    user_send_counts = {user.id: 0 for user in users}
 
     for publication in publications:
-        # Résumer la publication via Claude
-        summary = await claude.summarize_publication(
-            publication.title,
-            publication.summary or publication.html_content or "",
-        )
+        # Utiliser le resume existant au lieu d'appeler l'IA
+        # On ne fait appel a l'IA que si le resume est vide
+        summary = publication.summary or ""
+        if not summary.strip() and (publication.html_content or publication.title):
+            try:
+                summary = await claude.summarize_publication(
+                    publication.title,
+                    publication.html_content or "",
+                )
+                # Attendre un peu apres l'appel IA pour respecter les rate limits
+                await asyncio.sleep(2)
+            except Exception as e:
+                logger.warning(f"[Notifications] Resume IA echoue pour pub={publication.id}: {e}")
+                summary = publication.title  # Fallback sur le titre
 
         for user in users:
+            # Verifier la limite par utilisateur
+            if user_send_counts.get(user.id, 0) >= MAX_PER_USER_PER_CYCLE:
+                continue
+
             if not matches_user_preferences(user, publication):
                 continue
 
@@ -96,37 +139,47 @@ async def process_new_publications(db: AsyncSession) -> int:
                 )
                 db.add(notification)
                 sent_count += 1
+                user_send_counts[user.id] = user_send_counts.get(user.id, 0) + 1
+
+                # Delai entre chaque envoi pour respecter le rate limit WhatsApp
+                await asyncio.sleep(SEND_DELAY)
 
             except Exception as e:
                 logger.error(
                     f"Erreur envoi alerte user={user.id} pub={publication.id}: {e}"
                 )
+                # Si c'est un rate limit, attendre plus longtemps
+                if "rate limit" in str(e).lower() or "131056" in str(e):
+                    logger.warning("[Notifications] Rate limit detecte, pause de 30s...")
+                    await asyncio.sleep(30)
 
-        # Marquer la publication comme traitée
+        # Marquer la publication comme traitee
         publication.is_processed = True
+        # Commit intermediaire pour ne pas perdre la progression
+        await db.commit()
 
-    await db.commit()
-    logger.info(f"Notifications envoyées: {sent_count}")
+    logger.info(f"[Notifications] Notifications envoyees: {sent_count}")
     return sent_count
 
 
 def _build_alert_message(publication: Publication, summary: str) -> str:
-    """Construit le message d'alerte WhatsApp."""
-    parts = [f"🔔 *Nouvel Appel d'Offres*\n"]
-    parts.append(f"📌 *{publication.title}*\n")
-    parts.append(f"📎 Réf: {publication.reference}")
-    parts.append(f"🏢 Source: {publication.source}")
+    """Construit le message d'alerte WhatsApp (sans emojis, ton professionnel)."""
+    parts = ["*NOUVEL APPEL D'OFFRES*\n"]
+    parts.append(f"*{publication.title}*\n")
+    parts.append(f"Reference: {publication.reference}")
+    parts.append(f"Source: {publication.source}")
 
     if publication.deadline:
-        parts.append(f"⏰ Date limite: {publication.deadline.strftime('%d/%m/%Y')}")
+        parts.append(f"Date limite: {publication.deadline.strftime('%d/%m/%Y')}")
     if publication.budget:
-        parts.append(f"💰 Budget: {publication.budget:,.0f} FCFA")
+        parts.append(f"Budget: {publication.budget:,.0f} FCFA")
 
-    parts.append(f"\n📝 {summary}")
+    if summary:
+        parts.append(f"\n{summary}")
 
     if publication.pdf_url:
-        parts.append(f"\n📄 Document: {publication.pdf_url}")
+        parts.append(f"\nDocument: {publication.pdf_url}")
 
-    parts.append(f"\n💬 Tapez */demander_dossier {publication.reference}* pour obtenir le dossier")
+    parts.append(f"\nTapez */demander_dossier {publication.reference}* pour obtenir le dossier complet.")
 
     return "\n".join(parts)
