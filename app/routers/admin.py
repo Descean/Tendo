@@ -177,29 +177,36 @@ async def toggle_user_active(
     return {"id": user.id, "is_active": user.is_active}
 
 
-# ─── Déclenchement Manuel ───
+# --- Declenchement Manuel (avec cle secrete pour simplifier) ---
+
+def _check_admin_key(key: str):
+    """Verifie la cle admin pour les endpoints de declenchement."""
+    if key != settings.secret_key:
+        raise HTTPException(status_code=403, detail="Cle admin invalide")
+
 
 @router.post("/trigger/scraping")
-async def trigger_scraping(admin: User = Depends(get_admin_user)):
-    """Déclenche le scraping manuellement."""
+async def trigger_scraping(key: str = ""):
+    """Declenche le scraping manuellement. Passer ?key=SECRET_KEY"""
+    _check_admin_key(key)
     from app.scheduler import job_run_scrapers
     import asyncio
 
-    # Lancer en arrière-plan pour ne pas bloquer la réponse
     asyncio.create_task(job_run_scrapers())
-    logger.info(f"[Admin] Scraping déclenché par {admin.phone_number}")
-    return {"status": "started", "message": "Scraping lancé en arrière-plan"}
+    logger.info("[Admin] Scraping declenche manuellement")
+    return {"status": "started", "message": "Scraping lance en arriere-plan"}
 
 
 @router.post("/trigger/notifications")
-async def trigger_notifications(admin: User = Depends(get_admin_user)):
-    """Déclenche l'envoi des notifications manuellement."""
+async def trigger_notifications(key: str = ""):
+    """Declenche l'envoi des notifications manuellement. Passer ?key=SECRET_KEY"""
+    _check_admin_key(key)
     from app.scheduler import job_send_notifications
     import asyncio
 
     asyncio.create_task(job_send_notifications())
-    logger.info(f"[Admin] Notifications déclenchées par {admin.phone_number}")
-    return {"status": "started", "message": "Envoi des notifications lancé"}
+    logger.info("[Admin] Notifications declenchees manuellement")
+    return {"status": "started", "message": "Envoi des notifications lance"}
 
 
 @router.get("/scheduler/status")

@@ -1,6 +1,6 @@
-"""Service WhatsApp – support Meta Cloud API (gratuit) ET Twilio (payant).
+"""Service WhatsApp -- support Meta Cloud API (gratuit) ET Twilio (payant).
 
-Par défaut, utilise la Meta WhatsApp Cloud API (1000 conversations/mois gratuites).
+Par defaut, utilise la Meta WhatsApp Cloud API (1000 conversations/mois gratuites).
 Bascule vers Twilio si WHATSAPP_PROVIDER=twilio dans le .env.
 """
 
@@ -11,13 +11,13 @@ import httpx
 from app.config import settings
 from app.utils.logger import logger
 
-# ── Choix du provider ──
+# -- Choix du provider --
 PROVIDER = settings.whatsapp_provider  # "meta" ou "twilio"
 
 
-# ═══════════════════════════════════════════
+# ================================================
 #  META WHATSAPP CLOUD API (GRATUIT)
-# ═══════════════════════════════════════════
+# ================================================
 
 async def _meta_send_message(to: str, body: str) -> dict:
     """Envoie un message texte via la Meta WhatsApp Cloud API."""
@@ -41,15 +41,15 @@ async def _meta_send_message(to: str, body: str) -> dict:
 
     if response.status_code == 200 and "messages" in data:
         msg_id = data["messages"][0]["id"]
-        logger.info(f"[Meta] Message envoyé à {phone}: id={msg_id}")
+        logger.info(f"[Meta] Message envoye a {phone}: id={msg_id}")
         return {"id": msg_id, "status": "sent"}
     else:
-        logger.error(f"[Meta] Erreur envoi à {phone}: {data}")
+        logger.error(f"[Meta] Erreur envoi a {phone}: {data}")
         raise Exception(f"Meta API error: {data.get('error', data)}")
 
 
 async def _meta_send_template(to: str, template_name: str, language: str = "fr", components: Optional[list] = None) -> dict:
-    """Envoie un message template pré-approuvé via Meta."""
+    """Envoie un message template pre-approuve via Meta."""
     phone = to.replace("whatsapp:", "").replace("+", "").strip()
 
     url = f"https://graph.facebook.com/v21.0/{settings.meta_phone_number_id}/messages"
@@ -77,27 +77,23 @@ async def _meta_send_template(to: str, template_name: str, language: str = "fr",
 
     if response.status_code == 200 and "messages" in data:
         msg_id = data["messages"][0]["id"]
-        logger.info(f"[Meta] Template envoyé à {phone}: id={msg_id}")
+        logger.info(f"[Meta] Template envoye a {phone}: id={msg_id}")
         return {"id": msg_id, "status": "sent"}
     else:
-        logger.error(f"[Meta] Erreur template à {phone}: {data}")
+        logger.error(f"[Meta] Erreur template a {phone}: {data}")
         raise Exception(f"Meta API error: {data.get('error', data)}")
 
 
 def _meta_verify_webhook(request_args: dict) -> Optional[str]:
-    """Vérifie le webhook Meta (GET challenge).
-
-    Meta envoie hub.mode, hub.verify_token, hub.challenge.
-    Retourne hub.challenge si valide, None sinon.
-    """
+    """Verifie le webhook Meta (GET challenge)."""
     mode = request_args.get("hub.mode")
     token = request_args.get("hub.verify_token")
     challenge = request_args.get("hub.challenge")
 
     if mode == "subscribe" and token == settings.meta_verify_token:
-        logger.info("[Meta] Webhook vérifié avec succès")
+        logger.info("[Meta] Webhook verifie avec succes")
         return challenge
-    logger.warning(f"[Meta] Échec vérification webhook: mode={mode}")
+    logger.warning(f"[Meta] Echec verification webhook: mode={mode}")
     return None
 
 
@@ -106,7 +102,7 @@ import hashlib
 
 
 def meta_verify_signature(payload: bytes, signature: str) -> bool:
-    """Vérifie la signature HMAC-SHA256 du webhook Meta."""
+    """Verifie la signature HMAC-SHA256 du webhook Meta."""
     if not signature.startswith("sha256="):
         return False
     expected = hmac.new(
@@ -117,9 +113,9 @@ def meta_verify_signature(payload: bytes, signature: str) -> bool:
     return hmac.compare_digest(f"sha256={expected}", signature)
 
 
-# ═══════════════════════════════════════════
-#  TWILIO (PAYANT – OPTIONNEL)
-# ═══════════════════════════════════════════
+# ================================================
+#  TWILIO (PAYANT -- OPTIONNEL)
+# ================================================
 
 async def _twilio_send_message(to: str, body: str) -> dict:
     """Envoie un message WhatsApp via Twilio."""
@@ -131,7 +127,7 @@ async def _twilio_send_message(to: str, body: str) -> dict:
         to=f"whatsapp:{to}" if not to.startswith("whatsapp:") else to,
         body=body,
     )
-    logger.info(f"[Twilio] Message envoyé à {to}: SID={message.sid}")
+    logger.info(f"[Twilio] Message envoye a {to}: SID={message.sid}")
     return {"sid": message.sid, "status": message.status}
 
 
@@ -142,24 +138,24 @@ def _twilio_validate_request(url: str, params: dict, signature: str) -> bool:
     return validator.validate(url, params, signature)
 
 
-# ═══════════════════════════════════════════
+# ================================================
 #  INTERFACE PUBLIQUE (auto-switch)
-# ═══════════════════════════════════════════
+# ================================================
 
 async def send_message(to: str, body: str) -> dict:
-    """Envoie un message WhatsApp via le provider configuré."""
+    """Envoie un message WhatsApp via le provider configure."""
     try:
         if PROVIDER == "twilio":
             return await _twilio_send_message(to, body)
         else:
             return await _meta_send_message(to, body)
     except Exception as e:
-        logger.error(f"Erreur envoi WhatsApp ({PROVIDER}) à {to}: {e}")
+        logger.error(f"Erreur envoi WhatsApp ({PROVIDER}) a {to}: {e}")
         raise
 
 
 async def send_template_message(to: str, template_name: str, **kwargs) -> dict:
-    """Envoie un message template via le provider configuré."""
+    """Envoie un message template via le provider configure."""
     if PROVIDER == "twilio":
         from twilio.rest import Client
         client = Client(settings.twilio_account_sid, settings.twilio_auth_token)
@@ -178,46 +174,46 @@ async def send_template_message(to: str, template_name: str, **kwargs) -> dict:
         )
 
 
-# ═══════════════════════════════════════════
-#  MESSAGES PRÉDÉFINIS – TENDO
-# ═══════════════════════════════════════════
+# ================================================
+#  MESSAGES PREDEFINIS -- TENDO (sans emojis)
+# ================================================
 
-WELCOME_MESSAGE = """🎉 *Bienvenue sur Tendo !*
+WELCOME_MESSAGE = """Bienvenue sur Tendo.
 
-Votre assistant intelligent de veille sur les marchés publics au Bénin et en Afrique de l'Ouest.
+Votre assistant de veille sur les marches publics au Benin et en Afrique de l'Ouest.
 
-🎁 Vous bénéficiez d'un *essai gratuit de 7 jours*.
+Vous beneficiez d'un essai gratuit de 7 jours.
 
-Tapez *Menu* pour découvrir ce que je peux faire pour vous ! 👇"""
+Tapez *Menu* pour decouvrir les fonctionnalites disponibles."""
 
-MENU_MESSAGE = """📋 *Menu Tendo*
+MENU_MESSAGE = """MENU TENDO
 
-1️⃣ *Inscription* – Configurer vos préférences
-2️⃣ *Abonnement* – Voir les plans
-3️⃣ *Historique* – Vos dernières alertes
-4️⃣ *Paiement* – Gérer votre abonnement
-5️⃣ *Support* – Contacter un agent
+1 - Inscription (configurer vos preferences)
+2 - Abonnement (voir les plans)
+3 - Historique (vos dernieres alertes)
+4 - Paiement (gerer votre abonnement)
+5 - Support (contacter un agent)
 
-💡 Vous pouvez aussi me poser directement votre question sur les marchés publics !"""
+Vous pouvez aussi me poser directement votre question sur les marches publics."""
 
-PLANS_MESSAGE = """💎 *Plans d'abonnement Tendo*
+PLANS_MESSAGE = """PLANS D'ABONNEMENT TENDO
 
-📦 *Plan Essentiel* – 5 000 FCFA/mois
-• Alertes quotidiennes personnalisées
-• Résumés IA des appels d'offres
-• Recherche dans la base de données
+--- Plan Essentiel -- 5 000 FCFA/mois ---
+- Alertes quotidiennes personnalisees
+- Resumes IA des appels d'offres
+- Recherche dans la base de donnees
 
-🏆 *Plan Premium* – 15 000 FCFA/mois
-• Tout le Plan Essentiel +
-• Assistant IA expert (réponses détaillées)
-• Demande automatique de dossiers d'AO
-• Surveillance de boîte email
-• Support prioritaire
+--- Plan Premium -- 15 000 FCFA/mois ---
+- Tout le Plan Essentiel +
+- Assistant IA expert (reponses detaillees)
+- Demande automatique de dossiers d'AO
+- Surveillance de boite email
+- Support prioritaire
 
-Tapez *Paiement* pour souscrire."""
+Tapez *Essentiel* ou *Premium* pour souscrire."""
 
-SUBSCRIPTION_EXPIRED = """⚠️ *Votre abonnement a expiré*
+SUBSCRIPTION_EXPIRED = """Votre periode d'essai a expire.
 
-Pour continuer à recevoir vos alertes marchés publics, renouvelez votre abonnement.
+Pour continuer a recevoir vos alertes marches publics, souscrivez a un abonnement.
 
 Tapez *Abonnement* pour voir les plans disponibles."""
