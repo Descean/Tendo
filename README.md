@@ -4,7 +4,7 @@
 
 Tendo est un service de veille intelligente sur les marchés publics au Bénin et en Afrique de l'Ouest. Il permet aux entreprises de recevoir des alertes personnalisées, de consulter des appels d'offres et d'obtenir des conseils — le tout via WhatsApp.
 
-Développé par **SHIFT UP SARL** — Cotonou, Bénin.
+Développé par **SHIFT UP** — Cotonou, Bénin.
 
 ---
 
@@ -281,7 +281,7 @@ Utilisateur                          Tendo
 
 ## Licence
 
-Projet propriétaire — SHIFT UP SARL, Cotonou, Bénin.
+Projet propriétaire — SHIFT UP, Cotonou, Bénin.
 
 ---
 
