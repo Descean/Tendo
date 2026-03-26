@@ -7,6 +7,8 @@ Architecture multi-fournisseur (cascade) :
 4. Fallback local -> si aucune API n'est disponible
 """
 
+import asyncio
+import re
 from typing import Optional, List
 
 import httpx
@@ -15,22 +17,22 @@ from app.config import settings
 from app.utils.logger import logger
 
 # Clients initialises paresseusement
-_gemini_model = None
+_gemini_client = None
 _claude_client = None
 
 
 def _get_gemini():
     """Retourne le client Gemini (google-genai), ou None si non configure."""
-    global _gemini_model
-    if _gemini_model is not None:
-        return _gemini_model
+    global _gemini_client
+    if _gemini_client is not None:
+        return _gemini_client
     if not settings.gemini_api_key:
         return None
     try:
         from google import genai
-        _gemini_model = genai.Client(api_key=settings.gemini_api_key)
+        _gemini_client = genai.Client(api_key=settings.gemini_api_key)
         logger.info("[IA] Gemini Flash initialise")
-        return _gemini_model
+        return _gemini_client
     except Exception as e:
         logger.error(f"[IA] Erreur init Gemini: {e}")
         return None
@@ -59,7 +61,7 @@ def _get_claude():
 
 COMMERCIAL_PROMPT = """Tu es Tendo, l'assistant de veille sur les marches publics au Benin et en Afrique de l'Ouest, developpe par SHIFT UP.
 
-TON ROLE : Tu es un conseiller commercial professionnel. Tu accueilles les utilisateurs, reponds a leurs questions, et les guides vers l'inscription et l'abonnement.
+TON ROLE : Tu es un conseiller commercial professionnel. Tu accueilles les utilisateurs, reponds a leurs questions, et les guides vers les fonctionnalites.
 
 PERSONNALITE :
 - Professionnel, courtois, et direct
@@ -68,11 +70,18 @@ PERSONNALITE :
 - Tu ne mets JAMAIS d'emojis dans tes reponses
 - Tu es competent sur les marches publics au Benin
 
+FORMATAGE OBLIGATOIRE (messages WhatsApp) :
+- Separe chaque idee par une LIGNE VIDE (double saut de ligne)
+- Utilise *texte* pour mettre en gras les mots importants
+- Fais des paragraphes courts (2-3 phrases maximum par paragraphe)
+- Utilise des tirets (-) pour les listes
+- Ne fais JAMAIS un bloc de texte compact sans espacement
+- Maximum 5 paragraphes par reponse
+
 OBJECTIFS :
 1. Repondre aux questions de l'utilisateur de maniere utile
 2. Si la question concerne les marches publics, donner une reponse pertinente
 3. Montrer la valeur de Tendo quand c'est naturel (pas a chaque message)
-4. Orienter vers l'inscription si l'utilisateur n'est pas encore inscrit (tapez 1 ou Inscription)
 
 CE QUE TENDO OFFRE :
 - Alertes WhatsApp automatiques sur les appels d'offres
@@ -83,13 +92,19 @@ CE QUE TENDO OFFRE :
 
 ESSAI GRATUIT : 7 jours. Plan Essentiel : 5 000 FCFA/mois. Plan Premium : 15 000 FCFA/mois.
 
+COMMANDES DISPONIBLES (guide l'utilisateur vers ces commandes si pertinent) :
+- *Menu* : voir toutes les options
+- *Abonnement* : voir les plans
+- *Essentiel* ou *Premium* : souscrire directement
+- *Historique* : voir les dernieres alertes
+- *Profil* : modifier les preferences
+
 REGLES STRICTES :
 - Reponds toujours en francais
-- Messages courts adaptes a WhatsApp (3 a 5 phrases maximum)
-- AUCUN emoji : pas de symboles, etoiles, coeurs, fleches, etc.
-- Si l'utilisateur pose une question technique pointue sur les marches publics, reponds brievement et mentionne que l'assistant premium offre des analyses plus approfondies
+- AUCUN emoji, symbole, etoile decorative, fleche, coeur, etc.
 - Ne fournis jamais de conseils juridiques formels
-- Ne repete pas les memes formules d'accueil a chaque message"""
+- Ne repete pas les memes formules d'accueil a chaque message
+- Si l'utilisateur est deja inscrit, ne lui propose PAS de s'inscrire a nouveau"""
 
 
 EXPERT_PROMPT = """Tu es Tendo, un assistant IA expert en marches publics et appels d'offres, specialise dans le contexte du Benin et de l'Afrique de l'Ouest, developpe par SHIFT UP.
@@ -102,13 +117,92 @@ Ton role :
 - Informer sur les opportunites de financement (BAD, AFD, Banque Mondiale, USAID)
 - Expliquer les recours et contentieux en matiere de marches publics
 
+FORMATAGE OBLIGATOIRE (messages WhatsApp) :
+- Separe chaque idee par une LIGNE VIDE (double saut de ligne)
+- Utilise *texte* pour mettre en gras les mots importants
+- Fais des paragraphes courts (2-3 phrases maximum par paragraphe)
+- Utilise des tirets (-) pour les listes
+- Ne fais JAMAIS un bloc de texte compact sans espacement
+- Maximum 8 paragraphes par reponse
+
 Regles strictes :
 - Reponds toujours en francais
-- Messages concis mais precis (adaptes a WhatsApp)
 - AUCUN emoji dans tes reponses
 - Cite les textes reglementaires quand c'est pertinent
 - Si tu n'es pas sur d'une information, dis-le clairement
 - Ne fournis jamais de conseils juridiques formels, recommande de consulter un juriste"""
+
+
+# ================================================
+#  FORMATAGE POST-TRAITEMENT
+# ================================================
+
+def _format_for_whatsapp(text: str) -> str:
+    """Formate la reponse IA pour un affichage propre sur WhatsApp.
+
+    - Assure des lignes vides entre paragraphes
+    - Convertit le markdown en format WhatsApp
+    - Supprime les emojis restants
+    - Nettoie les artefacts de formatage
+    """
+    if not text:
+        return text
+
+    # Supprimer les emojis (range Unicode)
+    emoji_pattern = re.compile(
+        "["
+        "\U0001F600-\U0001F64F"  # emoticons
+        "\U0001F300-\U0001F5FF"  # symbols & pictographs
+        "\U0001F680-\U0001F6FF"  # transport & map
+        "\U0001F1E0-\U0001F1FF"  # flags
+        "\U00002702-\U000027B0"  # dingbats
+        "\U000024C2-\U0001F251"  # enclosed characters
+        "\U0001f926-\U0001f937"  # supplemental
+        "\U00010000-\U0010ffff"  # supplemental
+        "\u2640-\u2642"
+        "\u2600-\u2B55"
+        "\u200d"
+        "\u23cf"
+        "\u23e9"
+        "\u231a"
+        "\ufe0f"
+        "\u3030"
+        "]+",
+        flags=re.UNICODE,
+    )
+    text = emoji_pattern.sub("", text)
+
+    # Convertir ## Titre en *Titre* (gras WhatsApp)
+    text = re.sub(r"^#{1,3}\s*(.+)$", r"*\1*", text, flags=re.MULTILINE)
+
+    # Convertir **texte** en *texte* (WhatsApp utilise un seul asterisque)
+    text = re.sub(r"\*\*(.+?)\*\*", r"*\1*", text)
+
+    # Assurer des lignes vides entre paragraphes
+    # Remplacer les sauts de ligne simples entre paragraphes par des doubles
+    lines = text.split("\n")
+    formatted_lines = []
+    for i, line in enumerate(lines):
+        formatted_lines.append(line)
+        # Si la ligne actuelle n'est pas vide et la suivante non plus,
+        # et la suivante ne commence pas par un tiret/numero (liste),
+        # ajouter une ligne vide
+        if (
+            i < len(lines) - 1
+            and line.strip()
+            and lines[i + 1].strip()
+            and not lines[i + 1].strip().startswith(("-", "*", "1", "2", "3", "4", "5", "6", "7", "8", "9"))
+            and not line.strip().startswith(("-", "*"))
+            and not line.strip().endswith(":")
+        ):
+            formatted_lines.append("")
+
+    text = "\n".join(formatted_lines)
+
+    # Nettoyer les lignes vides multiples (max 2 consecutives)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+
+    return text.strip()
 
 
 # ================================================
@@ -121,7 +215,7 @@ async def chat(
     conversation_history: Optional[List[dict]] = None,
     publication_context: Optional[str] = None,
 ) -> str:
-    """Envoie un message et retourne la reponse.
+    """Envoie un message et retourne la reponse formatee pour WhatsApp.
 
     Cascade :
     - Premium -> Claude > Groq > Gemini > fallback
@@ -135,17 +229,17 @@ async def chat(
     if is_premium:
         result = await _chat_claude(user_message, system_prompt, conversation_history)
         if result:
-            return result
+            return _format_for_whatsapp(result)
 
     # Essayer Groq (gratuit, rapide)
     result = await _chat_groq(user_message, system_prompt, conversation_history)
     if result:
-        return result
+        return _format_for_whatsapp(result)
 
     # Essayer Gemini (gratuit)
     result = await _chat_gemini(user_message, system_prompt, conversation_history)
     if result:
-        return result
+        return _format_for_whatsapp(result)
 
     # Dernier recours : fallback local
     return _fallback_chat(user_message, is_premium)
@@ -200,7 +294,7 @@ async def _chat_groq(
 
 
 # ================================================
-#  GEMINI (gratuit, fallback)
+#  GEMINI (gratuit, fallback) — appel async correct
 # ================================================
 
 async def _chat_gemini(
@@ -208,12 +302,17 @@ async def _chat_gemini(
     system_prompt: str,
     conversation_history: Optional[List[dict]] = None,
 ) -> Optional[str]:
-    """Chat via Google Gemini (gratuit)."""
+    """Chat via Google Gemini (gratuit).
+
+    Utilise asyncio.to_thread() pour ne pas bloquer l'event loop
+    car google-genai fait des appels HTTP synchrones.
+    """
     client = _get_gemini()
     if client is None:
         return None
 
-    try:
+    def _sync_gemini_call():
+        """Appel synchrone Gemini execute dans un thread separe."""
         from google.genai import types
 
         contents = []
@@ -239,11 +338,12 @@ async def _chat_gemini(
                 temperature=0.7,
             ),
         )
+        return response.text.strip()
 
-        reply = response.text.strip()
+    try:
+        reply = await asyncio.to_thread(_sync_gemini_call)
         logger.info(f"[Gemini] Reponse: {len(reply)} caracteres")
         return reply
-
     except Exception as e:
         logger.error(f"[Gemini] Erreur: {e}")
         return None
@@ -291,35 +391,22 @@ async def summarize_publication(title: str, content: str) -> str:
     """Resume un appel d'offres pour l'alerte WhatsApp."""
     prompt = f"""Resume cet appel d'offres en 3-4 lignes maximum pour un message WhatsApp.
 Inclus : objet, secteur, deadline si disponible, budget si mentionne.
-Ne mets aucun emoji.
+Ne mets aucun emoji. Separe les informations par des sauts de ligne.
 
 Titre : {title}
 Contenu : {content[:3000]}"""
 
-    system = "Tu resumes des appels d'offres de maniere concise pour des alertes WhatsApp. Reponds en francais. Aucun emoji."
+    system = "Tu resumes des appels d'offres de maniere concise pour des alertes WhatsApp. Reponds en francais. Aucun emoji. Separe chaque information par un saut de ligne."
 
     # Essayer Groq d'abord
     result = await _chat_groq(prompt, system)
     if result:
-        return result
+        return _format_for_whatsapp(result)
 
     # Essayer Gemini
-    client = _get_gemini()
-    if client:
-        try:
-            from google.genai import types
-            response = client.models.generate_content(
-                model="gemini-2.0-flash",
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    system_instruction=system,
-                    max_output_tokens=300,
-                    temperature=0.3,
-                ),
-            )
-            return response.text.strip()
-        except Exception as e:
-            logger.error(f"[Gemini] Erreur resume: {e}")
+    result = await _chat_gemini(prompt, system)
+    if result:
+        return _format_for_whatsapp(result)
 
     # Fallback Claude
     client = _get_claude()
@@ -331,7 +418,7 @@ Contenu : {content[:3000]}"""
                 system=system,
                 messages=[{"role": "user", "content": prompt}],
             )
-            return response.content[0].text
+            return _format_for_whatsapp(response.content[0].text)
         except Exception as e:
             logger.error(f"[Claude] Erreur resume: {e}")
 
@@ -377,8 +464,17 @@ def _simple_intent_detection(message: str) -> str:
     if "/demander_dossier" in msg or "demander le dossier" in msg or "demander un dossier" in msg:
         return "DEMANDE_DOSSIER"
 
+    # Suppression de compte
+    if any(w in msg for w in ("supprimer mon compte", "supprimer mes donnees",
+                              "effacer mon compte", "delete", "suppression")):
+        return "SUPPRIMER_COMPTE"
+
+    # Modification de profil
+    if any(w in msg for w in ("modifier mon profil", "modifier mes preferences",
+                              "changer mes", "mettre a jour", "modifier profil")):
+        return "MODIFIER_PROFIL"
+
     # Paiement (avant inscription car "souscrire" pourrait etre confondu)
-    # Detecte: "je veux payer", "souscrire au plan essentiel", "lien de paiement", etc.
     paiement_words = ("paiement", "payer", "souscrire", "premium", "essentiel",
                       "upgrade", "lien de paiement", "mobile money", "5000", "15000",
                       "5 000", "15 000", "faire pour")
@@ -387,25 +483,27 @@ def _simple_intent_detection(message: str) -> str:
 
     # Inscription (mais pas si deja dans un contexte de paiement)
     if any(w in msg for w in ("inscription", "inscrire", "register", "m'inscrire")):
-        # Si le message parle de "je viens de m'inscrire" -> c'est une QUESTION, pas une commande
         if any(w in msg for w in ("viens de", "deja inscrit", "deja fait")):
             return "QUESTION"
         return "INSCRIPTION"
 
     # Preferences / profil
-    if any(w in msg for w in ("profil", "preferences", "modifier mes", "changer mes")):
-        return "INSCRIPTION"
+    if any(w in msg for w in ("profil", "preferences")):
+        return "MODIFIER_PROFIL"
 
     # Abonnement / plans
-    if any(w in msg for w in ("abonnement", "plans", "plan", "tarif", "tarifs", "prix", "nos offres", "formules")):
+    if any(w in msg for w in ("abonnement", "plans", "plan", "tarif", "tarifs", "prix",
+                              "nos offres", "formules")):
         return "ABONNEMENT"
 
     # Historique
-    if any(w in msg for w in ("historique", "alertes", "notifications", "mes alertes", "dernieres alertes")):
+    if any(w in msg for w in ("historique", "alertes", "notifications", "mes alertes",
+                              "dernieres alertes")):
         return "HISTORIQUE"
 
     # Support
-    if any(w in msg for w in ("support", "aide humaine", "agent", "probleme", "reclamation", "contacter")):
+    if any(w in msg for w in ("support", "aide humaine", "agent", "probleme",
+                              "reclamation", "contacter")):
         return "SUPPORT"
 
     return "QUESTION"
@@ -441,6 +539,6 @@ def _fallback_chat(message: str, is_premium: bool = False) -> str:
 
     return (
         "Je suis Tendo, votre assistant marches publics.\n\n"
-        "Je peux vous aider a trouver des appels d'offres au Benin.\n"
+        "Je peux vous aider a trouver des appels d'offres au Benin.\n\n"
         "Tapez *Menu* pour voir les options disponibles."
     )

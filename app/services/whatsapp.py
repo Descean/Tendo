@@ -139,6 +139,157 @@ def _twilio_validate_request(url: str, params: dict, signature: str) -> bool:
 
 
 # ================================================
+#  MESSAGES INTERACTIFS META (boutons, listes)
+# ================================================
+
+async def _meta_send_interactive_buttons(
+    to: str,
+    body: str,
+    buttons: list,
+    header: str = "",
+    footer: str = "",
+) -> dict:
+    """Envoie un message avec boutons cliquables (max 3 boutons).
+
+    buttons: [{"id": "btn_id", "title": "Texte du bouton"}, ...]
+    """
+    phone = to.replace("whatsapp:", "").replace("+", "").strip()
+
+    url = f"https://graph.facebook.com/v21.0/{settings.meta_phone_number_id}/messages"
+    headers = {
+        "Authorization": f"Bearer {settings.meta_access_token}",
+        "Content-Type": "application/json",
+    }
+
+    interactive = {
+        "type": "button",
+        "body": {"text": body},
+        "action": {
+            "buttons": [
+                {"type": "reply", "reply": {"id": btn["id"], "title": btn["title"][:20]}}
+                for btn in buttons[:3]
+            ]
+        },
+    }
+    if header:
+        interactive["header"] = {"type": "text", "text": header}
+    if footer:
+        interactive["footer"] = {"text": footer}
+
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": phone,
+        "type": "interactive",
+        "interactive": interactive,
+    }
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(url, json=payload, headers=headers, timeout=30)
+        data = response.json()
+
+    if response.status_code == 200 and "messages" in data:
+        msg_id = data["messages"][0]["id"]
+        logger.info(f"[Meta] Boutons envoyes a {phone}: id={msg_id}")
+        return {"id": msg_id, "status": "sent"}
+    else:
+        logger.error(f"[Meta] Erreur boutons a {phone}: {data}")
+        raise Exception(f"Meta API error: {data.get('error', data)}")
+
+
+async def _meta_send_interactive_list(
+    to: str,
+    body: str,
+    button_text: str,
+    sections: list,
+    header: str = "",
+    footer: str = "",
+) -> dict:
+    """Envoie un message avec un menu liste deroulant (max 10 items).
+
+    sections: [{"title": "Section", "rows": [{"id": "row_id", "title": "Titre", "description": "..."}]}]
+    """
+    phone = to.replace("whatsapp:", "").replace("+", "").strip()
+
+    url = f"https://graph.facebook.com/v21.0/{settings.meta_phone_number_id}/messages"
+    headers = {
+        "Authorization": f"Bearer {settings.meta_access_token}",
+        "Content-Type": "application/json",
+    }
+
+    interactive = {
+        "type": "list",
+        "body": {"text": body},
+        "action": {
+            "button": button_text[:20],
+            "sections": sections,
+        },
+    }
+    if header:
+        interactive["header"] = {"type": "text", "text": header}
+    if footer:
+        interactive["footer"] = {"text": footer}
+
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": phone,
+        "type": "interactive",
+        "interactive": interactive,
+    }
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(url, json=payload, headers=headers, timeout=30)
+        data = response.json()
+
+    if response.status_code == 200 and "messages" in data:
+        msg_id = data["messages"][0]["id"]
+        logger.info(f"[Meta] Liste envoyee a {phone}: id={msg_id}")
+        return {"id": msg_id, "status": "sent"}
+    else:
+        logger.error(f"[Meta] Erreur liste a {phone}: {data}")
+        raise Exception(f"Meta API error: {data.get('error', data)}")
+
+
+async def _meta_send_document(
+    to: str,
+    document_url: str,
+    caption: str = "",
+    filename: str = "document.pdf",
+) -> dict:
+    """Envoie un document (PDF, etc.) via WhatsApp."""
+    phone = to.replace("whatsapp:", "").replace("+", "").strip()
+
+    url = f"https://graph.facebook.com/v21.0/{settings.meta_phone_number_id}/messages"
+    headers = {
+        "Authorization": f"Bearer {settings.meta_access_token}",
+        "Content-Type": "application/json",
+    }
+
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": phone,
+        "type": "document",
+        "document": {
+            "link": document_url,
+            "filename": filename,
+        },
+    }
+    if caption:
+        payload["document"]["caption"] = caption
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(url, json=payload, headers=headers, timeout=30)
+        data = response.json()
+
+    if response.status_code == 200 and "messages" in data:
+        msg_id = data["messages"][0]["id"]
+        logger.info(f"[Meta] Document envoye a {phone}: id={msg_id}")
+        return {"id": msg_id, "status": "sent"}
+    else:
+        logger.error(f"[Meta] Erreur document a {phone}: {data}")
+        raise Exception(f"Meta API error: {data.get('error', data)}")
+
+
+# ================================================
 #  INTERFACE PUBLIQUE (auto-switch)
 # ================================================
 
@@ -152,6 +303,35 @@ async def send_message(to: str, body: str) -> dict:
     except Exception as e:
         logger.error(f"Erreur envoi WhatsApp ({PROVIDER}) a {to}: {e}")
         raise
+
+
+async def send_interactive_buttons(to: str, body: str, buttons: list, **kwargs) -> dict:
+    """Envoie un message avec boutons interactifs."""
+    if PROVIDER == "meta":
+        return await _meta_send_interactive_buttons(to, body, buttons, **kwargs)
+    # Fallback texte pour Twilio
+    btn_text = "\n".join(f"- {b['title']}" for b in buttons)
+    return await send_message(to, f"{body}\n\n{btn_text}")
+
+
+async def send_interactive_list(to: str, body: str, button_text: str, sections: list, **kwargs) -> dict:
+    """Envoie un message avec liste deroulante."""
+    if PROVIDER == "meta":
+        return await _meta_send_interactive_list(to, body, button_text, sections, **kwargs)
+    # Fallback texte pour Twilio
+    items = []
+    for section in sections:
+        for row in section.get("rows", []):
+            items.append(f"- {row['title']}")
+    return await send_message(to, f"{body}\n\n" + "\n".join(items))
+
+
+async def send_document(to: str, document_url: str, caption: str = "", filename: str = "document.pdf") -> dict:
+    """Envoie un document via WhatsApp."""
+    if PROVIDER == "meta":
+        return await _meta_send_document(to, document_url, caption, filename)
+    # Fallback texte pour Twilio
+    return await send_message(to, f"{caption}\n\nDocument : {document_url}")
 
 
 async def send_template_message(to: str, template_name: str, **kwargs) -> dict:

@@ -2,6 +2,7 @@
 
 import json
 from datetime import datetime, timedelta, timezone
+from typing import List, Optional
 
 from fastapi import APIRouter, Request, Response, Depends, HTTPException
 from fastapi.responses import PlainTextResponse
@@ -27,6 +28,39 @@ from app.services.email_manager import send_dossier_request
 router = APIRouter(prefix="/webhook", tags=["Webhook"])
 
 PROVIDER = settings.whatsapp_provider
+
+# Nombre max de messages dans l'historique de conversation
+MAX_HISTORY = 8
+
+
+# ================================================
+#  HISTORIQUE DE CONVERSATION
+# ================================================
+
+def _get_conversation_history(user: User) -> List[dict]:
+    """Recupere l'historique de conversation depuis conversation_data."""
+    data = user.conversation_data or {}
+    return data.get("history", [])
+
+
+def _save_conversation_history(user: User, user_msg: str, bot_msg: str):
+    """Sauvegarde un echange dans l'historique de conversation.
+
+    Garde uniquement les N derniers messages pour controler les tokens.
+    """
+    data = dict(user.conversation_data or {})
+    history = data.get("history", [])
+
+    history.append({"role": "user", "content": user_msg})
+    history.append({"role": "assistant", "content": bot_msg[:500]})  # Tronquer pour economiser
+
+    # Garder seulement les derniers messages
+    if len(history) > MAX_HISTORY * 2:
+        history = history[-(MAX_HISTORY * 2):]
+
+    data["history"] = history
+    user.conversation_data = data
+    flag_modified(user, "conversation_data")
 
 
 # ================================================
@@ -81,6 +115,15 @@ async def _handle_meta_webhook(request: Request, db: AsyncSession):
                 if msg_type == "text":
                     text = msg["text"]["body"].strip()
                     await _process_message(f"+{from_number}", text, db)
+                elif msg_type == "interactive":
+                    # Reponses aux boutons et listes interactifs
+                    interactive = msg.get("interactive", {})
+                    if interactive.get("type") == "button_reply":
+                        text = interactive["button_reply"]["id"]
+                        await _process_message(f"+{from_number}", text, db)
+                    elif interactive.get("type") == "list_reply":
+                        text = interactive["list_reply"]["id"]
+                        await _process_message(f"+{from_number}", text, db)
 
     return {"status": "ok"}
 
@@ -117,12 +160,12 @@ async def _process_message(from_number: str, body: str, db: AsyncSession):
         )
         db.add(user)
         await db.flush()
-        # Premier message : reponse IA d'accueil
         reply = await claude.chat(
             f"Un nouvel utilisateur vient de m'ecrire pour la premiere fois. Son message: \"{body}\". "
-            "Accueille-le chaleureusement, presente Tendo brievement, et invite-le a taper Menu pour decouvrir les options.",
+            "Accueille-le chaleureusement, presente Tendo brievement, et invite-le a taper Menu.",
             is_premium=False,
         )
+        _save_conversation_history(user, body, reply)
         await whatsapp.send_message(from_number, reply)
         return
 
@@ -152,26 +195,36 @@ async def _process_message(from_number: str, body: str, db: AsyncSession):
         await whatsapp.send_message(from_number, reply)
         return
 
-    # Detecter l'intention pour TOUS les messages
-    # L'IA ne repond que si l'intention est "QUESTION" (aucune commande detectee)
-    msg_lower = body.lower().strip()
+    # Gerer le flux de modification de profil
+    if user.conversation_state and user.conversation_state.startswith("modif_"):
+        reply = await _handle_profile_modification_flow(user, body, db)
+        await whatsapp.send_message(from_number, reply)
+        return
+
+    # Gerer la confirmation de suppression
+    if user.conversation_state == "confirm_delete":
+        reply = await _handle_delete_confirmation(user, body, db)
+        await whatsapp.send_message(from_number, reply)
+        return
 
     # Commandes speciales
+    msg_lower = body.lower().strip()
     if "/demander_dossier" in msg_lower or "demander le dossier" in msg_lower:
         reply = await _handle_dossier_request(body, user, db)
         await whatsapp.send_message(from_number, reply)
         return
 
-    # Detection d'intention (locale, rapide, gratuite)
+    # Detection d'intention
     intent_result = await claude.detect_intent(body)
     intent = intent_result["intent"]
 
     if intent == "QUESTION":
-        # Aucune commande detectee -> conversation IA libre
+        # Conversation IA libre avec historique
         is_premium = user.subscription_plan == "premium"
-        reply = await claude.chat(body, is_premium=is_premium)
+        history = _get_conversation_history(user)
+        reply = await claude.chat(body, is_premium=is_premium, conversation_history=history)
+        _save_conversation_history(user, body, reply)
     else:
-        # Commande detectee -> traitement direct
         reply = await _handle_intent(intent, body, user, db)
 
     await whatsapp.send_message(from_number, reply)
@@ -184,22 +237,28 @@ async def _handle_intent(intent: str, body: str, user: User, db: AsyncSession) -
         return MENU_MESSAGE
 
     elif intent == "INSCRIPTION":
-        # Si l'utilisateur est deja inscrit (a un nom), ne pas relancer l'inscription
         if user.name and user.sectors:
             return (
                 "Vous etes deja inscrit.\n\n"
                 f"Nom : {user.name}\n"
                 f"Secteurs : {', '.join(user.sectors) if user.sectors else 'Tous'}\n"
                 f"Regions : {', '.join(user.regions) if user.regions else 'Tout le Benin'}\n\n"
-                "Tapez *Menu* pour voir les options ou *Preferences* pour modifier vos choix."
+                "Tapez *Profil* pour modifier vos preferences."
             )
         user.conversation_state = "inscription_nom"
         user.conversation_data = {}
+        flag_modified(user, "conversation_data")
         return (
             "INSCRIPTION TENDO\n\n"
             "Commencons votre inscription.\n"
             "Veuillez saisir votre nom complet :"
         )
+
+    elif intent == "MODIFIER_PROFIL":
+        return _start_profile_modification(user)
+
+    elif intent == "SUPPRIMER_COMPTE":
+        return _start_account_deletion(user)
 
     elif intent == "ABONNEMENT":
         return PLANS_MESSAGE
@@ -225,7 +284,9 @@ async def _handle_intent(intent: str, body: str, user: User, db: AsyncSession) -
 
     else:
         is_premium = user.subscription_plan == "premium"
-        reply = await claude.chat(body, is_premium=is_premium)
+        history = _get_conversation_history(user)
+        reply = await claude.chat(body, is_premium=is_premium, conversation_history=history)
+        _save_conversation_history(user, body, reply)
         return reply
 
 
@@ -233,7 +294,6 @@ async def _handle_intent(intent: str, body: str, user: User, db: AsyncSession) -
 #  INSCRIPTION AVEC VALIDATION
 # ================================================
 
-# Listes de reference pour la validation
 SECTEURS_MAP = {
     "1": "BTP", "2": "Fournitures", "3": "Services", "4": "TIC",
     "5": "Sante", "6": "Education", "7": "Agriculture",
@@ -251,7 +311,6 @@ SOURCES_MAP = {
     "4": "ADPME", "5": "ABE", "6": "BAD", "7": "AFD", "8": "Toutes",
 }
 
-# Mots qui ne sont clairement pas des noms de personnes/entreprises
 INVALID_NAMES = {
     "dude", "test", "toto", "xxx", "aaa", "bbb", "lol", "ok", "oui",
     "non", "salut", "bonjour", "hey", "yo", "sup", "coucou",
@@ -259,7 +318,7 @@ INVALID_NAMES = {
 
 
 def _validate_name(text: str) -> bool:
-    """Verifie que le texte ressemble a un nom (lettres, espaces, tirets, min 2 caracteres)."""
+    """Verifie que le texte ressemble a un nom."""
     cleaned = text.strip()
     if len(cleaned) < 2:
         return False
@@ -276,17 +335,15 @@ def _validate_company_name(text: str) -> bool:
     cleaned = text.strip()
     if len(cleaned) < 2:
         return False
-    # Rejeter les mots uniques trop courts ou clairement faux
     if cleaned.lower() in INVALID_NAMES:
         return False
-    # Un seul mot de moins de 3 lettres -> suspect
     if len(cleaned.split()) == 1 and len(cleaned) < 3:
         return False
     return True
 
 
 def _parse_numeric_choices(text: str, valid_map: dict) -> list:
-    """Parse les choix numeriques separes par virgules et retourne les valeurs valides."""
+    """Parse les choix numeriques separes par virgules."""
     parts = [p.strip() for p in text.replace(" ", ",").replace(";", ",").split(",")]
     selected = []
     for p in parts:
@@ -296,17 +353,11 @@ def _parse_numeric_choices(text: str, valid_map: dict) -> list:
 
 
 async def _ai_parse_choices(text: str, category: str, valid_map: dict) -> list:
-    """Utilise l'IA pour interpreter les reponses en langage naturel.
-
-    Si l'utilisateur tape des numeros -> parsing classique.
-    Sinon -> l'IA identifie les correspondances dans la liste.
-    """
-    # D'abord essayer le parsing numerique classique
+    """Utilise l'IA pour interpreter les reponses en langage naturel."""
     numeric = _parse_numeric_choices(text, valid_map)
     if numeric:
         return numeric
 
-    # Sinon, demander a l'IA d'interpreter le texte libre
     options_text = "\n".join(f"{k} = {v}" for k, v in valid_map.items())
     prompt = (
         f"L'utilisateur repond a la question '{category}' avec : \"{text}\"\n\n"
@@ -321,7 +372,6 @@ async def _ai_parse_choices(text: str, category: str, valid_map: dict) -> list:
     try:
         result = await claude.chat(prompt, is_premium=False)
         if result and result.strip().upper() != "AUCUN":
-            # Parser la reponse de l'IA
             return _parse_numeric_choices(result.strip(), valid_map)
     except Exception:
         pass
@@ -330,10 +380,7 @@ async def _ai_parse_choices(text: str, category: str, valid_map: dict) -> list:
 
 
 async def _ai_validate_input(text: str, field: str, context: str) -> dict:
-    """Utilise l'IA pour valider et extraire une valeur d'un champ.
-
-    Retourne {"valid": True, "value": "valeur extraite"} ou {"valid": False, "reason": "explication"}.
-    """
+    """Utilise l'IA pour valider et extraire une valeur d'un champ."""
     prompt = (
         f"L'utilisateur repond a la question '{field}' avec : \"{text}\"\n\n"
         f"Contexte : {context}\n\n"
@@ -360,24 +407,25 @@ async def _ai_validate_input(text: str, field: str, context: str) -> dict:
     except Exception:
         pass
 
-    # Fallback : accepter si validation de base OK
     return {"valid": True, "value": text.strip()}
 
 
 async def _handle_registration_flow(user: User, body: str, db: AsyncSession) -> str:
     """Gere le flux d'inscription pas a pas avec validation IA."""
     state = user.conversation_state
-    data = dict(user.conversation_data or {})  # COPIE pour forcer la detection de changement
+    data = dict(user.conversation_data or {})
+    # Preserver l'historique existant
+    history = data.get("history", [])
     text = body.strip()
 
-    # Commande d'annulation
     if text.lower() in ("annuler", "cancel", "stop"):
         user.conversation_state = None
-        user.conversation_data = None
+        data_clean = {"history": history}
+        user.conversation_data = data_clean
+        flag_modified(user, "conversation_data")
         return "Inscription annulee.\nTapez *Menu* pour revenir au menu principal."
 
     if state == "inscription_nom":
-        # Validation IA du nom
         validation = await _ai_validate_input(
             text,
             "nom complet (prenom et nom)",
@@ -402,6 +450,7 @@ async def _handle_registration_flow(user: User, body: str, db: AsyncSession) -> 
             )
 
         data["name"] = name
+        data["history"] = history
         user.conversation_data = data
         flag_modified(user, "conversation_data")
         user.conversation_state = "inscription_entreprise"
@@ -412,16 +461,16 @@ async def _handle_registration_flow(user: User, body: str, db: AsyncSession) -> 
         )
 
     elif state == "inscription_entreprise":
-        skip_words = ("passer", "pass", "non", "-", "aucune", "aucun", "pas d'entreprise", "independant")
+        skip_words = ("passer", "pass", "non", "-", "aucune", "aucun",
+                      "pas d'entreprise", "independant")
         msg_lower = text.lower().strip()
 
-        # Detecter si l'utilisateur veut passer (meme en phrase)
         is_skip = msg_lower in skip_words or any(
-            w in msg_lower for w in ("freelance", "particulier", "independant", "pas d'entreprise", "je n'ai pas")
+            w in msg_lower for w in ("freelance", "particulier", "independant",
+                                     "pas d'entreprise", "je n'ai pas")
         )
 
         if not is_skip:
-            # Valider le nom d'entreprise via l'IA
             validation = await _ai_validate_input(
                 text,
                 "nom d'entreprise",
@@ -438,7 +487,7 @@ async def _handle_registration_flow(user: User, body: str, db: AsyncSession) -> 
                     return (
                         f"Ce nom d'entreprise ne semble pas valide.\n"
                         f"{validation.get('reason', '')}\n\n"
-                        "Entrez le nom de votre entreprise ou tapez *Passer* si vous etes un particulier."
+                        "Entrez le nom de votre entreprise ou tapez *Passer*."
                     )
 
             if not is_skip:
@@ -447,6 +496,7 @@ async def _handle_registration_flow(user: User, body: str, db: AsyncSession) -> 
                     return "Veuillez entrer un nom d'entreprise valide ou tapez *Passer*."
                 data["company"] = company
 
+        data["history"] = history
         user.conversation_data = data
         flag_modified(user, "conversation_data")
         user.conversation_state = "inscription_secteurs"
@@ -470,12 +520,14 @@ async def _handle_registration_flow(user: User, body: str, db: AsyncSession) -> 
         selected = await _ai_parse_choices(text, "secteurs d'interet", SECTEURS_MAP)
         if not selected:
             return (
-                "Je n'ai pas pu identifier vos secteurs.\n"
-                "Vous pouvez envoyer les numeros (ex: 1,3,5) ou ecrire directement.\n"
+                "Je n'ai pas pu identifier vos secteurs.\n\n"
+                "Envoyez les numeros (ex: 1,3,5) ou ecrivez directement.\n"
                 "Exemples : \"BTP et informatique\" ou \"1,4\"\n\n"
-                "Secteurs : BTP, Fournitures, Services, TIC, Sante, Education, Agriculture, Environnement, Transport, Energie"
+                "Secteurs : BTP, Fournitures, Services, TIC, Sante, Education, "
+                "Agriculture, Environnement, Transport, Energie"
             )
         data["sectors"] = selected
+        data["history"] = history
         user.conversation_data = data
         flag_modified(user, "conversation_data")
         user.conversation_state = "inscription_regions"
@@ -499,10 +551,11 @@ async def _handle_registration_flow(user: User, body: str, db: AsyncSession) -> 
         selected = await _ai_parse_choices(text, "regions d'interet au Benin", REGIONS_MAP)
         if not selected:
             return (
-                "Je n'ai pas pu identifier vos regions.\n"
+                "Je n'ai pas pu identifier vos regions.\n\n"
                 "Exemples : \"Cotonou et Porto-Novo\" ou \"1,2\" ou \"9\" pour tout le Benin."
             )
         data["regions"] = selected
+        data["history"] = history
         user.conversation_data = data
         flag_modified(user, "conversation_data")
         user.conversation_state = "inscription_sources"
@@ -521,15 +574,14 @@ async def _handle_registration_flow(user: User, body: str, db: AsyncSession) -> 
         )
 
     elif state == "inscription_sources":
-        # Gerer "toutes", "tout", "all" en texte libre
         if text.strip().lower() in ("toutes", "tout", "toutes les sources", "all", "8"):
             selected = [v for k, v in SOURCES_MAP.items() if k != "8"]
         else:
-            selected = await _ai_parse_choices(text, "sources de marches publics a surveiller", SOURCES_MAP)
+            selected = await _ai_parse_choices(text, "sources de marches publics", SOURCES_MAP)
 
         if not selected:
             return (
-                "Je n'ai pas pu identifier vos sources.\n"
+                "Je n'ai pas pu identifier vos sources.\n\n"
                 "Exemples : \"ARMP et gouv.bj\" ou \"1,2,3\" ou \"toutes\"."
             )
         if "Toutes" in selected:
@@ -543,7 +595,8 @@ async def _handle_registration_flow(user: User, body: str, db: AsyncSession) -> 
         user.regions = data.get("regions", [])
         user.preferred_sources = data.get("sources", [])
         user.conversation_state = None
-        user.conversation_data = None
+        user.conversation_data = {"history": history}
+        flag_modified(user, "conversation_data")
 
         company_line = f"Entreprise : {user.company}" if user.company else "Entreprise : Particulier"
 
@@ -554,13 +607,198 @@ async def _handle_registration_flow(user: User, body: str, db: AsyncSession) -> 
             f"Secteurs : {', '.join(user.sectors)}\n"
             f"Regions : {', '.join(user.regions)}\n"
             f"Sources : {', '.join(user.preferred_sources)}\n\n"
-            "Vous recevrez vos premieres alertes des demain.\n"
+            "Vous recevrez vos premieres alertes des demain.\n\n"
             "Tapez *Menu* pour voir les options."
         )
 
-    # Etat inconnu, reinitialiser
     user.conversation_state = None
     return MENU_MESSAGE
+
+
+# ================================================
+#  MODIFICATION DE PROFIL
+# ================================================
+
+def _start_profile_modification(user: User) -> str:
+    """Demarre le flux de modification de profil."""
+    if not user.name:
+        return "Vous n'etes pas encore inscrit. Tapez *Inscription* pour commencer."
+
+    user.conversation_state = "modif_choix"
+    current = (
+        "VOTRE PROFIL ACTUEL\n\n"
+        f"1 - Nom : {user.name}\n"
+        f"2 - Entreprise : {user.company or 'Particulier'}\n"
+        f"3 - Secteurs : {', '.join(user.sectors) if user.sectors else 'Aucun'}\n"
+        f"4 - Regions : {', '.join(user.regions) if user.regions else 'Aucune'}\n"
+        f"5 - Sources : {', '.join(user.preferred_sources) if user.preferred_sources else 'Aucune'}\n\n"
+        "Quel element souhaitez-vous modifier ?\n"
+        "Envoyez le numero (1 a 5) ou tapez *Annuler*."
+    )
+    return current
+
+
+async def _handle_profile_modification_flow(user: User, body: str, db: AsyncSession) -> str:
+    """Gere la modification de profil etape par etape."""
+    state = user.conversation_state
+    text = body.strip()
+
+    if text.lower() in ("annuler", "cancel", "stop", "menu"):
+        user.conversation_state = None
+        return "Modification annulee.\nTapez *Menu* pour revenir au menu."
+
+    if state == "modif_choix":
+        if text == "1":
+            user.conversation_state = "modif_nom"
+            return f"Nom actuel : {user.name}\n\nEntrez votre nouveau nom complet :"
+        elif text == "2":
+            user.conversation_state = "modif_entreprise"
+            return (
+                f"Entreprise actuelle : {user.company or 'Particulier'}\n\n"
+                "Entrez le nouveau nom ou tapez *Passer* pour rester particulier."
+            )
+        elif text == "3":
+            user.conversation_state = "modif_secteurs"
+            return (
+                f"Secteurs actuels : {', '.join(user.sectors) if user.sectors else 'Aucun'}\n\n"
+                "SECTEURS DISPONIBLES\n\n"
+                "1 - BTP\n2 - Fournitures\n3 - Services\n4 - TIC\n"
+                "5 - Sante\n6 - Education\n7 - Agriculture\n"
+                "8 - Environnement\n9 - Transport\n10 - Energie\n\n"
+                "Envoyez les numeros de vos nouveaux secteurs (ex: 1,3,4)."
+            )
+        elif text == "4":
+            user.conversation_state = "modif_regions"
+            return (
+                f"Regions actuelles : {', '.join(user.regions) if user.regions else 'Aucune'}\n\n"
+                "REGIONS DISPONIBLES\n\n"
+                "1 - Cotonou\n2 - Porto-Novo\n3 - Parakou\n4 - Abomey\n"
+                "5 - Bohicon\n6 - Djougou\n7 - Natitingou\n8 - Lokossa\n"
+                "9 - Tout le Benin\n10 - CEDEAO\n\n"
+                "Envoyez les numeros (ex: 1,2 ou 9 pour tout)."
+            )
+        elif text == "5":
+            user.conversation_state = "modif_sources"
+            return (
+                f"Sources actuelles : {', '.join(user.preferred_sources) if user.preferred_sources else 'Aucune'}\n\n"
+                "SOURCES DISPONIBLES\n\n"
+                "1 - marches-publics.bj\n2 - ARMP\n3 - gouv.bj\n"
+                "4 - ADPME\n5 - ABE\n6 - BAD\n7 - AFD\n8 - Toutes\n\n"
+                "Envoyez les numeros ou tapez \"toutes\"."
+            )
+        else:
+            return "Choix invalide. Envoyez un numero de 1 a 5 ou tapez *Annuler*."
+
+    elif state == "modif_nom":
+        validation = await _ai_validate_input(
+            text, "nom complet",
+            "Validation d'un nom de personne. Rejeter les noms absurdes."
+        )
+        if not validation["valid"] or not _validate_name(validation.get("value", text)):
+            return "Ce nom n'est pas valide. Entrez votre prenom et nom ou tapez *Annuler*."
+        user.name = validation["value"].title()
+        user.conversation_state = None
+        return f"Nom mis a jour : {user.name}\n\nTapez *Menu* pour continuer."
+
+    elif state == "modif_entreprise":
+        if text.lower() in ("passer", "particulier", "aucune"):
+            user.company = None
+            user.conversation_state = None
+            return "Entreprise supprimee (particulier).\n\nTapez *Menu* pour continuer."
+        validation = await _ai_validate_input(
+            text, "nom d'entreprise",
+            "Validation d'un nom d'entreprise. Rejeter les noms absurdes."
+        )
+        if not validation["valid"]:
+            return "Ce nom d'entreprise n'est pas valide. Reessayez ou tapez *Annuler*."
+        user.company = validation.get("value", text.strip())
+        user.conversation_state = None
+        return f"Entreprise mise a jour : {user.company}\n\nTapez *Menu* pour continuer."
+
+    elif state == "modif_secteurs":
+        selected = await _ai_parse_choices(text, "secteurs d'interet", SECTEURS_MAP)
+        if not selected:
+            return "Je n'ai pas identifie vos secteurs. Envoyez les numeros (ex: 1,3,5) ou tapez *Annuler*."
+        user.sectors = selected
+        user.conversation_state = None
+        return f"Secteurs mis a jour : {', '.join(selected)}\n\nTapez *Menu* pour continuer."
+
+    elif state == "modif_regions":
+        selected = await _ai_parse_choices(text, "regions d'interet", REGIONS_MAP)
+        if not selected:
+            return "Je n'ai pas identifie vos regions. Envoyez les numeros ou tapez *Annuler*."
+        user.regions = selected
+        user.conversation_state = None
+        return f"Regions mises a jour : {', '.join(selected)}\n\nTapez *Menu* pour continuer."
+
+    elif state == "modif_sources":
+        if text.strip().lower() in ("toutes", "tout", "all", "8"):
+            selected = [v for k, v in SOURCES_MAP.items() if k != "8"]
+        else:
+            selected = await _ai_parse_choices(text, "sources", SOURCES_MAP)
+        if not selected:
+            return "Je n'ai pas identifie vos sources. Envoyez les numeros ou tapez *Annuler*."
+        if "Toutes" in selected:
+            selected = [v for k, v in SOURCES_MAP.items() if k != "8"]
+        user.preferred_sources = selected
+        user.conversation_state = None
+        return f"Sources mises a jour : {', '.join(selected)}\n\nTapez *Menu* pour continuer."
+
+    user.conversation_state = None
+    return MENU_MESSAGE
+
+
+# ================================================
+#  SUPPRESSION DE COMPTE
+# ================================================
+
+def _start_account_deletion(user: User) -> str:
+    """Demarre le flux de suppression de compte."""
+    user.conversation_state = "confirm_delete"
+    return (
+        "SUPPRESSION DE COMPTE\n\n"
+        "Vous etes sur le point de supprimer votre compte Tendo.\n\n"
+        "Cette action est irreversible. Toutes vos donnees seront supprimees :\n"
+        "- Votre profil et preferences\n"
+        "- Votre historique d'alertes\n"
+        "- Votre abonnement\n\n"
+        "Pour confirmer, tapez : *CONFIRMER SUPPRESSION*\n\n"
+        "Tapez *Annuler* pour revenir en arriere."
+    )
+
+
+async def _handle_delete_confirmation(user: User, body: str, db: AsyncSession) -> str:
+    """Gere la confirmation de suppression de compte."""
+    text = body.strip().lower()
+
+    if text in ("annuler", "cancel", "non"):
+        user.conversation_state = None
+        return "Suppression annulee. Votre compte est intact.\n\nTapez *Menu* pour continuer."
+
+    if text == "confirmer suppression":
+        # Desactiver le compte et nettoyer les donnees
+        user.is_active = False
+        user.name = ""
+        user.company = None
+        user.sectors = []
+        user.regions = []
+        user.preferred_sources = []
+        user.conversation_state = None
+        user.conversation_data = None
+        user.subscription_status = SubscriptionStatus.CANCELED.value
+        flag_modified(user, "conversation_data")
+
+        logger.info(f"[Suppression] Compte desactive: user_id={user.id}, phone={user.phone_number}")
+
+        return (
+            "COMPTE SUPPRIME\n\n"
+            "Votre compte Tendo a ete supprime.\n"
+            "Vos donnees personnelles ont ete effacees.\n\n"
+            "Nous sommes desoles de vous voir partir.\n"
+            "Si vous changez d'avis, envoyez-nous un message pour vous reinscrire."
+        )
+
+    return "Pour confirmer la suppression, tapez exactement : *CONFIRMER SUPPRESSION*\n\nOu tapez *Annuler*."
 
 
 # ================================================
@@ -578,7 +816,7 @@ async def _get_history(user: User, db: AsyncSession) -> str:
     notifications = result.scalars().all()
 
     if not notifications:
-        return "Aucune alerte recente. Vos alertes personnalisees arriveront bientot."
+        return "Aucune alerte recente.\n\nVos alertes personnalisees arriveront bientot."
 
     lines = ["VOS 5 DERNIERES ALERTES\n"]
     for i, notif in enumerate(notifications, 1):
@@ -590,6 +828,7 @@ async def _get_history(user: User, db: AsyncSession) -> str:
             date_str = notif.sent_at.strftime("%d/%m/%Y")
             lines.append(f"{i}. [{date_str}] {pub.title[:60]}")
             lines.append(f"   Ref: {pub.reference}")
+            lines.append("")
 
     return "\n".join(lines)
 
@@ -619,7 +858,7 @@ async def _handle_payment(user: User, plan: str = "essentiel") -> str:
     except Exception as e:
         logger.error(f"Erreur paiement: {e}")
         return (
-            "Une erreur est survenue lors de la creation du paiement.\n"
+            "Une erreur est survenue lors de la creation du paiement.\n\n"
             "Veuillez reessayer dans quelques instants ou contactez le support."
         )
 
@@ -628,7 +867,10 @@ async def _handle_dossier_request(body: str, user: User, db: AsyncSession) -> st
     """Gere la demande de dossier d'AO."""
     ref = body.replace("/demander_dossier", "").strip()
     if not ref:
-        return "Veuillez preciser la reference de l'appel d'offres.\nExemple : /demander_dossier AO-MARC-12345678"
+        return (
+            "Veuillez preciser la reference de l'appel d'offres.\n\n"
+            "Exemple : /demander_dossier AO-MARC-12345678"
+        )
 
     result = await db.execute(
         select(Publication).where(Publication.reference == ref)
@@ -636,17 +878,20 @@ async def _handle_dossier_request(body: str, user: User, db: AsyncSession) -> st
     pub = result.scalar_one_or_none()
 
     if not pub:
-        return f"Publication '{ref}' non trouvee. Verifiez la reference."
+        return f"Publication '{ref}' non trouvee.\n\nVerifiez la reference."
 
     if not pub.authority_email:
         return (
             f"{pub.title}\n\n"
-            "L'adresse email de l'autorite contractante n'est pas disponible.\n"
+            "L'adresse email de l'autorite contractante n'est pas disponible.\n\n"
             "Veuillez nous communiquer l'email de l'autorite et nous ferons la demande pour vous."
         )
 
     if user.subscription_plan != "premium" and user.subscription_status != SubscriptionStatus.TRIAL.value:
-        return "La demande automatique de dossier est reservee au Plan Premium.\nTapez *Abonnement* pour voir les options."
+        return (
+            "La demande automatique de dossier est reservee au Plan Premium.\n\n"
+            "Tapez *Abonnement* pour voir les options."
+        )
 
     result = await send_dossier_request(
         authority_email=pub.authority_email,
