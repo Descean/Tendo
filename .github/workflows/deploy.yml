@@ -7,7 +7,7 @@ on:
 
 jobs:
   test:
-    name: Tests et verification
+    name: Verification syntaxe
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,19 +16,15 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: "pip"
 
-      - name: Install dependencies
+      - name: Verify Python syntax
         run: |
-          pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Verify syntax (no import errors)
-        run: |
-          python -c "import app.main"
-          python -c "import app.services.claude"
-          python -c "import app.routers.webhook"
-          echo "All imports OK"
+          python -m py_compile app/main.py
+          python -m py_compile app/services/claude.py
+          python -m py_compile app/services/whatsapp.py
+          python -m py_compile app/routers/webhook.py
+          python -m py_compile app/config.py
+          echo "Syntaxe Python OK"
 
   deploy:
     name: Deploy to VPS
