@@ -214,6 +214,15 @@ async def _process_message(from_number: str, body: str, db: AsyncSession):
         await whatsapp.send_message(from_number, reply)
         return
 
+    # Analyse de document (/analyser REF ou "analyse AO-...")
+    if "/analyser" in msg_lower or (
+        any(w in msg_lower for w in ("analyse", "analyser", "details de", "detail de"))
+        and "ao-" in msg_lower
+    ):
+        reply = await _handle_document_analysis(body, user, db)
+        await whatsapp.send_message(from_number, reply)
+        return
+
     # Detection d'intention
     intent_result = await claude.detect_intent(body)
     intent = intent_result["intent"]
@@ -919,3 +928,109 @@ async def _handle_dossier_request(body: str, user: User, db: AsyncSession) -> st
         )
     else:
         return f"Erreur lors de l'envoi : {result.get('error', 'Inconnue')}"
+
+
+# ================================================
+#  ANALYSE IA DE DOCUMENTS
+# ================================================
+
+async def _handle_document_analysis(body: str, user: User, db: AsyncSession) -> str:
+    """Analyse un appel d'offres avec l'IA (PDF + contenu)."""
+    import re
+    from app.services.document_analyzer import analyze_publication, build_publication_context
+
+    # Extraire la reference du message
+    # Supporte: /analyser AO-MARC-12345, analyse AO-MARC-12345, "detail de AO-MARC-12345"
+    ref_match = re.search(r"(AO-[A-Z]+-[a-fA-F0-9]+)", body, re.IGNORECASE)
+    ref_text = body.replace("/analyser", "").strip()
+
+    pub = None
+
+    if ref_match:
+        ref = ref_match.group(1)
+        result = await db.execute(
+            select(Publication).where(Publication.reference == ref)
+        )
+        pub = result.scalar_one_or_none()
+
+    if not pub and ref_text:
+        # Essayer une recherche par texte dans le titre
+        result = await db.execute(
+            select(Publication)
+            .where(Publication.title.ilike(f"%{ref_text[:50]}%"))
+            .limit(1)
+        )
+        pub = result.scalar_one_or_none()
+
+    if not pub:
+        return (
+            "Publication non trouvee.\n\n"
+            "Utilisez la reference exacte :\n"
+            "/analyser AO-MARC-12345678\n\n"
+            "Vous pouvez trouver les references dans vos alertes."
+        )
+
+    # Verifier les droits (premium ou trial)
+    if user.subscription_status not in (
+        "trial", "active"
+    ) and user.subscription_plan != "premium":
+        return (
+            "L'analyse detaillee des documents est disponible "
+            "pendant votre essai gratuit ou avec un abonnement.\n\n"
+            "Tapez *Abonnement* pour voir les plans."
+        )
+
+    await whatsapp.send_message(
+        user.phone_number,
+        f"Analyse en cours de :\n*{pub.title[:80]}*\n\nPatientez quelques secondes..."
+    )
+
+    try:
+        # Construire le contexte complet (inclut PDF si disponible)
+        context = await build_publication_context(pub)
+
+        # Extraire la question specifique s'il y en a une
+        user_question = ""
+        question_markers = ("?", "comment", "quand", "combien", "qui", "quel", "quelle")
+        for marker in question_markers:
+            if marker in body.lower():
+                # L'utilisateur pose une question specifique
+                user_question = body.replace("/analyser", "").strip()
+                # Enlever la reference de la question
+                if ref_match:
+                    user_question = user_question.replace(ref_match.group(1), "").strip()
+                break
+
+        analysis = await analyze_publication(
+            title=pub.title,
+            summary=pub.summary or "",
+            html_content=pub.html_content or "",
+            pdf_text=context,
+            user_question=user_question,
+        )
+
+        # Si le PDF existe, envoyer aussi le document
+        if pub.pdf_url:
+            try:
+                await whatsapp.send_document(
+                    user.phone_number,
+                    document_url=pub.pdf_url,
+                    caption=f"Document : {pub.title[:60]}",
+                    filename=f"{pub.reference}.pdf",
+                )
+            except Exception:
+                pass  # Le PDF n'est pas critique
+
+        return analysis
+
+    except Exception as e:
+        logger.error(f"[DocAnalyzer] Erreur analyse: {e}")
+        return (
+            f"ANALYSE -- {pub.title[:60]}\n\n"
+            f"Source : {pub.source}\n"
+            f"Reference : {pub.reference}\n"
+            f"{'Budget : ' + str(pub.budget) + ' FCFA' if pub.budget else ''}\n"
+            f"{'Date limite : ' + pub.deadline.strftime('%d/%m/%Y') if pub.deadline else ''}\n\n"
+            f"{pub.summary or 'Pas de resume disponible.'}\n\n"
+            f"{'Document : ' + pub.pdf_url if pub.pdf_url else ''}"
+        )

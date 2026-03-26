@@ -71,8 +71,14 @@ async def job_run_scrapers():
             except Exception as e:
                 logger.error(f"[Scheduler] [{source_name}] Erreur: {e}")
                 await db.rollback()
+                # Alerter les admins
+                try:
+                    from app.services.monitoring import alert_scraper_failure
+                    await alert_scraper_failure(source_name, str(e))
+                except Exception:
+                    pass
 
-    logger.info(f"[Scheduler] Scraping terminé: {total_new} nouvelles publications")
+    logger.info(f"[Scheduler] Scraping termine: {total_new} nouvelles publications")
     return total_new
 
 
@@ -84,9 +90,14 @@ async def job_send_notifications():
     async with AsyncSessionLocal() as db:
         try:
             count = await process_new_publications(db)
-            logger.info(f"[Scheduler] {count} notifications envoyées")
+            logger.info(f"[Scheduler] {count} notifications envoyees")
         except Exception as e:
             logger.error(f"[Scheduler] Erreur notifications: {e}")
+            try:
+                from app.services.monitoring import alert_notification_failure
+                await alert_notification_failure(0, str(e))
+            except Exception:
+                pass
 
 
 async def job_check_subscriptions():
@@ -246,6 +257,53 @@ async def job_send_expiration_reminders():
     logger.info(f"[Scheduler] {sent} rappels d'expiration envoyes")
 
 
+async def job_daily_report():
+    """Envoie un rapport quotidien aux administrateurs."""
+    from sqlalchemy import select, func
+    from app.models.user import User
+    from app.models.publication import Publication
+    from app.models.notification import Notification
+    from app.services.monitoring import send_daily_report
+
+    logger.info("[Scheduler] Generation du rapport quotidien...")
+
+    async with AsyncSessionLocal() as db:
+        try:
+            now = datetime.now(timezone.utc)
+            yesterday = now.replace(hour=0, minute=0, second=0) - __import__("datetime").timedelta(days=1)
+
+            # Compter publications du jour
+            pub_count = await db.execute(
+                select(func.count(Publication.id)).where(
+                    Publication.created_at >= yesterday
+                )
+            )
+            scraped = pub_count.scalar() or 0
+
+            # Compter notifications du jour
+            notif_count = await db.execute(
+                select(func.count(Notification.id)).where(
+                    Notification.sent_at >= yesterday
+                )
+            )
+            notifs = notif_count.scalar() or 0
+
+            # Compter utilisateurs actifs
+            user_count = await db.execute(
+                select(func.count(User.id)).where(User.is_active == True)
+            )
+            users = user_count.scalar() or 0
+
+            await send_daily_report(
+                scraped_count=scraped,
+                notifications_sent=notifs,
+                active_users=users,
+                errors_count=0,
+            )
+        except Exception as e:
+            logger.error(f"[Scheduler] Erreur rapport quotidien: {e}")
+
+
 def setup_scheduler():
     """Configure et demarre le scheduler."""
     # Scraping -- par defaut a 6h du matin (configurable via SCRAPING_SCHEDULE)
@@ -292,6 +350,15 @@ def setup_scheduler():
         CronTrigger(hour="9", minute="0"),
         id="expiration_reminders",
         name="Rappels expiration",
+        replace_existing=True,
+    )
+
+    # Rapport quotidien -- chaque jour a 20h
+    scheduler.add_job(
+        job_daily_report,
+        CronTrigger(hour="20", minute="0"),
+        id="daily_report",
+        name="Rapport quotidien",
         replace_existing=True,
     )
 

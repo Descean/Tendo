@@ -1,4 +1,4 @@
-"""Service de notifications – matching et envoi d'alertes WhatsApp.
+"""Service de notifications -- matching et envoi d'alertes WhatsApp + email.
 
 Gere le rate limiting pour respecter :
 - Groq : 30 requetes/min
@@ -132,6 +132,18 @@ async def process_new_publications(db: AsyncSession) -> int:
             try:
                 await whatsapp.send_message(user.phone_number, message)
 
+                # Envoyer aussi par email si l'utilisateur a une adresse
+                if user.email_address:
+                    try:
+                        await send_email_notification(
+                            user_email=user.email_address,
+                            user_name=user.name or "",
+                            publication=publication,
+                            summary=summary,
+                        )
+                    except Exception as email_err:
+                        logger.warning(f"[Notifications] Email echoue user={user.id}: {email_err}")
+
                 # Enregistrer la notification
                 notification = Notification(
                     user_id=user.id,
@@ -180,6 +192,105 @@ def _build_alert_message(publication: Publication, summary: str) -> str:
     if publication.pdf_url:
         parts.append(f"\nDocument: {publication.pdf_url}")
 
-    parts.append(f"\nTapez */demander_dossier {publication.reference}* pour obtenir le dossier complet.")
+    parts.append(f"\nTapez */analyser {publication.reference}* pour une analyse detaillee.")
+    parts.append(f"Tapez */demander_dossier {publication.reference}* pour obtenir le dossier complet.")
 
     return "\n".join(parts)
+
+
+# ================================================
+#  NOTIFICATIONS EMAIL (complement WhatsApp)
+# ================================================
+
+async def send_email_notification(
+    user_email: str,
+    user_name: str,
+    publication: Publication,
+    summary: str,
+) -> bool:
+    """Envoie une notification par email pour un appel d'offres.
+
+    Returns:
+        True si l'email a ete envoye, False sinon.
+    """
+    from app.config import settings
+
+    if not settings.smtp_user or not settings.smtp_password:
+        return False
+
+    subject = f"[Tendo] {publication.title[:80]}"
+
+    # Construire le corps de l'email en HTML
+    deadline_str = ""
+    if publication.deadline:
+        deadline_str = f"<p><strong>Date limite :</strong> {publication.deadline.strftime('%d/%m/%Y')}</p>"
+
+    budget_str = ""
+    if publication.budget:
+        budget_str = f"<p><strong>Budget :</strong> {publication.budget:,.0f} FCFA</p>"
+
+    pdf_str = ""
+    if publication.pdf_url:
+        pdf_str = f'<p><a href="{publication.pdf_url}">Telecharger le document (PDF)</a></p>'
+
+    html_body = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; color: #333; max-width: 600px;">
+        <h2 style="color: #1a5276;">Nouvel Appel d'Offres</h2>
+        <h3>{publication.title}</h3>
+        <p><strong>Reference :</strong> {publication.reference}</p>
+        <p><strong>Source :</strong> {publication.source}</p>
+        {deadline_str}
+        {budget_str}
+        <hr style="border: 1px solid #eee;">
+        <p>{summary}</p>
+        {pdf_str}
+        <hr style="border: 1px solid #eee;">
+        <p style="font-size: 12px; color: #888;">
+            Cet email a ete envoye par Tendo, votre assistant de veille marches publics.<br>
+            Repondez "STOP" par WhatsApp pour arreter ces notifications.
+        </p>
+    </body>
+    </html>
+    """
+
+    try:
+        import aiosmtplib
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.text import MIMEText
+
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = subject
+        msg["From"] = f"Tendo <{settings.smtp_user}>"
+        msg["To"] = user_email
+
+        # Version texte
+        text_body = (
+            f"NOUVEL APPEL D'OFFRES\n\n"
+            f"{publication.title}\n"
+            f"Reference : {publication.reference}\n"
+            f"Source : {publication.source}\n"
+            f"{'Date limite : ' + publication.deadline.strftime('%d/%m/%Y') if publication.deadline else ''}\n"
+            f"{'Budget : ' + str(int(publication.budget)) + ' FCFA' if publication.budget else ''}\n\n"
+            f"{summary}\n\n"
+            f"{'Document : ' + publication.pdf_url if publication.pdf_url else ''}\n\n"
+            f"-- Tendo, votre assistant marches publics"
+        )
+
+        msg.attach(MIMEText(text_body, "plain", "utf-8"))
+        msg.attach(MIMEText(html_body, "html", "utf-8"))
+
+        await aiosmtplib.send(
+            msg,
+            hostname=settings.smtp_server,
+            port=settings.smtp_port,
+            username=settings.smtp_user,
+            password=settings.smtp_password,
+            start_tls=True,
+        )
+        logger.info(f"[Email] Notification envoyee a {user_email}: {publication.reference}")
+        return True
+
+    except Exception as e:
+        logger.error(f"[Email] Erreur envoi a {user_email}: {e}")
+        return False
