@@ -7,6 +7,7 @@ from fastapi import APIRouter, Request, Response, Depends, HTTPException
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.config import settings
 from app.utils.db import get_db
@@ -101,18 +102,6 @@ async def _handle_twilio_webhook(request: Request, db: AsyncSession):
 #  LOGIQUE METIER (commune aux 2 providers)
 # ================================================
 
-# Mots reserves qui declenchent des commandes (pas envoyees a l'IA)
-COMMAND_WORDS = {
-    "menu", "aide", "help", "accueil", "start",
-    "1", "01", "2", "02", "3", "03", "4", "04", "5", "05",
-    "inscription", "inscrire", "profil", "preferences",
-    "abonnement", "plans", "plan", "tarif", "tarifs", "prix",
-    "historique", "alertes", "notifications", "mes alertes",
-    "paiement", "payer", "souscrire", "premium", "essentiel", "upgrade",
-    "support", "agent", "probleme", "reclamation",
-}
-
-
 async def _process_message(from_number: str, body: str, db: AsyncSession):
     """Traite un message WhatsApp entrant."""
     logger.info(f"Message WhatsApp de {from_number}: {body[:100]}")
@@ -128,7 +117,7 @@ async def _process_message(from_number: str, body: str, db: AsyncSession):
         )
         db.add(user)
         await db.flush()
-        # Premier message : reponse IA d'accueil au lieu d'un message pre-enregistre
+        # Premier message : reponse IA d'accueil
         reply = await claude.chat(
             f"Un nouvel utilisateur vient de m'ecrire pour la premiere fois. Son message: \"{body}\". "
             "Accueille-le chaleureusement, presente Tendo brievement, et invite-le a taper Menu pour decouvrir les options.",
@@ -148,11 +137,14 @@ async def _process_message(from_number: str, body: str, db: AsyncSession):
 
     # Verifier l'abonnement expire
     if user.subscription_status == SubscriptionStatus.EXPIRED.value:
-        allowed_cmds = ("abonnement", "paiement", "plans", "support", "premium", "essentiel",
-                        "2", "4", "5", "02", "04", "05")
-        if body.lower() not in allowed_cmds:
+        allowed_intents = ("ABONNEMENT", "PAIEMENT", "SUPPORT")
+        intent_result = await claude.detect_intent(body)
+        if intent_result["intent"] not in allowed_intents:
             await whatsapp.send_message(from_number, SUBSCRIPTION_EXPIRED)
             return
+        reply = await _handle_intent(intent_result["intent"], body, user, db)
+        await whatsapp.send_message(from_number, reply)
+        return
 
     # Gerer le flux d'inscription en cours
     if user.conversation_state and user.conversation_state.startswith("inscription_"):
@@ -160,18 +152,27 @@ async def _process_message(from_number: str, body: str, db: AsyncSession):
         await whatsapp.send_message(from_number, reply)
         return
 
-    # Detecter l'intention
+    # Detecter l'intention pour TOUS les messages
+    # L'IA ne repond que si l'intention est "QUESTION" (aucune commande detectee)
     msg_lower = body.lower().strip()
 
-    # Si c'est une commande explicite -> traitement direct (pas d'appel IA)
-    if msg_lower in COMMAND_WORDS or "/demander_dossier" in msg_lower or "demander le dossier" in msg_lower:
-        intent_result = await claude.detect_intent(body)
-        intent = intent_result["intent"]
-        reply = await _handle_intent(intent, body, user, db)
-    else:
-        # Tout le reste -> conversation IA (Gemini gratuit / Claude premium)
+    # Commandes speciales
+    if "/demander_dossier" in msg_lower or "demander le dossier" in msg_lower:
+        reply = await _handle_dossier_request(body, user, db)
+        await whatsapp.send_message(from_number, reply)
+        return
+
+    # Detection d'intention (locale, rapide, gratuite)
+    intent_result = await claude.detect_intent(body)
+    intent = intent_result["intent"]
+
+    if intent == "QUESTION":
+        # Aucune commande detectee -> conversation IA libre
         is_premium = user.subscription_plan == "premium"
         reply = await claude.chat(body, is_premium=is_premium)
+    else:
+        # Commande detectee -> traitement direct
+        reply = await _handle_intent(intent, body, user, db)
 
     await whatsapp.send_message(from_number, reply)
 
@@ -183,11 +184,20 @@ async def _handle_intent(intent: str, body: str, user: User, db: AsyncSession) -
         return MENU_MESSAGE
 
     elif intent == "INSCRIPTION":
+        # Si l'utilisateur est deja inscrit (a un nom), ne pas relancer l'inscription
+        if user.name and user.sectors:
+            return (
+                "Vous etes deja inscrit.\n\n"
+                f"Nom : {user.name}\n"
+                f"Secteurs : {', '.join(user.sectors) if user.sectors else 'Tous'}\n"
+                f"Regions : {', '.join(user.regions) if user.regions else 'Tout le Benin'}\n\n"
+                "Tapez *Menu* pour voir les options ou *Preferences* pour modifier vos choix."
+            )
         user.conversation_state = "inscription_nom"
         user.conversation_data = {}
         return (
             "INSCRIPTION TENDO\n\n"
-            "Commençons votre inscription.\n"
+            "Commencons votre inscription.\n"
             "Veuillez saisir votre nom complet :"
         )
 
@@ -241,6 +251,12 @@ SOURCES_MAP = {
     "4": "ADPME", "5": "ABE", "6": "BAD", "7": "AFD", "8": "Toutes",
 }
 
+# Mots qui ne sont clairement pas des noms de personnes/entreprises
+INVALID_NAMES = {
+    "dude", "test", "toto", "xxx", "aaa", "bbb", "lol", "ok", "oui",
+    "non", "salut", "bonjour", "hey", "yo", "sup", "coucou",
+}
+
 
 def _validate_name(text: str) -> bool:
     """Verifie que le texte ressemble a un nom (lettres, espaces, tirets, min 2 caracteres)."""
@@ -250,7 +266,21 @@ def _validate_name(text: str) -> bool:
     letter_count = sum(1 for c in cleaned if c.isalpha())
     if letter_count < 2:
         return False
-    if cleaned.lower() in COMMAND_WORDS:
+    if cleaned.lower() in INVALID_NAMES:
+        return False
+    return True
+
+
+def _validate_company_name(text: str) -> bool:
+    """Verifie que le texte ressemble a un nom d'entreprise valide."""
+    cleaned = text.strip()
+    if len(cleaned) < 2:
+        return False
+    # Rejeter les mots uniques trop courts ou clairement faux
+    if cleaned.lower() in INVALID_NAMES:
+        return False
+    # Un seul mot de moins de 3 lettres -> suspect
+    if len(cleaned.split()) == 1 and len(cleaned) < 3:
         return False
     return True
 
@@ -299,10 +329,45 @@ async def _ai_parse_choices(text: str, category: str, valid_map: dict) -> list:
     return []
 
 
+async def _ai_validate_input(text: str, field: str, context: str) -> dict:
+    """Utilise l'IA pour valider et extraire une valeur d'un champ.
+
+    Retourne {"valid": True, "value": "valeur extraite"} ou {"valid": False, "reason": "explication"}.
+    """
+    prompt = (
+        f"L'utilisateur repond a la question '{field}' avec : \"{text}\"\n\n"
+        f"Contexte : {context}\n\n"
+        f"Analyse cette reponse :\n"
+        f"1. Est-ce une reponse valide pour ce champ ?\n"
+        f"2. Si oui, extrais la valeur nettoyee\n"
+        f"3. Si non, explique pourquoi brievement\n\n"
+        f"Reponds dans ce format EXACT (une seule ligne) :\n"
+        f"VALIDE: [valeur extraite]\n"
+        f"ou\n"
+        f"INVALIDE: [raison courte]"
+    )
+    system = "Tu valides des entrees utilisateur. Reponds uniquement VALIDE: ou INVALIDE: suivi du contenu."
+
+    try:
+        result = await claude.chat(prompt, is_premium=False)
+        result = result.strip()
+        if result.upper().startswith("VALIDE:"):
+            value = result[7:].strip().strip('"').strip("'")
+            return {"valid": True, "value": value}
+        elif result.upper().startswith("INVALIDE:"):
+            reason = result[9:].strip()
+            return {"valid": False, "reason": reason}
+    except Exception:
+        pass
+
+    # Fallback : accepter si validation de base OK
+    return {"valid": True, "value": text.strip()}
+
+
 async def _handle_registration_flow(user: User, body: str, db: AsyncSession) -> str:
-    """Gere le flux d'inscription pas a pas avec validation."""
+    """Gere le flux d'inscription pas a pas avec validation IA."""
     state = user.conversation_state
-    data = user.conversation_data or {}
+    data = dict(user.conversation_data or {})  # COPIE pour forcer la detection de changement
     text = body.strip()
 
     # Commande d'annulation
@@ -312,42 +377,36 @@ async def _handle_registration_flow(user: User, body: str, db: AsyncSession) -> 
         return "Inscription annulee.\nTapez *Menu* pour revenir au menu principal."
 
     if state == "inscription_nom":
-        # L'IA peut aider a extraire un vrai nom d'une phrase
-        name_candidate = text.strip()
+        # Validation IA du nom
+        validation = await _ai_validate_input(
+            text,
+            "nom complet (prenom et nom)",
+            "L'utilisateur s'inscrit sur Tendo. On lui demande son prenom et nom de famille. "
+            "Un mot unique n'est pas un nom complet. Des mots comme 'dude', 'test', 'ok' ne sont pas des noms."
+        )
 
-        # Si l'utilisateur ecrit une phrase ("Je m'appelle Jean Dupont"), extraire le nom
-        if len(text.split()) > 3 or not _validate_name(text):
-            try:
-                ai_result = await claude.chat(
-                    f"L'utilisateur repond a 'Quel est votre nom complet ?' avec : \"{text}\"\n"
-                    "Extrais uniquement le prenom et le nom. "
-                    "Reponds UNIQUEMENT avec le nom, rien d'autre. "
-                    "Si ce n'est pas un nom valide, reponds : INVALIDE",
-                    is_premium=False,
-                )
-                ai_result = ai_result.strip().strip('"').strip("'")
-                if ai_result and ai_result.upper() != "INVALIDE" and _validate_name(ai_result):
-                    name_candidate = ai_result
-                elif not _validate_name(name_candidate):
-                    return (
-                        "Je n'ai pas pu identifier votre nom.\n"
-                        "Veuillez entrer votre prenom et nom.\n\n"
-                        "Exemple : Jean Dupont\n\n"
-                        "Tapez *Annuler* pour quitter l'inscription."
-                    )
-            except Exception:
-                if not _validate_name(name_candidate):
-                    return (
-                        "Veuillez entrer votre prenom et nom (minimum 2 caracteres).\n\n"
-                        "Exemple : Jean Dupont\n\n"
-                        "Tapez *Annuler* pour quitter l'inscription."
-                    )
+        if not validation["valid"]:
+            return (
+                f"Ce nom ne semble pas valide : {validation.get('reason', '')}\n\n"
+                "Veuillez entrer votre prenom et nom de famille.\n"
+                "Exemple : Jean Dupont\n\n"
+                "Tapez *Annuler* pour quitter l'inscription."
+            )
 
-        data["name"] = name_candidate.title()
+        name = validation["value"].title()
+        if not _validate_name(name):
+            return (
+                "Veuillez entrer votre prenom et nom (minimum 2 caracteres).\n"
+                "Exemple : Jean Dupont\n\n"
+                "Tapez *Annuler* pour quitter l'inscription."
+            )
+
+        data["name"] = name
         user.conversation_data = data
+        flag_modified(user, "conversation_data")
         user.conversation_state = "inscription_entreprise"
         return (
-            "Nom enregistre : " + data["name"] + "\n\n"
+            f"Nom enregistre : {data['name']}\n\n"
             "Quel est le nom de votre entreprise ?\n"
             "Tapez *Passer* si vous etes un particulier ou freelancer."
         )
@@ -357,34 +416,39 @@ async def _handle_registration_flow(user: User, body: str, db: AsyncSession) -> 
         msg_lower = text.lower().strip()
 
         # Detecter si l'utilisateur veut passer (meme en phrase)
-        is_skip = msg_lower in skip_words or any(w in msg_lower for w in ("freelance", "particulier", "independant", "pas d'entreprise", "je n'ai pas"))
+        is_skip = msg_lower in skip_words or any(
+            w in msg_lower for w in ("freelance", "particulier", "independant", "pas d'entreprise", "je n'ai pas")
+        )
 
         if not is_skip:
-            # Extraire le nom d'entreprise d'une phrase si necessaire
-            company = text.strip()
-            if len(text.split()) > 4:
-                try:
-                    ai_result = await claude.chat(
-                        f"L'utilisateur repond a 'Nom de votre entreprise ?' avec : \"{text}\"\n"
-                        "Extrais uniquement le nom de l'entreprise. "
-                        "Reponds UNIQUEMENT avec le nom, rien d'autre. "
-                        "Si c'est un freelancer/independant/particulier, reponds : PASSER",
-                        is_premium=False,
+            # Valider le nom d'entreprise via l'IA
+            validation = await _ai_validate_input(
+                text,
+                "nom d'entreprise",
+                "L'utilisateur donne le nom de son entreprise. "
+                "Accepter les acronymes (BTP SARL, COGEB), les noms complets, les SARL/SA/SUARL. "
+                "Rejeter les mots seuls absurdes (dude, test, lol, ok). "
+                "Si l'utilisateur dit qu'il est freelance/independant/particulier, repondre INVALIDE: PASSER."
+            )
+
+            if not validation["valid"]:
+                if "PASSER" in validation.get("reason", "").upper():
+                    is_skip = True
+                else:
+                    return (
+                        f"Ce nom d'entreprise ne semble pas valide.\n"
+                        f"{validation.get('reason', '')}\n\n"
+                        "Entrez le nom de votre entreprise ou tapez *Passer* si vous etes un particulier."
                     )
-                    ai_result = ai_result.strip().strip('"').strip("'")
-                    if ai_result.upper() == "PASSER":
-                        is_skip = True
-                    elif len(ai_result) >= 2:
-                        company = ai_result
-                except Exception:
-                    pass
 
             if not is_skip:
-                if len(company) < 2:
+                company = validation.get("value", text.strip())
+                if not _validate_company_name(company):
                     return "Veuillez entrer un nom d'entreprise valide ou tapez *Passer*."
                 data["company"] = company
 
         user.conversation_data = data
+        flag_modified(user, "conversation_data")
         user.conversation_state = "inscription_secteurs"
         return (
             "SECTEURS D'INTERET\n\n"
@@ -413,6 +477,7 @@ async def _handle_registration_flow(user: User, body: str, db: AsyncSession) -> 
             )
         data["sectors"] = selected
         user.conversation_data = data
+        flag_modified(user, "conversation_data")
         user.conversation_state = "inscription_regions"
         return (
             "Secteurs enregistres : " + ", ".join(selected) + "\n\n"
@@ -439,6 +504,7 @@ async def _handle_registration_flow(user: User, body: str, db: AsyncSession) -> 
             )
         data["regions"] = selected
         user.conversation_data = data
+        flag_modified(user, "conversation_data")
         user.conversation_state = "inscription_sources"
         return (
             "Regions enregistrees : " + ", ".join(selected) + "\n\n"

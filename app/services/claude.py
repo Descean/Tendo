@@ -350,9 +350,14 @@ async def detect_intent(message: str) -> dict:
 
 
 def _simple_intent_detection(message: str) -> str:
-    """Detection d'intention par mots-cles pour les commandes explicites."""
+    """Detection d'intention par mots-cles.
+
+    Detecte les commandes dans les phrases completes, pas seulement les mots exacts.
+    Exemple: "Je veux payer" -> PAIEMENT, "Souscrire au plan essentiel" -> PAIEMENT.
+    """
     msg = message.lower().strip()
 
+    # Commandes numeriques du menu (match exact uniquement)
     if msg in ("1", "01"):
         return "INSCRIPTION"
     if msg in ("2", "02"):
@@ -364,20 +369,44 @@ def _simple_intent_detection(message: str) -> str:
     if msg in ("5", "05"):
         return "SUPPORT"
 
+    # Navigation
     if msg in ("menu", "aide", "help", "accueil", "start"):
         return "MENU"
-    if any(w in msg for w in ("inscription", "inscrire", "register", "profil", "preferences")):
-        return "INSCRIPTION"
-    if any(w in msg for w in ("abonnement", "plans", "plan", "tarif", "tarifs", "prix", "nos offres")):
-        return "ABONNEMENT"
-    if any(w in msg for w in ("historique", "alertes", "notifications", "mes alertes")):
-        return "HISTORIQUE"
-    if any(w in msg for w in ("paiement", "payer", "souscrire", "premium", "essentiel", "upgrade")):
-        return "PAIEMENT"
-    if any(w in msg for w in ("support", "aide humaine", "agent", "probleme", "reclamation")):
-        return "SUPPORT"
-    if "/demander_dossier" in msg or "demander le dossier" in msg:
+
+    # Demande de dossier (priorite haute)
+    if "/demander_dossier" in msg or "demander le dossier" in msg or "demander un dossier" in msg:
         return "DEMANDE_DOSSIER"
+
+    # Paiement (avant inscription car "souscrire" pourrait etre confondu)
+    # Detecte: "je veux payer", "souscrire au plan essentiel", "lien de paiement", etc.
+    paiement_words = ("paiement", "payer", "souscrire", "premium", "essentiel",
+                      "upgrade", "lien de paiement", "mobile money", "5000", "15000",
+                      "5 000", "15 000", "faire pour")
+    if any(w in msg for w in paiement_words):
+        return "PAIEMENT"
+
+    # Inscription (mais pas si deja dans un contexte de paiement)
+    if any(w in msg for w in ("inscription", "inscrire", "register", "m'inscrire")):
+        # Si le message parle de "je viens de m'inscrire" -> c'est une QUESTION, pas une commande
+        if any(w in msg for w in ("viens de", "deja inscrit", "deja fait")):
+            return "QUESTION"
+        return "INSCRIPTION"
+
+    # Preferences / profil
+    if any(w in msg for w in ("profil", "preferences", "modifier mes", "changer mes")):
+        return "INSCRIPTION"
+
+    # Abonnement / plans
+    if any(w in msg for w in ("abonnement", "plans", "plan", "tarif", "tarifs", "prix", "nos offres", "formules")):
+        return "ABONNEMENT"
+
+    # Historique
+    if any(w in msg for w in ("historique", "alertes", "notifications", "mes alertes", "dernieres alertes")):
+        return "HISTORIQUE"
+
+    # Support
+    if any(w in msg for w in ("support", "aide humaine", "agent", "probleme", "reclamation", "contacter")):
+        return "SUPPORT"
 
     return "QUESTION"
 
