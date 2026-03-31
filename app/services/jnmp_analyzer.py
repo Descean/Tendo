@@ -129,16 +129,32 @@ PATTERNS: Dict[str, re.Pattern] = {
 # Extraction de texte via pypdf (page par page)
 # ─────────────────────────────────────────────────────────────────────────────
 
-async def _download_pdf(url: str) -> Optional[bytes]:
-    """Telecharge un PDF depuis son URL."""
-    try:
-        async with httpx.AsyncClient(timeout=60, follow_redirects=True) as client:
-            resp = await client.get(url, headers={"User-Agent": "Mozilla/5.0"})
-            if resp.status_code == 200:
-                return resp.content
-            logger.warning(f"[JNMPAnalyzer] HTTP {resp.status_code} pour {url}")
-    except Exception as e:
-        logger.error(f"[JNMPAnalyzer] Erreur download {url}: {e}")
+async def _download_pdf(url: str, retries: int = 3) -> Optional[bytes]:
+    """Telecharge un PDF depuis son URL avec retry et fallback IPv4."""
+    import socket
+
+    for attempt in range(retries):
+        try:
+            transport = httpx.AsyncHTTPTransport(
+                retries=2,
+                local_address="0.0.0.0",  # Force IPv4
+            )
+            async with httpx.AsyncClient(
+                timeout=90,
+                follow_redirects=True,
+                transport=transport,
+            ) as client:
+                resp = await client.get(url, headers={
+                    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) Gecko/20100101 Firefox/120.0"
+                })
+                if resp.status_code == 200:
+                    return resp.content
+                logger.warning(f"[JNMPAnalyzer] HTTP {resp.status_code} pour {url}")
+        except Exception as e:
+            logger.warning(f"[JNMPAnalyzer] Download tentative {attempt+1}/{retries}: {e}")
+            if attempt < retries - 1:
+                await asyncio.sleep(5)
+    logger.error(f"[JNMPAnalyzer] Echec download apres {retries} tentatives: {url}")
     return None
 
 
@@ -519,13 +535,15 @@ async def process_jnmp_journals(db) -> int:
     from app.models.publication import Publication
     import re as _re
 
-    # Selectionner les journaux non traites
+    # Selectionner les journaux non traites (exclure les sous-documents JNMP-*)
     result = await db.execute(
         select(Publication).where(
             and_(
                 Publication.source == "JNMP",
                 Publication.pdf_url.is_not(None),
                 Publication.is_processed == False,
+                ~Publication.reference.like("JNMP-%"),  # Exclure sous-documents
+                Publication.title.like("Journal National%"),  # Seulement les journaux parent
             )
         ).limit(5)  # Traiter 5 a la fois pour ne pas saturer
     )

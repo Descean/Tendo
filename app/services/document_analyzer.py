@@ -304,18 +304,33 @@ def check_relevance_for_user(
 # ── Methodes d'extraction privees ──────────────────────────────────
 
 
-async def _download_file(url: str) -> Optional[bytes]:
-    """Telecharge un fichier depuis une URL."""
-    try:
-        async with httpx.AsyncClient(timeout=60, follow_redirects=True) as client:
-            response = await client.get(url)
-            if response.status_code == 200:
-                return response.content
-            logger.error(f"[DocAnalyzer] Download echoue: HTTP {response.status_code}")
-            return None
-    except Exception as e:
-        logger.error(f"[DocAnalyzer] Erreur download: {e}")
-        return None
+async def _download_file(url: str, retries: int = 3) -> Optional[bytes]:
+    """Telecharge un fichier depuis une URL avec retry et fallback IPv4."""
+    for attempt in range(retries):
+        try:
+            transport = httpx.AsyncHTTPTransport(
+                retries=2,
+                local_address="0.0.0.0",  # Force IPv4
+            )
+            async with httpx.AsyncClient(
+                timeout=90,
+                follow_redirects=True,
+                transport=transport,
+            ) as client:
+                response = await client.get(url, headers={
+                    "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) Gecko/20100101 Firefox/120.0"
+                })
+                if response.status_code == 200:
+                    return response.content
+                logger.error(f"[DocAnalyzer] Download echoue: HTTP {response.status_code}")
+                return None
+        except Exception as e:
+            logger.warning(f"[DocAnalyzer] Download tentative {attempt+1}/{retries}: {e}")
+            if attempt < retries - 1:
+                import asyncio
+                await asyncio.sleep(3)
+    logger.error(f"[DocAnalyzer] Echec download apres {retries} tentatives: {url}")
+    return None
 
 
 async def _extract_with_pypdf(pdf_bytes: bytes, max_pages: int) -> Tuple[Optional[str], int]:

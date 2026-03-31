@@ -6,9 +6,33 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 import requests
+from requests.adapters import HTTPAdapter
 from bs4 import BeautifulSoup
 
 from app.utils.logger import logger
+
+
+class IPv4Adapter(HTTPAdapter):
+    """Force les connexions en IPv4 pour eviter les problemes IPv6 sur Contabo."""
+
+    def init_poolmanager(self, *args, **kwargs):
+        import urllib3
+        kwargs["socket_options"] = urllib3.connection.HTTPConnection.default_socket_options
+        super().init_poolmanager(*args, **kwargs)
+
+    def send(self, request, *args, **kwargs):
+        import socket
+        # Monkey-patch temporaire pour forcer IPv4
+        old_getaddrinfo = socket.getaddrinfo
+
+        def ipv4_getaddrinfo(host, port, family=0, *a, **kw):
+            return old_getaddrinfo(host, port, socket.AF_INET, *a, **kw)
+
+        socket.getaddrinfo = ipv4_getaddrinfo
+        try:
+            return super().send(request, *args, **kwargs)
+        finally:
+            socket.getaddrinfo = old_getaddrinfo
 
 
 class BaseScraper(abc.ABC):
@@ -20,8 +44,10 @@ class BaseScraper(abc.ABC):
 
     def __init__(self):
         self.session = requests.Session()
+        self.session.mount("https://", IPv4Adapter(max_retries=3))
+        self.session.mount("http://", IPv4Adapter(max_retries=3))
         self.session.headers.update({
-            "User-Agent": "Tendo/1.0 (Assistant Marchés Publics; +https://shiftup.bj)",
+            "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) Gecko/20100101 Firefox/120.0",
             "Accept-Language": "fr-FR,fr;q=0.9",
         })
 
