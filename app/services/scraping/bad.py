@@ -86,6 +86,9 @@ class BADScraper(BaseScraper):
                 "regions": ["Benin"],
                 "authority_name": "Banque Africaine de Developpement (BAD)",
                 "authority_email": None,
+                "document_type": "AAO",
+                "financing_source": "BAD",
+                "country": "Benin",
             })
 
         return publications
@@ -133,6 +136,9 @@ class BADScraper(BaseScraper):
                 "regions": ["Benin"],
                 "authority_name": "Banque Africaine de Developpement (BAD)",
                 "authority_email": None,
+                "document_type": "AAO",
+                "financing_source": "BAD",
+                "country": "Benin",
             })
 
         return publications

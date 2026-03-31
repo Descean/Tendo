@@ -94,6 +94,9 @@ class AFDScraper(BaseScraper):
                 "regions": self._detect_regions(country),
                 "authority_name": "Agence Francaise de Developpement (AFD)",
                 "authority_email": None,
+                "document_type": "AAO",
+                "financing_source": "AFD",
+                "country": country if "benin" in country.lower() else "Benin",
             })
 
         return publications
@@ -141,6 +144,9 @@ class AFDScraper(BaseScraper):
                     "regions": ["Benin", "CEDEAO"],
                     "authority_name": "Agence Francaise de Developpement (AFD)",
                     "authority_email": None,
+                    "document_type": "AMI",
+                    "financing_source": "AFD",
+                    "country": "Benin",
                 })
 
         except Exception as e:

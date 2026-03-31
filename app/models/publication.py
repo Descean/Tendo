@@ -28,6 +28,21 @@ class Publication(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     is_processed: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # Classification fine du document
+    document_type: Mapped[Optional[str]] = mapped_column(
+        String(100), nullable=True, index=True
+    )  # AAO, DAO, PV_ATTRIBUTION, PV_OUVERTURE, DECISION_ARMP, AMI, RFQ, RFP, PPM, ADDITIF
+
+    # Source de financement
+    financing_source: Mapped[Optional[str]] = mapped_column(
+        String(100), nullable=True
+    )  # BN, BM, BAD, UE, AFD, GIZ, UNGM, etc.
+
+    # Pays (pour l'expansion regionale)
+    country: Mapped[Optional[str]] = mapped_column(
+        String(100), nullable=True, default="Bénin"
+    )
+
     # Adresse email de l'autorité contractante (pour demande de dossier)
     authority_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     authority_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)

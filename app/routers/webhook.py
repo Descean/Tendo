@@ -24,6 +24,11 @@ from app.services.whatsapp import (
 )
 from app.services.payment import create_payment_link
 from app.services.email_manager import send_dossier_request
+from app.services.document_analyzer import (
+    extract_pdf_text, extract_image_text, download_whatsapp_media,
+    analyze_document_full, check_relevance_for_user,
+)
+from app.services.document_classifier import classify_document, classify_with_ai
 
 router = APIRouter(prefix="/webhook", tags=["Webhook"])
 
@@ -124,6 +129,25 @@ async def _handle_meta_webhook(request: Request, db: AsyncSession):
                     elif interactive.get("type") == "list_reply":
                         text = interactive["list_reply"]["id"]
                         await _process_message(f"+{from_number}", text, db)
+                elif msg_type == "document":
+                    # Document envoye (PDF, Word, etc.)
+                    doc_info = msg.get("document", {})
+                    media_id = doc_info.get("id", "")
+                    filename = doc_info.get("filename", "document")
+                    mime = doc_info.get("mime_type", "")
+                    caption = doc_info.get("caption", "")
+                    await _process_document(
+                        f"+{from_number}", media_id, filename, mime, caption, db
+                    )
+                elif msg_type == "image":
+                    # Image envoyee (photo d'un document)
+                    img_info = msg.get("image", {})
+                    media_id = img_info.get("id", "")
+                    mime = img_info.get("mime_type", "image/jpeg")
+                    caption = img_info.get("caption", "")
+                    await _process_image(
+                        f"+{from_number}", media_id, mime, caption, db
+                    )
 
     return {"status": "ok"}
 
@@ -1033,4 +1057,223 @@ async def _handle_document_analysis(body: str, user: User, db: AsyncSession) -> 
             f"{'Date limite : ' + pub.deadline.strftime('%d/%m/%Y') if pub.deadline else ''}\n\n"
             f"{pub.summary or 'Pas de resume disponible.'}\n\n"
             f"{'Document : ' + pub.pdf_url if pub.pdf_url else ''}"
+        )
+
+
+# ================================================
+#  TRAITEMENT DES DOCUMENTS ET IMAGES WHATSAPP
+# ================================================
+
+async def _process_document(
+    from_number: str,
+    media_id: str,
+    filename: str,
+    mime_type: str,
+    caption: str,
+    db: AsyncSession,
+):
+    """Traite un document envoye via WhatsApp (PDF, Word, etc.)."""
+    from app.models.document_analysis import DocumentAnalysis
+
+    logger.info(f"[Webhook] Document recu de {from_number}: {filename} ({mime_type})")
+
+    # Recuperer l'utilisateur
+    result = await db.execute(select(User).where(User.phone_number == from_number))
+    user = result.scalar_one_or_none()
+    if not user:
+        await whatsapp.send_message(from_number, "Veuillez d'abord vous inscrire. Tapez *Menu*.")
+        return
+
+    # Informer l'utilisateur que l'analyse est en cours
+    await whatsapp.send_message(
+        from_number,
+        f"Document recu : *{filename}*\n\nAnalyse en cours, patientez quelques secondes..."
+    )
+
+    try:
+        # 1. Telecharger le media depuis WhatsApp
+        file_bytes = await download_whatsapp_media(media_id)
+        if not file_bytes:
+            await whatsapp.send_message(
+                from_number,
+                "Erreur lors du telechargement du document. Veuillez reessayer."
+            )
+            return
+
+        # 2. Extraire le texte
+        if "pdf" in mime_type.lower() or filename.lower().endswith(".pdf"):
+            text, method, page_count = await extract_pdf_text(pdf_bytes=file_bytes)
+        else:
+            # Pour les autres formats, essayer quand meme
+            text, method, page_count = await extract_pdf_text(pdf_bytes=file_bytes)
+
+        if not text or len(text.strip()) < 50:
+            await whatsapp.send_message(
+                from_number,
+                "Je n'ai pas pu extraire suffisamment de texte de ce document.\n\n"
+                "Assurez-vous que le fichier est un PDF lisible (non corrompu).\n"
+                "Si c'est un document scanne, essayez d'envoyer une photo plus nette."
+            )
+            return
+
+        # 3. Classifier le document
+        classification = classify_document(text)
+
+        # Si confiance faible, enrichir avec l'IA
+        if classification["confidence"] < 0.5:
+            classification = await classify_with_ai(text, classification)
+
+        # 4. Sauvegarder l'analyse en BDD
+        doc_analysis = DocumentAnalysis(
+            source_type="whatsapp",
+            original_filename=filename,
+            extracted_text=text[:50000],  # Limiter la taille
+            extraction_method=method,
+            page_count=page_count,
+            char_count=len(text),
+            document_type=classification["document_type"],
+            document_subtype=classification.get("document_subtype"),
+            classification_confidence=classification["confidence"],
+            detected_sectors=classification.get("sectors", []),
+            detected_regions=classification.get("regions", []),
+            detected_country=classification.get("country"),
+            is_analyzed=True,
+        )
+        db.add(doc_analysis)
+        await db.flush()
+
+        # 5. Analyser avec l'IA
+        analysis = await analyze_document_full(
+            text=text,
+            classification=classification,
+            user_sectors=user.sectors or [],
+            user_regions=user.regions or [],
+            user_question=caption,
+        )
+
+        # 6. Sauvegarder le resume IA
+        doc_analysis.ai_summary = analysis[:2000]
+        await db.commit()
+
+        # 7. Verifier la pertinence pour l'utilisateur
+        relevance = check_relevance_for_user(
+            classification, user.sectors or [], user.regions or [],
+        )
+
+        # 8. Construire la reponse
+        header = (
+            f"ANALYSE DE DOCUMENT\n"
+            f"Type : *{classification.get('label', 'Non classifie')}*\n"
+            f"Confiance : {int(classification['confidence'] * 100)}%\n"
+        )
+        if relevance["is_relevant"]:
+            header += f"Pertinence : Ce document vous concerne ({relevance['reason']})\n"
+
+        header += "\n"
+        full_reply = header + analysis
+
+        # Envoyer (decouper si trop long pour WhatsApp — max ~4096 chars)
+        if len(full_reply) > 4000:
+            await whatsapp.send_message(from_number, full_reply[:4000])
+            await whatsapp.send_message(from_number, "...(suite)\n\n" + full_reply[4000:8000])
+        else:
+            await whatsapp.send_message(from_number, full_reply)
+
+    except Exception as e:
+        logger.error(f"[Webhook] Erreur traitement document: {e}")
+        await whatsapp.send_message(
+            from_number,
+            "Une erreur est survenue lors de l'analyse du document.\n"
+            "Veuillez reessayer ou contacter le support."
+        )
+
+
+async def _process_image(
+    from_number: str,
+    media_id: str,
+    mime_type: str,
+    caption: str,
+    db: AsyncSession,
+):
+    """Traite une image envoyee via WhatsApp (photo d'un document)."""
+    from app.models.document_analysis import DocumentAnalysis
+
+    logger.info(f"[Webhook] Image recue de {from_number} ({mime_type})")
+
+    result = await db.execute(select(User).where(User.phone_number == from_number))
+    user = result.scalar_one_or_none()
+    if not user:
+        await whatsapp.send_message(from_number, "Veuillez d'abord vous inscrire. Tapez *Menu*.")
+        return
+
+    await whatsapp.send_message(
+        from_number,
+        "Image recue. Extraction du texte en cours..."
+    )
+
+    try:
+        # 1. Telecharger l'image
+        image_bytes = await download_whatsapp_media(media_id)
+        if not image_bytes:
+            await whatsapp.send_message(from_number, "Erreur de telechargement. Reessayez.")
+            return
+
+        # 2. Extraire le texte de l'image
+        text = await extract_image_text(image_bytes, mime_type)
+        if not text or len(text.strip()) < 20:
+            await whatsapp.send_message(
+                from_number,
+                "Je n'ai pas pu lire le texte de cette image.\n\n"
+                "Conseils :\n"
+                "- Prenez la photo bien a plat\n"
+                "- Assurez un bon eclairage\n"
+                "- Evitez les reflets\n"
+                "- Envoyez plutot le fichier PDF si disponible"
+            )
+            return
+
+        # 3. Classifier
+        classification = classify_document(text)
+
+        # 4. Sauvegarder
+        doc_analysis = DocumentAnalysis(
+            source_type="whatsapp",
+            original_filename="photo_document.jpg",
+            extracted_text=text[:50000],
+            extraction_method="gemini_vision",
+            char_count=len(text),
+            document_type=classification["document_type"],
+            document_subtype=classification.get("document_subtype"),
+            classification_confidence=classification["confidence"],
+            detected_sectors=classification.get("sectors", []),
+            detected_regions=classification.get("regions", []),
+            detected_country=classification.get("country"),
+            is_analyzed=True,
+        )
+        db.add(doc_analysis)
+
+        # 5. Analyser
+        analysis = await analyze_document_full(
+            text=text,
+            classification=classification,
+            user_sectors=user.sectors or [],
+            user_regions=user.regions or [],
+            user_question=caption,
+        )
+
+        doc_analysis.ai_summary = analysis[:2000]
+        await db.commit()
+
+        # 6. Repondre
+        header = (
+            f"ANALYSE D'IMAGE\n"
+            f"Type detecte : *{classification.get('label', 'Non classifie')}*\n\n"
+        )
+        await whatsapp.send_message(from_number, header + analysis)
+
+    except Exception as e:
+        logger.error(f"[Webhook] Erreur traitement image: {e}")
+        await whatsapp.send_message(
+            from_number,
+            "Erreur lors de l'analyse de l'image. Reessayez."
         )

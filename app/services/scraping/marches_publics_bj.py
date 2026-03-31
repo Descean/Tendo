@@ -62,6 +62,9 @@ class MarchesPublicsBJScraper(BaseScraper):
                     "published_date": "",
                     "authority_email": None,
                     "authority_name": None,
+                    "document_type": "AAO",
+                    "financing_source": None,
+                    "country": "Benin",
                 }
                 publications.append(pub)
 

@@ -40,3 +40,9 @@ htmlcov/
 
 # Claude Code
 .claude/
+
+# Archive (old temp/deploy scripts)
+_archive/
+
+# Tendo Knowledge Base
+Tendo Knowledge Base.pdf

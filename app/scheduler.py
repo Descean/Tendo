@@ -14,6 +14,9 @@ from app.config import settings
 from app.utils.logger import logger
 from app.utils.db import AsyncSessionLocal
 
+# Import timedelta au top level (manquait pour job_send_expiration_reminders)
+from datetime import timedelta
+
 
 scheduler = AsyncIOScheduler()
 
@@ -61,6 +64,9 @@ async def job_run_scrapers():
                         published_date=published_date,
                         authority_email=pub_data.get("authority_email") or None,
                         authority_name=pub_data.get("authority_name") or None,
+                        document_type=pub_data.get("document_type") or None,
+                        financing_source=pub_data.get("financing_source") or None,
+                        country=pub_data.get("country", "Bénin"),
                     )
                     db.add(publication)
                     total_new += 1
@@ -257,6 +263,100 @@ async def job_send_expiration_reminders():
     logger.info(f"[Scheduler] {sent} rappels d'expiration envoyes")
 
 
+async def job_check_email_responses():
+    """Verifie les reponses email aux demandes de dossiers et notifie les utilisateurs."""
+    from sqlalchemy import select
+    from app.models.notification import Notification
+    from app.models.publication import Publication
+    from app.models.user import User
+    from app.services.email_manager import check_inbox_for_responses
+    from app.services.whatsapp import send_message
+
+    logger.info("[Scheduler] Verification inbox email...")
+
+    async with AsyncSessionLocal() as db:
+        try:
+            # Recuperer les demandes de dossier recentes (derniers 7 jours)
+            week_ago = datetime.now(timezone.utc) - timedelta(days=7)
+            result = await db.execute(
+                select(Notification).where(
+                    Notification.sent_at >= week_ago
+                ).limit(50)
+            )
+            notifications = result.scalars().all()
+
+            if not notifications:
+                logger.info("[Scheduler] Aucune demande recente a verifier")
+                return
+
+            # Construire les sujets a chercher
+            pub_ids = [n.publication_id for n in notifications if n.publication_id]
+            if not pub_ids:
+                return
+
+            result = await db.execute(
+                select(Publication).where(Publication.id.in_(pub_ids))
+            )
+            publications = {p.id: p for p in result.scalars().all()}
+
+            subjects = []
+            for notif in notifications:
+                pub = publications.get(notif.publication_id)
+                if pub:
+                    subjects.append(pub.reference)
+
+            if not subjects:
+                return
+
+            # Verifier les reponses (3 derniers jours)
+            since = (datetime.now(timezone.utc) - timedelta(days=3)).strftime("%d-%b-%Y")
+            responses = await check_inbox_for_responses(subjects, since_date=since)
+
+            for resp in responses:
+                # Trouver l'utilisateur concerne
+                matched_ref = resp.get("matched_subject", "")
+                for notif in notifications:
+                    pub = publications.get(notif.publication_id)
+                    if pub and pub.reference == matched_ref:
+                        # Recuperer l'utilisateur
+                        user_result = await db.execute(
+                            select(User).where(User.id == notif.user_id)
+                        )
+                        user = user_result.scalar_one_or_none()
+                        if user:
+                            try:
+                                msg = (
+                                    f"*REPONSE DOSSIER RECUE*\n\n"
+                                    f"Reference: {matched_ref}\n"
+                                    f"De: {resp.get('from', 'Inconnu')}\n\n"
+                                    f"{resp.get('body', '')[:500]}\n\n"
+                                    f"Consultez votre email pour le dossier complet."
+                                )
+                                await send_message(user.phone_number, msg)
+                                await asyncio.sleep(3)
+                            except Exception as e:
+                                logger.error(f"[Scheduler] Erreur notif email user={user.id}: {e}")
+                        break
+
+            logger.info(f"[Scheduler] {len(responses)} reponses email trouvees")
+
+        except Exception as e:
+            logger.error(f"[Scheduler] Erreur check email: {e}")
+
+
+async def job_process_jnmp_journals():
+    """Segmente les journaux JNMP en documents individuels."""
+    from app.services.jnmp_analyzer import process_jnmp_journals
+
+    logger.info("[Scheduler] Traitement journaux JNMP...")
+    async with AsyncSessionLocal() as db:
+        try:
+            count = await process_jnmp_journals(db)
+            logger.info(f"[Scheduler] JNMP: {count} documents crees")
+        except Exception as e:
+            logger.error(f"[Scheduler] Erreur JNMP: {e}")
+
+
 async def job_daily_report():
     """Envoie un rapport quotidien aux administrateurs."""
     from sqlalchemy import select, func
@@ -359,6 +459,41 @@ def setup_scheduler():
         CronTrigger(hour="20", minute="0"),
         id="daily_report",
         name="Rapport quotidien",
+        replace_existing=True,
+    )
+
+    # Surveillance inbox email — chaque jour a 10h et 16h
+    scheduler.add_job(
+        job_check_email_responses,
+        CronTrigger(hour="10,16", minute="0"),
+        id="email_check",
+        name="Verification inbox email",
+        replace_existing=True,
+    )
+
+    # Segmentation journaux JNMP -- 30 min apres le scraping, puis toutes les 12h
+    scheduler.add_job(
+        job_process_jnmp_journals,
+        CronTrigger(hour="6,18", minute="30"),
+        id="jnmp_processing",
+        name="Segmentation journaux JNMP",
+        replace_existing=True,
+    )
+
+    # Peuplement initial de la base de connaissances (une seule fois)
+    async def _seed_knowledge():
+        from app.services.knowledge_service import seed_initial_knowledge
+        async with AsyncSessionLocal() as db:
+            try:
+                await seed_initial_knowledge(db)
+            except Exception as e:
+                logger.error(f"[Scheduler] Erreur seed knowledge: {e}")
+
+    scheduler.add_job(
+        _seed_knowledge,
+        "date",  # Execute une seule fois au demarrage
+        id="seed_knowledge",
+        name="Seed Knowledge Base",
         replace_existing=True,
     )
 

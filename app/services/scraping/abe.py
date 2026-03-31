@@ -72,6 +72,9 @@ class ABEScraper(BaseScraper):
                 "published_date": date_text,
                 "authority_email": None,
                 "authority_name": "ABE Bénin",
+                "document_type": "AAO",
+                "financing_source": None,
+                "country": "Benin",
             }
         except Exception as e:
             logger.warning(f"[{self.name}] Erreur parsing: {e}")

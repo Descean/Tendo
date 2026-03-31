@@ -1,12 +1,18 @@
-"""Service email – envoi SMTP et surveillance IMAP des réponses."""
+"""Service email – envoi SMTP async et surveillance IMAP des reponses.
 
-import smtplib
+Utilise aiosmtplib (async) au lieu de smtplib (synchrone/bloquant).
+Pour IMAP, on utilise asyncio.to_thread() car aioimaplib est instable.
+"""
+
+import asyncio
 import imaplib
 import email as email_lib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import Optional, List
 from datetime import datetime, timezone
+
+import aiosmtplib
 
 from app.config import settings
 from app.utils.logger import logger
@@ -20,30 +26,30 @@ async def send_dossier_request(
     requester_company: Optional[str] = None,
     cc_email: Optional[str] = None,
 ) -> dict:
-    """Envoie un email de demande de dossier d'appel d'offres."""
+    """Envoie un email de demande de dossier d'appel d'offres (async)."""
     subject = f"Demande de dossier - {publication_reference} - {publication_title}"
 
     company_line = f"\nEntreprise : {requester_company}" if requester_company else ""
 
     body = f"""Madame, Monsieur,
 
-Par la présente, nous sollicitons l'obtention du dossier d'appel d'offres relatif à :
+Par la presente, nous sollicitons l'obtention du dossier d'appel d'offres relatif a :
 
-Référence : {publication_reference}
+Reference : {publication_reference}
 Objet : {publication_title}
 
 Demandeur : {requester_name}{company_line}
 
-Nous vous prions de bien vouloir nous transmettre le dossier complet de consultation à l'adresse email indiquée ci-dessus, ou de nous indiquer les modalités de retrait.
+Nous vous prions de bien vouloir nous transmettre le dossier complet de consultation a l'adresse email indiquee ci-dessus, ou de nous indiquer les modalites de retrait.
 
-Dans l'attente de votre retour, nous vous prions d'agréer, Madame, Monsieur, l'expression de nos salutations distinguées.
+Dans l'attente de votre retour, nous vous prions d'agreer, Madame, Monsieur, l'expression de nos salutations distinguees.
 
 {requester_name}
 ---
-Message envoyé automatiquement via Tendo - Assistant Marchés Publics"""
+Message envoye automatiquement via Tendo - Assistant Marches Publics"""
 
     msg = MIMEMultipart()
-    msg["From"] = settings.smtp_user
+    msg["From"] = f"Tendo <{settings.smtp_user}>"
     msg["To"] = authority_email
     msg["Subject"] = subject
     if cc_email:
@@ -52,15 +58,20 @@ Message envoyé automatiquement via Tendo - Assistant Marchés Publics"""
     msg.attach(MIMEText(body, "plain", "utf-8"))
 
     try:
-        with smtplib.SMTP(settings.smtp_server, settings.smtp_port) as server:
-            server.starttls()
-            server.login(settings.smtp_user, settings.smtp_password)
-            recipients = [authority_email]
-            if cc_email:
-                recipients.append(cc_email)
-            server.sendmail(settings.smtp_user, recipients, msg.as_string())
+        recipients = [authority_email]
+        if cc_email:
+            recipients.append(cc_email)
 
-        logger.info(f"Email envoyé à {authority_email} pour {publication_reference}")
+        await aiosmtplib.send(
+            msg,
+            hostname=settings.smtp_server,
+            port=settings.smtp_port,
+            username=settings.smtp_user,
+            password=settings.smtp_password,
+            start_tls=True,
+        )
+
+        logger.info(f"Email envoye a {authority_email} pour {publication_reference}")
         return {
             "success": True,
             "to": authority_email,
@@ -68,24 +79,40 @@ Message envoyé automatiquement via Tendo - Assistant Marchés Publics"""
             "sent_at": datetime.now(timezone.utc).isoformat(),
         }
     except Exception as e:
-        logger.error(f"Erreur envoi email à {authority_email}: {e}")
+        logger.error(f"Erreur envoi email a {authority_email}: {e}")
         return {"success": False, "error": str(e)}
 
 
-def check_inbox_for_responses(
+async def check_inbox_for_responses(
     subjects_to_match: List[str],
     since_date: Optional[str] = None,
 ) -> List[dict]:
-    """Vérifie la boîte de réception pour des réponses aux demandes de dossiers.
+    """Verifie la boite de reception pour des reponses aux demandes de dossiers.
+
+    Utilise asyncio.to_thread pour ne pas bloquer la boucle asyncio.
 
     Args:
-        subjects_to_match: Liste de sujets à rechercher (correspondance partielle).
+        subjects_to_match: Liste de sujets a rechercher (correspondance partielle).
         since_date: Date minimale au format "DD-Mon-YYYY" (ex: "01-Jan-2026").
 
     Returns:
-        Liste de dictionnaires avec les réponses trouvées.
+        Liste de dictionnaires avec les reponses trouvees.
     """
+    return await asyncio.to_thread(
+        _check_inbox_sync, subjects_to_match, since_date
+    )
+
+
+def _check_inbox_sync(
+    subjects_to_match: List[str],
+    since_date: Optional[str] = None,
+) -> List[dict]:
+    """Version synchrone de la verification IMAP (executee dans un thread)."""
     responses = []
+
+    if not settings.smtp_user or not settings.smtp_password:
+        logger.warning("[Email] SMTP credentials manquants, skip inbox check")
+        return responses
 
     try:
         mail = imaplib.IMAP4_SSL(settings.imap_server, settings.imap_port)
@@ -106,30 +133,30 @@ def check_inbox_for_responses(
             subject = _decode_header(msg["Subject"] or "")
             from_addr = _decode_header(msg["From"] or "")
 
-            # Vérifier si le sujet correspond à une de nos demandes
+            # Verifier si le sujet correspond a une de nos demandes
             for search_subject in subjects_to_match:
                 if search_subject.lower() in subject.lower():
                     body = _get_email_body(msg)
                     responses.append({
                         "from": from_addr,
                         "subject": subject,
-                        "body": body[:2000],  # Limiter la taille
+                        "body": body[:2000],
                         "date": msg["Date"],
                         "matched_subject": search_subject,
                     })
                     break
 
         mail.logout()
-        logger.info(f"Vérification inbox: {len(responses)} réponses trouvées")
+        logger.info(f"Verification inbox: {len(responses)} reponses trouvees")
 
     except Exception as e:
-        logger.error(f"Erreur vérification inbox: {e}")
+        logger.error(f"Erreur verification inbox: {e}")
 
     return responses
 
 
 def _decode_header(header: str) -> str:
-    """Décode un en-tête email."""
+    """Decode un en-tete email."""
     decoded_parts = email_lib.header.decode_header(header)
     result = []
     for part, charset in decoded_parts:

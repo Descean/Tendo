@@ -61,6 +61,7 @@ class ARMPScraper(BaseScraper):
                 continue
 
             reference = self.generate_reference(self.source, text, full_url)
+            doc_type = "DECISION_ARMP" if "decision" in category_path else "AAO"
             results.append({
                 "source": self.source,
                 "reference": reference,
@@ -76,6 +77,9 @@ class ARMPScraper(BaseScraper):
                 "published_date": "",
                 "authority_email": None,
                 "authority_name": "ARMP Bénin",
+                "document_type": doc_type,
+                "financing_source": None,
+                "country": "Benin",
             })
 
         # Méthode 2: Chercher les articles/posts WordPress classiques
@@ -110,6 +114,9 @@ class ARMPScraper(BaseScraper):
                     "published_date": "",
                     "authority_email": None,
                     "authority_name": "ARMP Bénin",
+                    "document_type": "AAO",
+                    "financing_source": None,
+                    "country": "Benin",
                 })
 
         return results

@@ -11,9 +11,15 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Dépendances système pour PostgreSQL (production)
+# Dependances systeme : PostgreSQL + OCR (Tesseract) + PDF-to-image (Poppler)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq5 && \
+    libpq5 \
+    tesseract-ocr \
+    tesseract-ocr-fra \
+    tesseract-ocr-eng \
+    poppler-utils \
+    libglib2.0-0 \
+    libgl1 && \
     rm -rf /var/lib/apt/lists/*
 
 # Copier les paquets Python depuis le builder

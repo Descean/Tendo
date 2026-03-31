@@ -38,6 +38,8 @@ def setup_admin(app):
     from app.models.subscription import Subscription
     from app.models.notification import Notification
     from app.models.email_tracking import EmailTracking
+    from app.models.knowledge_base import KnowledgeBase
+    from app.models.document_analysis import DocumentAnalysis
     from app.utils.db import async_engine
 
     # -- Definir les vues avec les modeles reels --
@@ -117,10 +119,39 @@ def setup_admin(app):
         base_url="/admin",
     )
 
+    class KnowledgeBaseAdmin(ModelView, model=KnowledgeBase):
+        column_list = [
+            "id", "category", "subcategory", "title",
+            "country", "language", "is_active", "created_at",
+        ]
+        column_searchable_list = ["title", "content", "category"]
+        column_sortable_list = ["id", "created_at", "category"]
+        column_default_sort = ("created_at", True)
+        name = "Connaissance"
+        name_plural = "Base de Connaissances"
+        icon = "fa-solid fa-book"
+        page_size = 25
+
+    class DocumentAnalysisAdmin(ModelView, model=DocumentAnalysis):
+        column_list = [
+            "id", "source_type", "document_type", "document_subtype",
+            "classification_confidence", "extraction_method",
+            "page_count", "is_analyzed", "created_at",
+        ]
+        column_searchable_list = ["document_type", "original_filename"]
+        column_sortable_list = ["id", "created_at", "document_type", "classification_confidence"]
+        column_default_sort = ("created_at", True)
+        name = "Analyse Document"
+        name_plural = "Analyses Documents"
+        icon = "fa-solid fa-magnifying-glass"
+        page_size = 25
+
     admin.add_view(UserAdmin)
     admin.add_view(PublicationAdmin)
     admin.add_view(SubscriptionAdmin)
     admin.add_view(NotificationAdmin)
     admin.add_view(EmailTrackingAdmin)
+    admin.add_view(KnowledgeBaseAdmin)
+    admin.add_view(DocumentAnalysisAdmin)
 
     return admin

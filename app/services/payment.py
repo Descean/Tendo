@@ -166,7 +166,7 @@ def verify_webhook_signature(payload: bytes, signature: str) -> bool:
         return False
 
     # Calculer le HMAC attendu
-    expected = hmac.new(
+    expected = hmac.HMAC(
         settings.fedapay_webhook_secret.encode(),
         payload,
         hashlib.sha256,

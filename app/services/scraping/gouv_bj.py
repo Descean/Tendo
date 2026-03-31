@@ -84,6 +84,9 @@ class GouvBJScraper(BaseScraper):
                 "published_date": date_text,
                 "authority_email": None,
                 "authority_name": "Gouvernement du Bénin",
+                "document_type": "AAO",
+                "financing_source": None,
+                "country": "Benin",
             }
         except Exception as e:
             logger.warning(f"[{self.name}] Erreur parsing article: {e}")

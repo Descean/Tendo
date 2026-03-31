@@ -9,7 +9,10 @@ from app.config import settings
 from app.models.base import Base
 
 # Import de tous les modèles pour que Alembic les détecte
-from app.models import User, Subscription, Publication, Notification, EmailTracking  # noqa
+from app.models import (  # noqa
+    User, Subscription, Publication, Notification, EmailTracking,
+    KnowledgeBase, DocumentAnalysis,
+)
 
 config = context.config
 
