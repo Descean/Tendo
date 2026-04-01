@@ -534,6 +534,124 @@ async def job_enrich_publications():
     logger.info(f"[Scheduler] {enriched} publications enrichies par IA")
 
 
+async def job_proactive_discussions():
+    """Tendo lance des discussions proactives sur les marches publics.
+
+    Envoie des messages de veille aux utilisateurs actifs :
+    - Tendances du marche (nouveaux secteurs, volumes)
+    - Resumes de PV/Decisions ARMP
+    - Conseils pratiques sur les procedures
+    - Rappels d'opportunites qui correspondent a leurs secteurs
+    """
+    from sqlalchemy import select, and_, func
+    from app.models.user import User, SubscriptionStatus
+    from app.models.publication import Publication
+    from app.services import whatsapp
+    from app.services.claude import chat
+
+    logger.info("[Scheduler] Discussions proactives...")
+    now = datetime.now(timezone.utc)
+    week_ago = now - timedelta(days=7)
+
+    async with AsyncSessionLocal() as db:
+        try:
+            # Utilisateurs actifs
+            result = await db.execute(
+                select(User).where(
+                    and_(
+                        User.is_active == True,
+                        User.subscription_status.in_([
+                            SubscriptionStatus.TRIAL.value,
+                            SubscriptionStatus.ACTIVE.value,
+                        ]),
+                    )
+                )
+            )
+            users = result.scalars().all()
+            if not users:
+                return
+
+            # Statistiques recentes
+            pub_count = await db.execute(
+                select(func.count(Publication.id)).where(
+                    Publication.created_at >= week_ago
+                )
+            )
+            total_pubs = pub_count.scalar() or 0
+
+            # PV et Decisions recentes (connaissance)
+            pv_result = await db.execute(
+                select(Publication).where(
+                    and_(
+                        Publication.created_at >= week_ago,
+                        Publication.document_type.in_(["PV_ATTRIBUTION", "PV_OUVERTURE", "DECISION_ARMP"]),
+                    )
+                ).limit(5)
+            )
+            pv_docs = pv_result.scalars().all()
+
+            # Publications par secteur
+            sector_result = await db.execute(
+                select(Publication.category, func.count(Publication.id)).where(
+                    Publication.created_at >= week_ago
+                ).group_by(Publication.category).order_by(func.count(Publication.id).desc()).limit(5)
+            )
+            sector_stats = sector_result.all()
+
+            # Construire le contexte pour l'IA
+            context_parts = [
+                f"Cette semaine: {total_pubs} nouvelles publications",
+            ]
+            if sector_stats:
+                context_parts.append("Repartition: " + ", ".join(
+                    f"{cat or 'marché'} ({cnt})" for cat, cnt in sector_stats
+                ))
+            if pv_docs:
+                context_parts.append("PV/Decisions recentes:")
+                for pv in pv_docs[:3]:
+                    context_parts.append(f"- {pv.title[:100]} ({pv.document_type})")
+
+            context = "\n".join(context_parts)
+
+            # Generer le message proactif via IA
+            prompt = f"""A partir de ces donnees sur les marches publics au Benin cette semaine,
+redige un court message WhatsApp informatif et engageant pour les abonnes Tendo.
+
+Le message doit :
+- Partager une tendance ou un fait interessant
+- Etre utile et informatif (pas commercial)
+- Encourager l'engagement (poser une question ou inviter a reagir)
+- Maximum 5 lignes
+
+Donnees de la semaine :
+{context}
+
+Redige le message directement, sans introduction."""
+
+            message = await chat(prompt, is_premium=False)
+            if not message or len(message) < 20:
+                logger.warning("[Scheduler] Message proactif trop court, abandon")
+                return
+
+            # Envoyer a tous les utilisateurs actifs (avec rate limiting)
+            sent = 0
+            for user in users:
+                try:
+                    await whatsapp.send_message(user.phone_number, message)
+                    sent += 1
+                    await asyncio.sleep(3)
+                except Exception as e:
+                    logger.error(f"[Scheduler] Erreur proactive user={user.id}: {e}")
+                    if "rate limit" in str(e).lower():
+                        await asyncio.sleep(30)
+                        break
+
+            logger.info(f"[Scheduler] Discussion proactive envoyee a {sent} utilisateurs")
+
+        except Exception as e:
+            logger.error(f"[Scheduler] Erreur discussions proactives: {e}")
+
+
 async def job_daily_report():
     """Envoie un rapport quotidien aux administrateurs."""
     from sqlalchemy import select, func
@@ -645,6 +763,15 @@ def setup_scheduler():
         CronTrigger(hour="1", minute="0"),
         id="cleanup_expired",
         name="Nettoyage AO expires",
+        replace_existing=True,
+    )
+
+    # Discussions proactives -- mardi et vendredi a 10h
+    scheduler.add_job(
+        job_proactive_discussions,
+        CronTrigger(day_of_week="tue,fri", hour="10", minute="0"),
+        id="proactive_discussions",
+        name="Discussions proactives",
         replace_existing=True,
     )
 

@@ -939,3 +939,13 @@ async def trigger_enrich(key: str = ""):
         await job_enrich_publications()
     asyncio.create_task(_run())
     return {"status": "started", "message": "Enrichissement IA lancé"}
+
+
+@router.post("/trigger/proactive-discussion")
+async def trigger_proactive(key: str = ""):
+    _ck(key)
+    async def _run():
+        from app.scheduler import job_proactive_discussions
+        await job_proactive_discussions()
+    asyncio.create_task(_run())
+    return {"status": "started", "message": "Discussion proactive lancée"}
