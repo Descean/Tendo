@@ -501,11 +501,13 @@ async def job_enrich_publications():
                         if info.get("guarantee_amount") and not pub.guarantee_amount:
                             pub.guarantee_amount = info["guarantee_amount"]
 
-                        # Documents requis et criteres
+                        # Documents requis et criteres (colonnes JSONB → stocker en liste)
                         if info.get("required_documents") and not pub.required_documents:
-                            pub.required_documents = info["required_documents"]
+                            docs = info["required_documents"]
+                            pub.required_documents = [d.strip() for d in docs.split(",")] if isinstance(docs, str) else docs
                         if info.get("participation_conditions") and not pub.qualification_criteria:
-                            pub.qualification_criteria = info["participation_conditions"]
+                            conds = info["participation_conditions"]
+                            pub.qualification_criteria = [c.strip() for c in conds.split(",")] if isinstance(conds, str) else conds
 
                         # Stocker les infos supplementaires dans html_content
                         extra_parts = []

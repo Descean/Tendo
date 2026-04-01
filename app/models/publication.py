@@ -50,8 +50,8 @@ class Publication(Base):
     # Contenu PDF extrait (texte brut) + analyse IA
     pdf_content: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     technical_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    required_documents: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    qualification_criteria: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    required_documents: Mapped[Optional[List]] = mapped_column(JSON, nullable=True)
+    qualification_criteria: Mapped[Optional[List]] = mapped_column(JSON, nullable=True)
     guarantee_amount: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
 
     # Relations
