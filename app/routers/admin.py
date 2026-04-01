@@ -919,3 +919,23 @@ async def trigger_pdf(key: str = ""):
             logger.error(f"[Admin] Erreur pipeline PDF: {e}")
     asyncio.create_task(_run())
     return {"status": "started", "message": "Pipeline PDF lancé en arrière-plan"}
+
+
+@router.post("/trigger/cleanup-expired")
+async def trigger_cleanup(key: str = ""):
+    _ck(key)
+    async def _run():
+        from app.scheduler import job_cleanup_expired_publications
+        await job_cleanup_expired_publications()
+    asyncio.create_task(_run())
+    return {"status": "started", "message": "Nettoyage AO expirés lancé"}
+
+
+@router.post("/trigger/enrich-publications")
+async def trigger_enrich(key: str = ""):
+    _ck(key)
+    async def _run():
+        from app.scheduler import job_enrich_publications
+        await job_enrich_publications()
+    asyncio.create_task(_run())
+    return {"status": "started", "message": "Enrichissement IA lancé"}

@@ -47,6 +47,13 @@ class Publication(Base):
     authority_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     authority_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
+    # Contenu PDF extrait (texte brut) + analyse IA
+    pdf_content: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    technical_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    required_documents: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    qualification_criteria: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    guarantee_amount: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+
     # Relations
     notifications = relationship("Notification", back_populates="publication", lazy="selectin")
     email_trackings = relationship("EmailTracking", back_populates="publication", lazy="selectin")

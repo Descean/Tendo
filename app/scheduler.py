@@ -357,6 +357,181 @@ async def job_process_jnmp_journals():
             logger.error(f"[Scheduler] Erreur JNMP: {e}")
 
 
+async def job_cleanup_expired_publications():
+    """Supprime les publications dont la deadline est depassee."""
+    from sqlalchemy import select, delete, and_
+    from app.models.publication import Publication
+    from app.models.notification import Notification
+    from app.models.email_tracking import EmailTracking
+
+    logger.info("[Scheduler] Nettoyage des AO expires...")
+    now = datetime.now(timezone.utc)
+
+    async with AsyncSessionLocal() as db:
+        try:
+            # Trouver les publications expirees (deadline passee)
+            # Exclure PV/Decisions qui sont des documents de connaissance
+            from sqlalchemy import or_
+            knowledge_types = ("PV_ATTRIBUTION", "PV_OUVERTURE", "DECISION_ARMP")
+            result = await db.execute(
+                select(Publication.id).where(
+                    and_(
+                        Publication.deadline != None,
+                        Publication.deadline < now,
+                        or_(
+                            Publication.document_type == None,
+                            ~Publication.document_type.in_(knowledge_types),
+                        ),
+                    )
+                )
+            )
+            expired_ids = [row[0] for row in result.all()]
+
+            if not expired_ids:
+                logger.info("[Scheduler] Aucun AO expire a nettoyer")
+                return
+
+            # Supprimer d'abord les notifications et email_trackings liees
+            await db.execute(
+                delete(Notification).where(
+                    Notification.publication_id.in_(expired_ids)
+                )
+            )
+            await db.execute(
+                delete(EmailTracking).where(
+                    EmailTracking.publication_id.in_(expired_ids)
+                )
+            )
+
+            # Supprimer les publications expirees
+            await db.execute(
+                delete(Publication).where(
+                    Publication.id.in_(expired_ids)
+                )
+            )
+
+            await db.commit()
+            logger.info(f"[Scheduler] {len(expired_ids)} AO expires supprimes")
+
+        except Exception as e:
+            logger.error(f"[Scheduler] Erreur nettoyage expires: {e}")
+            await db.rollback()
+
+
+async def job_enrich_publications():
+    """Enrichit les publications via lecture IA des PDF (DeepSeek/Groq/Gemini).
+
+    Pour chaque publication recente qui a un pdf_url mais pas de pdf_content,
+    telecharge le PDF, extrait le texte, puis utilise l'IA pour extraire
+    les champs structures (autorite, budget, deadline, garantie, etc.).
+    """
+    from sqlalchemy import select, and_, or_
+    from app.models.publication import Publication
+    from app.services.document_analyzer import extract_pdf_text
+    from app.services.deepseek_reader import extract_document_info
+
+    logger.info("[Scheduler] Enrichissement IA des publications...")
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=14)
+    enriched = 0
+
+    async with AsyncSessionLocal() as db:
+        try:
+            # Publications recentes avec PDF mais pas encore analysees
+            result = await db.execute(
+                select(Publication).where(
+                    and_(
+                        Publication.created_at >= cutoff,
+                        Publication.pdf_url != None,
+                        or_(
+                            Publication.pdf_content == None,
+                            Publication.pdf_content == "",
+                        ),
+                    )
+                )
+                .order_by(Publication.created_at.desc())
+                .limit(10)
+            )
+            publications = result.scalars().all()
+
+            if not publications:
+                logger.info("[Scheduler] Aucune publication a enrichir")
+                return
+
+            for pub in publications:
+                try:
+                    # Extraire le texte du PDF
+                    text, method, pages = await extract_pdf_text(pdf_url=pub.pdf_url)
+                    if not text or len(text.strip()) < 50:
+                        pub.pdf_content = "[extraction_failed]"
+                        continue
+
+                    # Sauvegarder le texte brut
+                    pub.pdf_content = text[:10000]
+
+                    # Extraire les infos structurees via IA
+                    info = await extract_document_info(text)
+                    if info:
+                        # Mettre a jour les champs manquants
+                        if not pub.authority_name and info.get("authority_name"):
+                            pub.authority_name = info["authority_name"]
+                        if not pub.authority_email and info.get("authority_email"):
+                            pub.authority_email = info["authority_email"]
+                        if not pub.budget and info.get("budget"):
+                            pub.budget = info["budget"]
+                        if not pub.document_type and info.get("document_type"):
+                            pub.document_type = info["document_type"]
+                        if not pub.financing_source and info.get("financing_source"):
+                            pub.financing_source = info["financing_source"]
+                        if not pub.summary and info.get("summary"):
+                            pub.summary = info["summary"]
+
+                        # Deadline depuis l'IA
+                        if not pub.deadline and info.get("deadline_date"):
+                            from app.services.scraping.gouv_bj import GouvBJScraper
+                            parsed = GouvBJScraper._parse_date(None, info["deadline_date"])
+                            if parsed:
+                                from datetime import datetime as dt
+                                try:
+                                    pub.deadline = dt.fromisoformat(parsed)
+                                except Exception:
+                                    pass
+
+                        # Garantie de soumission
+                        if info.get("guarantee_amount") and not pub.guarantee_amount:
+                            pub.guarantee_amount = info["guarantee_amount"]
+
+                        # Documents requis et criteres
+                        if info.get("required_documents") and not pub.required_documents:
+                            pub.required_documents = info["required_documents"]
+                        if info.get("participation_conditions") and not pub.qualification_criteria:
+                            pub.qualification_criteria = info["participation_conditions"]
+
+                        # Stocker les infos supplementaires dans html_content
+                        extra_parts = []
+                        if info.get("submission_location"):
+                            extra_parts.append(f"Lieu depot: {info['submission_location']}")
+
+                        if extra_parts and not pub.html_content:
+                            pub.html_content = "\n".join(extra_parts)
+
+                        enriched += 1
+                        logger.info(f"[Scheduler] Enrichi: {pub.reference} ({method})")
+
+                    await asyncio.sleep(2)  # Rate limiting
+
+                except Exception as e:
+                    logger.error(f"[Scheduler] Erreur enrichissement {pub.reference}: {e}")
+
+            await db.commit()
+
+        except Exception as e:
+            logger.error(f"[Scheduler] Erreur enrichissement global: {e}")
+            await db.rollback()
+
+    logger.info(f"[Scheduler] {enriched} publications enrichies par IA")
+
+
 async def job_daily_report():
     """Envoie un rapport quotidien aux administrateurs."""
     from sqlalchemy import select, func
@@ -450,6 +625,24 @@ def setup_scheduler():
         CronTrigger(hour="9", minute="0"),
         id="expiration_reminders",
         name="Rappels expiration",
+        replace_existing=True,
+    )
+
+    # Enrichissement IA des publications (lecture PDF) -- 1h apres scraping + toutes les 8h
+    scheduler.add_job(
+        job_enrich_publications,
+        CronTrigger(hour="7,15,23", minute="0"),
+        id="enrich_publications",
+        name="Enrichissement IA des publications",
+        replace_existing=True,
+    )
+
+    # Nettoyage des AO expires -- chaque jour a 1h du matin
+    scheduler.add_job(
+        job_cleanup_expired_publications,
+        CronTrigger(hour="1", minute="0"),
+        id="cleanup_expired",
+        name="Nettoyage AO expires",
         replace_existing=True,
     )
 

@@ -37,10 +37,11 @@ class Settings(BaseSettings):
     twilio_auth_token: str = ""
     twilio_whatsapp_number: str = "whatsapp:+14155238886"
 
-    # IA Conversationnelle (cascade : Groq > Gemini > Claude > fallback)
+    # IA Conversationnelle (cascade : Groq > Gemini > DeepSeek > Claude > fallback)
     groq_api_key: str = ""  # Groq (gratuit: 30 req/min, Llama 3.3 70B)
     claude_api_key: str = ""
     gemini_api_key: str = ""  # Google Gemini (gratuit: 15 req/min, 1M tokens/jour)
+    deepseek_api_key: str = ""  # DeepSeek (gratuit/low-cost, lecture documents)
 
     # FedaPay (Mobile Money MTN/Moov – Bénin)
     fedapay_secret_key: str = ""

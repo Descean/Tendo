@@ -89,3 +89,25 @@ class BaseScraper(abc.ABC):
     @staticmethod
     def now_utc() -> datetime:
         return datetime.now(timezone.utc)
+
+    @staticmethod
+    def detect_sectors(text: str) -> list:
+        """Detecte les secteurs a partir d'un texte (titre, resume)."""
+        text_lower = text.lower()
+        sectors = []
+        sector_keywords = {
+            "BTP": ["construction", "route", "batiment", "infrastructure", "pont", "barrage", "travaux"],
+            "Fournitures": ["fourniture", "equipement", "materiel", "vehicule", "mobilier"],
+            "Services": ["service", "conseil", "consultant", "etude", "audit", "formation"],
+            "TIC": ["informatique", "logiciel", "systeme", "numerique", "reseau", "telecom"],
+            "Sante": ["sante", "medical", "hopital", "medicament", "pharmaceutique"],
+            "Education": ["education", "ecole", "formation", "universitaire", "scolaire"],
+            "Agriculture": ["agricole", "agriculture", "irrigation", "rural", "elevage"],
+            "Environnement": ["environnement", "eau", "assainissement", "dechet", "energie solaire"],
+            "Transport": ["transport", "routier", "aerien", "maritime", "ferroviaire"],
+            "Energie": ["energie", "electrique", "electricite", "solaire", "petrole", "gaz"],
+        }
+        for sector, keywords in sector_keywords.items():
+            if any(kw in text_lower for kw in keywords):
+                sectors.append(sector)
+        return sectors

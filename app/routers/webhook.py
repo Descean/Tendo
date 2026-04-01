@@ -231,6 +231,17 @@ async def _process_message(from_number: str, body: str, db: AsyncSession):
         await whatsapp.send_message(from_number, reply)
         return
 
+    # Reponses aux boutons interactifs (notifications)
+    if body.startswith("voir_"):
+        await _handle_button_voir(body, from_number, db)
+        return
+    if body.startswith("savoir_"):
+        await _handle_button_savoir(body, from_number, user, db)
+        return
+    if body.startswith("demander_"):
+        await _handle_button_demander(body, from_number, user, db)
+        return
+
     # Commandes speciales
     msg_lower = body.lower().strip()
     if "/demander_dossier" in msg_lower or "demander le dossier" in msg_lower:
@@ -894,6 +905,69 @@ async def _handle_payment(user: User, plan: str = "essentiel") -> str:
             "Une erreur est survenue lors de la creation du paiement.\n\n"
             "Veuillez reessayer dans quelques instants ou contactez le support."
         )
+
+
+async def _handle_button_voir(body: str, from_number: str, db: AsyncSession):
+    """Bouton 'Voir le dossier' — envoie le PDF ou le lien de l'avis."""
+    pub_id = body.replace("voir_", "").strip()
+    result = await db.execute(
+        select(Publication).where(Publication.id == int(pub_id))
+    )
+    pub = result.scalar_one_or_none()
+
+    if not pub:
+        await whatsapp.send_message(from_number, "Publication introuvable.")
+        return
+
+    if pub.pdf_url:
+        await whatsapp.send_document(
+            from_number,
+            document_url=pub.pdf_url,
+            caption=f"{pub.title}\nRef: {pub.reference}",
+            filename=f"{pub.reference}.pdf",
+        )
+    else:
+        await whatsapp.send_message(
+            from_number,
+            f"Aucun document PDF disponible pour cet avis.\n\n"
+            f"*{pub.title}*\nRef: {pub.reference}\n\n"
+            f"Tapez */analyser {pub.reference}* pour voir les details disponibles.",
+        )
+
+
+async def _handle_button_savoir(body: str, from_number: str, user: User, db: AsyncSession):
+    """Bouton 'En savoir plus' — analyse IA de la publication."""
+    pub_id = body.replace("savoir_", "").strip()
+    result = await db.execute(
+        select(Publication).where(Publication.id == int(pub_id))
+    )
+    pub = result.scalar_one_or_none()
+
+    if not pub:
+        await whatsapp.send_message(from_number, "Publication introuvable.")
+        return
+
+    # Utiliser l'analyse IA existante
+    reply = await _handle_document_analysis(f"/analyser {pub.reference}", user, db)
+    await whatsapp.send_message(from_number, reply)
+
+
+async def _handle_button_demander(body: str, from_number: str, user: User, db: AsyncSession):
+    """Bouton 'Demander dossier' — envoie email a l'autorite contractante."""
+    pub_id = body.replace("demander_", "").strip()
+    result = await db.execute(
+        select(Publication).where(Publication.id == int(pub_id))
+    )
+    pub = result.scalar_one_or_none()
+
+    if not pub:
+        await whatsapp.send_message(from_number, "Publication introuvable.")
+        return
+
+    reply = await _handle_dossier_request(
+        f"/demander_dossier {pub.reference}", user, db
+    )
+    await whatsapp.send_message(from_number, reply)
 
 
 async def _handle_dossier_request(body: str, user: User, db: AsyncSession) -> str:

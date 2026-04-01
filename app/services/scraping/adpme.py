@@ -69,6 +69,13 @@ class ADPMEScraper(BaseScraper):
 
             reference = self.generate_reference(self.source, title, href)
 
+            sectors = self.detect_sectors(f"{title} {summary}")
+            if not sectors:
+                sectors = ["PME"]
+
+            pdf_link = item.select_one("a[href$='.pdf']")
+            pdf_url = urljoin(self.base_url, pdf_link["href"]) if pdf_link else None
+
             return {
                 "source": self.source,
                 "reference": reference,
@@ -76,10 +83,10 @@ class ADPMEScraper(BaseScraper):
                 "summary": summary,
                 "budget": None,
                 "deadline": None,
-                "pdf_url": None,
+                "pdf_url": pdf_url,
                 "html_content": "",
                 "category": "appel à projets",
-                "sectors": ["PME"],
+                "sectors": sectors,
                 "regions": ["Bénin"],
                 "published_date": date_text,
                 "authority_email": None,

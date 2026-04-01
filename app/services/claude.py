@@ -241,6 +241,11 @@ async def chat(
     if result:
         return _format_for_whatsapp(result)
 
+    # Essayer DeepSeek (low-cost)
+    result = await _chat_deepseek(user_message, system_prompt, conversation_history)
+    if result:
+        return _format_for_whatsapp(result)
+
     # Dernier recours : fallback local
     return _fallback_chat(user_message, is_premium)
 
@@ -350,6 +355,54 @@ async def _chat_gemini(
 
 
 # ================================================
+#  DEEPSEEK (low-cost, lecture documents)
+# ================================================
+
+async def _chat_deepseek(
+    user_message: str,
+    system_prompt: str,
+    conversation_history: Optional[List[dict]] = None,
+) -> Optional[str]:
+    """Chat via DeepSeek API (compatible OpenAI). Low-cost."""
+    if not settings.deepseek_api_key:
+        return None
+
+    messages = [{"role": "system", "content": system_prompt}]
+    if conversation_history:
+        messages.extend(conversation_history[-6:])
+    messages.append({"role": "user", "content": user_message})
+
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            response = await client.post(
+                "https://api.deepseek.com/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {settings.deepseek_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "deepseek-chat",
+                    "messages": messages,
+                    "max_tokens": 500,
+                    "temperature": 0.7,
+                },
+            )
+            data = response.json()
+
+        if response.status_code == 200:
+            reply = data["choices"][0]["message"]["content"].strip()
+            logger.info(f"[DeepSeek] Reponse: {len(reply)} caracteres")
+            return reply
+        else:
+            logger.error(f"[DeepSeek] Erreur {response.status_code}: {data}")
+            return None
+
+    except Exception as e:
+        logger.error(f"[DeepSeek] Erreur: {e}")
+        return None
+
+
+# ================================================
 #  CLAUDE (premium uniquement)
 # ================================================
 
@@ -405,6 +458,11 @@ Contenu : {content[:3000]}"""
 
     # Essayer Gemini
     result = await _chat_gemini(prompt, system)
+    if result:
+        return _format_for_whatsapp(result)
+
+    # Essayer DeepSeek
+    result = await _chat_deepseek(prompt, system)
     if result:
         return _format_for_whatsapp(result)
 

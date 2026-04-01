@@ -26,6 +26,8 @@ MAX_PUBLICATIONS_PER_CYCLE = 15
 MAX_PER_USER = 5
 # Ne notifier que les publications des N derniers jours
 PUBLICATION_AGE_DAYS = 7
+# Types de documents qui sont de la connaissance (pas de notification)
+KNOWLEDGE_DOCUMENT_TYPES = {"PV_ATTRIBUTION", "PV_OUVERTURE", "DECISION_ARMP"}
 
 
 def matches_user_preferences(user: User, publication: Publication) -> bool:
@@ -123,15 +125,22 @@ async def process_new_publications(db: AsyncSession) -> int:
             if pub.id in already_notified:
                 continue
 
+            # Exclure PV/Decisions (connaissance, pas notification)
+            if pub.document_type in KNOWLEDGE_DOCUMENT_TYPES:
+                continue
+
             # Match preferences ?
             if not matches_user_preferences(user, pub):
                 continue
 
-            # Construire et envoyer
-            message = _build_alert_message(pub)
+            # Construire et envoyer avec boutons interactifs
+            body, buttons, header = _build_alert_message(pub)
 
             try:
-                await whatsapp.send_message(user.phone_number, message)
+                await whatsapp.send_interactive_buttons(
+                    user.phone_number, body, buttons, header=header,
+                    footer="Tendo - Veille Marchés Publics",
+                )
 
                 notification = Notification(
                     user_id=user.id,
@@ -157,27 +166,53 @@ async def process_new_publications(db: AsyncSession) -> int:
     return sent_count
 
 
-def _build_alert_message(publication: Publication) -> str:
-    """Construit le message d'alerte WhatsApp."""
-    parts = ["*NOUVEL APPEL D'OFFRES*\n"]
-    parts.append(f"*{publication.title}*\n")
-    parts.append(f"Reference: {publication.reference}")
+def _build_alert_message(publication: Publication) -> tuple:
+    """Construit le message d'alerte WhatsApp structuré + boutons.
 
-    if publication.deadline:
-        parts.append(f"Date limite: {publication.deadline.strftime('%d/%m/%Y')}")
-    if publication.budget:
+    Retourne (body_text, buttons, header) pour send_interactive_buttons.
+    """
+    source_label = publication.source or "TENDO"
+    category_label = publication.category or "Marché"
+
+    header = f"{source_label} | {category_label}"
+
+    parts = []
+
+    # Autorité contractante
+    if publication.authority_name:
+        parts.append(f"Autorité: {publication.authority_name}")
+
+    # Objet du marché (titre)
+    parts.append(f"Objet: {publication.title}")
+
+    # Référence
+    parts.append(f"Réf: {publication.reference}")
+
+    # Type de marché / document
+    if publication.document_type:
+        parts.append(f"Type: {publication.document_type}")
+
+    # Montant garantie de soumission
+    if hasattr(publication, 'guarantee_amount') and publication.guarantee_amount:
+        parts.append(f"Garantie: {publication.guarantee_amount:,.0f} FCFA")
+    elif publication.budget:
         parts.append(f"Budget: {publication.budget:,.0f} FCFA")
 
-    if publication.summary:
-        # Tronquer le resume
-        summary = publication.summary[:300]
-        if len(publication.summary) > 300:
-            summary += "..."
-        parts.append(f"\n{summary}")
+    # Date de dépôt
+    if publication.deadline:
+        parts.append(f"Date limite: {publication.deadline.strftime('%d/%m/%Y à %H:%M')}")
 
-    if publication.pdf_url:
-        parts.append(f"\nDocument: {publication.pdf_url}")
+    # Source de financement
+    if publication.financing_source:
+        parts.append(f"Financement: {publication.financing_source}")
 
-    parts.append(f"\nTapez */analyser {publication.reference}* pour une analyse detaillee.")
+    body = "\n".join(parts)
 
-    return "\n".join(parts)
+    # Boutons interactifs (max 3, titre max 20 chars)
+    buttons = [
+        {"id": f"voir_{publication.id}", "title": "Voir le dossier"},
+        {"id": f"savoir_{publication.id}", "title": "En savoir plus"},
+        {"id": f"demander_{publication.id}", "title": "Demander dossier"},
+    ]
+
+    return body, buttons, header

@@ -57,6 +57,10 @@ class ABEScraper(BaseScraper):
 
             reference = self.generate_reference(self.source, title, full_url)
 
+            sectors = self.detect_sectors(f"{title} {summary}")
+            if not sectors:
+                sectors = ["Environnement"]
+
             return {
                 "source": self.source,
                 "reference": reference,
@@ -67,11 +71,11 @@ class ABEScraper(BaseScraper):
                 "pdf_url": pdf_url,
                 "html_content": "",
                 "category": "marché",
-                "sectors": ["Environnement"],
+                "sectors": sectors,
                 "regions": ["Bénin"],
                 "published_date": date_text,
                 "authority_email": None,
-                "authority_name": "ABE Bénin",
+                "authority_name": "Agence Béninoise de l'Environnement (ABE)",
                 "document_type": "AAO",
                 "financing_source": None,
                 "country": "Benin",
