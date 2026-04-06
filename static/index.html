@@ -3,443 +3,1217 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tendo — Assistant IA Marchés Publics</title>
-    <meta name="description" content="Tendo surveille les marchés publics au Bénin et en Afrique de l'Ouest pour vous. Recevez des alertes WhatsApp personnalisées.">
+    <title>Tendo — Gagnez vos marchés publics directement sur WhatsApp</title>
+    <meta name="description" content="Tendo surveille les appels d'offres au Bénin 24h/24, analyse les DAO avec l'IA et vous alerte sur WhatsApp. Essai gratuit 7 jours.">
+    <meta name="keywords" content="marchés publics, Bénin, appels d'offres, WhatsApp, DAO, ARMP, soumission, BTP, fournitures">
+    <meta property="og:title" content="Tendo — Assistant IA Marchés Publics">
+    <meta property="og:description" content="Recevez les appels d'offres qui vous concernent directement sur WhatsApp. Analyse IA des dossiers.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://tendo.shiftup.bj">
+    <meta property="og:image" content="https://tendo.shiftup.bj/static/images/banner.png">
+    <link rel="icon" type="image/png" href="/static/images/logo.png">
+    <link rel="canonical" href="https://tendo.shiftup.bj">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-            background: #f8f9fa;
-            color: #333;
-            line-height: 1.7;
+        :root {
+            --primary: #6C3CE1;
+            --primary-dark: #5228B5;
+            --primary-light: #8B6CF6;
+            --whatsapp: #25D366;
+            --whatsapp-dark: #1DA851;
+            --dark: #0F1117;
+            --dark-2: #1A1D27;
+            --gray-900: #1F2937;
+            --gray-700: #374151;
+            --gray-500: #6B7280;
+            --gray-300: #D1D5DB;
+            --gray-100: #F3F4F6;
+            --white: #FFFFFF;
+            --danger: #EF4444;
+            --success: #10B981;
+            --warning: #F59E0B;
         }
 
-        /* Hero */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: var(--white);
+            color: var(--gray-900);
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ===== HEADER / NAV ===== */
+        .nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background: rgba(15, 17, 23, 0.95);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            padding: 0 2rem;
+            transition: all 0.3s;
+        }
+        .nav-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 64px;
+        }
+        .nav-logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--white);
+            text-decoration: none;
+            letter-spacing: -0.5px;
+        }
+        .nav-logo span { color: var(--primary-light); }
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+            list-style: none;
+        }
+        .nav-links a {
+            color: rgba(255,255,255,0.7);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+        .nav-links a:hover { color: var(--white); }
+        .nav-cta {
+            background: var(--primary) !important;
+            color: var(--white) !important;
+            padding: 0.5rem 1.2rem;
+            border-radius: 8px;
+            font-weight: 600 !important;
+            transition: background 0.2s !important;
+        }
+        .nav-cta:hover { background: var(--primary-dark) !important; }
+
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--white);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        /* ===== HERO ===== */
         .hero {
-            background: linear-gradient(135deg, #1a1d27 0%, #2d1f5e 50%, #4a2d8a 100%);
-            color: white;
-            padding: 4rem 2rem;
-            text-align: center;
+            background: linear-gradient(160deg, rgba(15,17,23,0.88) 0%, rgba(26,29,39,0.85) 40%, rgba(45,27,94,0.9) 100%), url('/static/images/banner.png') center/cover no-repeat;
+            color: var(--white);
+            padding: 8rem 2rem 5rem;
             position: relative;
             overflow: hidden;
         }
         .hero::before {
             content: '';
             position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(255,255,255,0.03) 0%, transparent 60%);
-            animation: pulse 8s ease-in-out infinite;
+            top: -30%;
+            right: -20%;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(108,60,225,0.15) 0%, transparent 70%);
+            border-radius: 50%;
         }
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.1); }
+        .hero::after {
+            content: '';
+            position: absolute;
+            bottom: -20%;
+            left: -10%;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(37,211,102,0.08) 0%, transparent 70%);
+            border-radius: 50%;
         }
-        .hero-content { position: relative; z-index: 1; max-width: 700px; margin: 0 auto; }
-        .logo { font-size: 3.5rem; font-weight: 800; letter-spacing: -1px; margin-bottom: 0.5rem; }
-        .logo span { color: #8b6cf6; }
-        .tagline { font-size: 1.3rem; opacity: 0.9; margin-bottom: 1rem; font-weight: 300; }
-        .subtitle { font-size: 1rem; opacity: 0.7; max-width: 500px; margin: 0 auto 2rem; }
-        .cta-btn {
-            display: inline-block;
-            background: #25D366;
-            color: white;
-            text-decoration: none;
-            padding: 1rem 2.5rem;
-            border-radius: 50px;
-            font-size: 1.1rem;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 20px rgba(37, 211, 102, 0.3);
+        .hero-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4rem;
+            align-items: center;
+            position: relative;
+            z-index: 1;
         }
-        .cta-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 30px rgba(37, 211, 102, 0.4);
-        }
-        .cta-btn svg { vertical-align: middle; margin-right: 8px; }
-        .badge {
-            display: inline-block;
-            background: rgba(255,255,255,0.15);
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(108,60,225,0.2);
+            border: 1px solid rgba(108,60,225,0.3);
             padding: 0.4rem 1rem;
-            border-radius: 20px;
-            font-size: 0.85rem;
-            margin-top: 1.5rem;
-            backdrop-filter: blur(10px);
+            border-radius: 50px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            margin-bottom: 1.5rem;
+            color: var(--primary-light);
+        }
+        .hero h1 {
+            font-size: 3.2rem;
+            font-weight: 800;
+            line-height: 1.1;
+            letter-spacing: -1.5px;
+            margin-bottom: 1.5rem;
+        }
+        .hero h1 .highlight { color: var(--primary-light); }
+        .hero h1 .wa-highlight { color: var(--whatsapp); }
+        .hero-desc {
+            font-size: 1.15rem;
+            color: rgba(255,255,255,0.7);
+            margin-bottom: 2rem;
+            max-width: 480px;
+            line-height: 1.7;
+        }
+        .hero-actions {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.9rem 2rem;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-whatsapp {
+            background: var(--whatsapp);
+            color: var(--white);
+            box-shadow: 0 4px 24px rgba(37,211,102,0.3);
+        }
+        .btn-whatsapp:hover {
+            background: var(--whatsapp-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(37,211,102,0.4);
+        }
+        .btn-outline {
+            background: transparent;
+            color: var(--white);
+            border: 1.5px solid rgba(255,255,255,0.2);
+        }
+        .btn-outline:hover {
+            border-color: rgba(255,255,255,0.5);
+            background: rgba(255,255,255,0.05);
+        }
+        .btn-primary {
+            background: var(--primary);
+            color: var(--white);
+        }
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+        }
+        .hero-stats {
+            display: flex;
+            gap: 2rem;
+            margin-top: 2.5rem;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        .hero-stat-value {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--primary-light);
+        }
+        .hero-stat-label {
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.5);
+            margin-top: 0.2rem;
         }
 
-        /* Stats */
-        .stats {
+        /* Phone mockup */
+        .hero-visual {
             display: flex;
             justify-content: center;
-            gap: 3rem;
-            padding: 2rem;
-            background: white;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
         }
-        .stat { text-align: center; }
-        .stat-number { font-size: 2rem; font-weight: 800; color: #2d1f5e; }
-        .stat-label { font-size: 0.85rem; color: #6c757d; }
+        .phone-mockup {
+            width: 300px;
+            background: var(--dark);
+            border-radius: 32px;
+            padding: 12px;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .phone-screen {
+            background: #ECE5DD;
+            border-radius: 22px;
+            overflow: hidden;
+            min-height: 420px;
+        }
+        .phone-header {
+            background: #075E54;
+            color: white;
+            padding: 0.8rem 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .phone-avatar {
+            width: 32px;
+            height: 32px;
+            background: var(--primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+        .phone-messages {
+            padding: 0.8rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .msg {
+            max-width: 85%;
+            padding: 0.6rem 0.8rem;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            line-height: 1.4;
+        }
+        .msg-bot {
+            background: white;
+            align-self: flex-start;
+            border-top-left-radius: 2px;
+        }
+        .msg-user {
+            background: #DCF8C6;
+            align-self: flex-end;
+            border-top-right-radius: 2px;
+        }
+        .msg b { font-weight: 600; }
 
-        /* Features */
-        .features {
-            max-width: 1000px;
-            margin: 0 auto;
-            padding: 4rem 2rem;
+        /* ===== SECTION COMMON ===== */
+        section { padding: 5rem 2rem; }
+        .section-inner { max-width: 1200px; margin: 0 auto; }
+        .section-label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--primary);
+            margin-bottom: 0.8rem;
         }
-        .features h2 {
-            text-align: center;
-            font-size: 2rem;
-            color: #1a1d27;
-            margin-bottom: 0.5rem;
+        .section-title {
+            font-size: 2.4rem;
+            font-weight: 800;
+            letter-spacing: -1px;
+            margin-bottom: 1rem;
+            color: var(--gray-900);
         }
-        .features .section-sub {
-            text-align: center;
-            color: #6c757d;
-            margin-bottom: 3rem;
+        .section-desc {
+            font-size: 1.05rem;
+            color: var(--gray-500);
+            max-width: 600px;
+            line-height: 1.7;
         }
-        .feature-grid {
+
+        /* ===== PROBLEM / SOLUTION ===== */
+        .problem { background: var(--gray-100); }
+        .problem-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 2rem;
+            grid-template-columns: 1fr 1fr;
+            gap: 3rem;
+            margin-top: 3rem;
         }
-        .feature-card {
-            background: white;
-            border-radius: 16px;
+        .problem-card, .solution-card {
             padding: 2rem;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-            transition: transform 0.2s;
+            border-radius: 16px;
+            background: var(--white);
+            border: 1px solid var(--gray-300);
         }
-        .feature-card:hover { transform: translateY(-4px); }
-        .feature-icon {
-            width: 50px;
-            height: 50px;
-            border-radius: 12px;
+        .solution-card {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: var(--white);
+            border: none;
+        }
+        .problem-card h3, .solution-card h3 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+        .problem-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+        }
+        .problem-list li {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.6rem;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+        .problem-list .icon { flex-shrink: 0; font-size: 1.1rem; }
+
+        /* ===== SERVICES ===== */
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1.5rem;
+            margin-top: 3rem;
+        }
+        .service-card {
+            padding: 2rem 1.5rem;
+            border-radius: 16px;
+            background: var(--white);
+            border: 1px solid var(--gray-300);
+            transition: all 0.3s;
+            text-align: center;
+        }
+        .service-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.08);
+            border-color: var(--primary-light);
+        }
+        .service-icon {
+            width: 56px;
+            height: 56px;
+            background: rgba(108,60,225,0.1);
+            border-radius: 14px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 1.5rem;
-            margin-bottom: 1rem;
+            margin: 0 auto 1.2rem;
         }
-        .feature-card h3 { color: #1a1d27; margin-bottom: 0.5rem; font-size: 1.1rem; }
-        .feature-card p { color: #6c757d; font-size: 0.95rem; }
+        .service-card h3 {
+            font-size: 1.05rem;
+            font-weight: 700;
+            margin-bottom: 0.6rem;
+        }
+        .service-card p {
+            font-size: 0.88rem;
+            color: var(--gray-500);
+            line-height: 1.5;
+        }
 
-        .icon-veille { background: #e8f4fd; }
-        .icon-alert { background: #fef3e2; }
-        .icon-ai { background: #f0e8fd; }
-        .icon-pay { background: #e8fde8; }
-        .icon-email { background: #fde8e8; }
-        .icon-scrape { background: #e8fdfa; }
-
-        /* Pricing */
-        .pricing {
-            background: linear-gradient(135deg, #f0f0ff, #f8f9fa);
-            padding: 4rem 2rem;
-        }
-        .pricing h2 {
-            text-align: center;
-            font-size: 2rem;
-            color: #1a1d27;
-            margin-bottom: 0.5rem;
-        }
-        .pricing .section-sub {
-            text-align: center;
-            color: #6c757d;
-            margin-bottom: 3rem;
-        }
-        .pricing-grid {
-            display: flex;
-            justify-content: center;
+        /* ===== PROCESS ===== */
+        .process { background: var(--dark); color: var(--white); }
+        .process .section-title { color: var(--white); }
+        .process .section-desc { color: rgba(255,255,255,0.6); }
+        .process-steps {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
             gap: 2rem;
-            flex-wrap: wrap;
-            max-width: 800px;
-            margin: 0 auto;
+            margin-top: 3rem;
         }
-        .plan {
-            background: white;
-            border-radius: 16px;
+        .step {
+            text-align: center;
+            padding: 2rem;
+        }
+        .step-number {
+            width: 48px;
+            height: 48px;
+            background: var(--primary);
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            font-weight: 800;
+            margin: 0 auto 1.2rem;
+        }
+        .step h3 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            margin-bottom: 0.6rem;
+        }
+        .step p {
+            font-size: 0.9rem;
+            color: rgba(255,255,255,0.6);
+            line-height: 1.6;
+        }
+
+        /* ===== PRICING ===== */
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+            margin-top: 3rem;
+        }
+        .price-card {
             padding: 2.5rem 2rem;
-            width: 340px;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+            border-radius: 16px;
+            background: var(--white);
+            border: 1.5px solid var(--gray-300);
+            text-align: center;
+            transition: all 0.3s;
             position: relative;
         }
-        .plan.featured {
-            border: 2px solid #2d1f5e;
+        .price-card.featured {
+            border-color: var(--primary);
+            box-shadow: 0 8px 40px rgba(108,60,225,0.15);
             transform: scale(1.03);
         }
-        .plan-badge {
+        .price-card.featured::before {
+            content: 'Populaire';
             position: absolute;
             top: -12px;
             left: 50%;
             transform: translateX(-50%);
-            background: #2d1f5e;
+            background: var(--primary);
             color: white;
-            padding: 0.3rem 1rem;
-            border-radius: 20px;
-            font-size: 0.8rem;
+            padding: 0.25rem 1rem;
+            border-radius: 50px;
+            font-size: 0.75rem;
             font-weight: 600;
         }
-        .plan h3 { font-size: 1.3rem; color: #1a1d27; margin-bottom: 0.5rem; }
-        .plan .price { font-size: 2.5rem; font-weight: 800; color: #2d1f5e; }
-        .plan .price span { font-size: 1rem; font-weight: 400; color: #6c757d; }
-        .plan ul { list-style: none; margin: 1.5rem 0; padding: 0; }
-        .plan ul li {
+        .price-name {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 0.3rem;
+        }
+        .price-amount {
+            font-size: 2.8rem;
+            font-weight: 800;
+            color: var(--gray-900);
+            margin: 1rem 0 0.3rem;
+        }
+        .price-amount span { font-size: 1rem; font-weight: 500; color: var(--gray-500); }
+        .price-period { font-size: 0.85rem; color: var(--gray-500); margin-bottom: 1.5rem; }
+        .price-features {
+            list-style: none;
+            text-align: left;
+            margin-bottom: 2rem;
+        }
+        .price-features li {
             padding: 0.5rem 0;
-            border-bottom: 1px solid #f0f0f0;
-            font-size: 0.95rem;
-        }
-        .plan ul li::before { content: '✓ '; color: #25D366; font-weight: bold; }
-        .plan-btn {
-            display: block;
-            text-align: center;
-            padding: 0.9rem;
-            border-radius: 10px;
-            text-decoration: none;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-        .plan-btn.primary {
-            background: #2d1f5e;
-            color: white;
-        }
-        .plan-btn.secondary {
-            background: #f0f0f0;
-            color: #333;
-        }
-
-        /* How it works */
-        .how-it-works {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 4rem 2rem;
-        }
-        .how-it-works h2 {
-            text-align: center;
-            font-size: 2rem;
-            color: #1a1d27;
-            margin-bottom: 3rem;
-        }
-        .steps { display: flex; flex-direction: column; gap: 2rem; }
-        .step {
-            display: flex;
-            align-items: flex-start;
-            gap: 1.5rem;
-        }
-        .step-number {
-            width: 50px;
-            height: 50px;
-            min-width: 50px;
-            border-radius: 50%;
-            background: #2d1f5e;
-            color: white;
+            font-size: 0.9rem;
             display: flex;
             align-items: center;
-            justify-content: center;
+            gap: 0.5rem;
+            border-bottom: 1px solid var(--gray-100);
+        }
+        .price-features .check { color: var(--success); font-weight: 700; }
+
+        /* ===== REGISTRATION FORM ===== */
+        .register { background: var(--gray-100); }
+        .register-form {
+            max-width: 560px;
+            margin: 2rem auto 0;
+            background: var(--white);
+            padding: 2.5rem;
+            border-radius: 20px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.06);
+            border: 1px solid var(--gray-300);
+        }
+        .form-group {
+            margin-bottom: 1.2rem;
+        }
+        .form-group label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 600;
+            margin-bottom: 0.4rem;
+            color: var(--gray-700);
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 1.5px solid var(--gray-300);
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-family: inherit;
+            transition: border-color 0.2s;
+            background: var(--white);
+        }
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(108,60,225,0.1);
+        }
+        .form-group input.invalid { border-color: var(--danger); }
+        .form-error {
+            font-size: 0.78rem;
+            color: var(--danger);
+            margin-top: 0.3rem;
+            display: none;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        .form-submit {
+            width: 100%;
+            margin-top: 1rem;
+        }
+        .form-note {
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--gray-500);
+            margin-top: 1rem;
+        }
+        .honeypot { display: none !important; }
+
+        /* ===== TRUST ===== */
+        .trust-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+        .trust-item {
+            text-align: center;
+            padding: 1.5rem;
+        }
+        .trust-icon {
+            font-size: 2rem;
+            margin-bottom: 0.8rem;
+        }
+        .trust-item h3 {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 0.4rem;
+        }
+        .trust-item p {
+            font-size: 0.88rem;
+            color: var(--gray-500);
+        }
+
+        /* ===== FOOTER ===== */
+        .footer {
+            background: var(--dark);
+            color: rgba(255,255,255,0.6);
+            padding: 3rem 2rem 2rem;
+        }
+        .footer-inner {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 2rem;
+        }
+        .footer-brand h3 {
+            color: var(--white);
             font-size: 1.3rem;
-            font-weight: 800;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
         }
-        .step h3 { color: #1a1d27; margin-bottom: 0.3rem; }
-        .step p { color: #6c757d; }
-
-        /* Footer */
-        footer {
-            background: #1a1d27;
-            color: rgba(255,255,255,0.7);
-            padding: 3rem 2rem;
-            text-align: center;
-        }
-        footer a { color: #8b6cf6; text-decoration: none; }
-        footer a:hover { text-decoration: underline; }
-        .footer-links { margin: 1rem 0; }
-        .footer-links a { margin: 0 1rem; font-size: 0.9rem; }
-        .footer-company { font-size: 0.85rem; margin-top: 1rem; opacity: 0.6; }
-
-        /* API info */
-        .api-info {
-            background: #1a1d27;
-            color: white;
-            max-width: 700px;
-            margin: 0 auto 0;
-            padding: 1.5rem 2rem;
-            border-radius: 12px;
-            text-align: center;
-            transform: translateY(50%);
-            position: relative;
-            z-index: 2;
-        }
-        .api-info code {
-            background: rgba(255,255,255,0.1);
-            padding: 0.2rem 0.6rem;
-            border-radius: 4px;
+        .footer-brand h3 span { color: var(--primary-light); }
+        .footer-brand p { font-size: 0.85rem; line-height: 1.6; }
+        .footer-col h4 {
+            color: var(--white);
             font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 0.8rem;
+        }
+        .footer-col a {
+            display: block;
+            color: rgba(255,255,255,0.5);
+            text-decoration: none;
+            font-size: 0.85rem;
+            padding: 0.3rem 0;
+            transition: color 0.2s;
+        }
+        .footer-col a:hover { color: var(--white); }
+        .footer-bottom {
+            max-width: 1200px;
+            margin: 2rem auto 0;
+            padding-top: 1.5rem;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.8rem;
         }
 
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 900px) {
+            .hero-inner { grid-template-columns: 1fr; text-align: center; }
+            .hero h1 { font-size: 2.4rem; }
+            .hero-desc { margin: 0 auto 2rem; }
+            .hero-actions { justify-content: center; }
+            .hero-stats { justify-content: center; }
+            .hero-visual { display: none; }
+            .problem-grid { grid-template-columns: 1fr; }
+            .services-grid { grid-template-columns: repeat(2, 1fr); }
+            .process-steps { grid-template-columns: 1fr; }
+            .pricing-grid { grid-template-columns: 1fr; }
+            .price-card.featured { transform: none; }
+            .trust-grid { grid-template-columns: 1fr; }
+            .footer-inner { grid-template-columns: 1fr; }
+            .footer-bottom { flex-direction: column; gap: 0.5rem; text-align: center; }
+            .nav-links { display: none; }
+            .mobile-menu-btn { display: block; }
+            .nav-links.active {
+                display: flex;
+                flex-direction: column;
+                position: absolute;
+                top: 64px;
+                left: 0;
+                right: 0;
+                background: var(--dark);
+                padding: 1rem 2rem 2rem;
+                border-bottom: 1px solid rgba(255,255,255,0.1);
+            }
+            .form-row { grid-template-columns: 1fr; }
+        }
         @media (max-width: 600px) {
-            .logo { font-size: 2.5rem; }
-            .tagline { font-size: 1.1rem; }
-            .stats { flex-direction: column; gap: 1rem; }
-            .plan { width: 100%; }
-            .plan.featured { transform: none; }
-            .step { flex-direction: column; }
+            .hero h1 { font-size: 2rem; }
+            .services-grid { grid-template-columns: 1fr; }
+            section { padding: 3rem 1.2rem; }
         }
     </style>
 </head>
 <body>
 
-<!-- Hero -->
-<section class="hero">
-    <div class="hero-content">
-        <div class="logo">Ten<span>do</span></div>
-        <p class="tagline">Votre assistant IA pour les marchés publics</p>
-        <p class="subtitle">
-            Tendo surveille automatiquement les appels d'offres au Bénin et en Afrique de l'Ouest,
-            et vous alerte sur WhatsApp en temps réel.
-        </p>
-        <a href="https://wa.me/22940809108?text=menu" class="cta-btn">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.126.553 4.121 1.52 5.86L0 24l6.335-1.494C8.012 23.46 9.96 24 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.82 0-3.56-.467-5.08-1.335l-.36-.214-3.76.886.95-3.66-.236-.374C2.48 15.66 2 13.86 2 12 2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z"/></svg>
-            Essayer gratuitement
-        </a>
-        <div class="badge">7 jours d'essai gratuit — Sans engagement</div>
+<!-- ===== HEADER / NAV ===== -->
+<nav class="nav" id="nav">
+    <div class="nav-inner">
+        <a href="#" class="nav-logo"><img src="/static/images/logo.png" alt="Tendo" style="height:36px;vertical-align:middle;margin-right:6px;"><span style="vertical-align:middle;">Tend<span>o</span></span></a>
+        <ul class="nav-links" id="navLinks">
+            <li><a href="#services">Services</a></li>
+            <li><a href="#process">Comment ca marche</a></li>
+            <li><a href="#pricing">Tarifs</a></li>
+            <li><a href="#about">A propos</a></li>
+            <li><a href="#register" class="nav-cta">S'inscrire</a></li>
+        </ul>
+        <button class="mobile-menu-btn" onclick="document.getElementById('navLinks').classList.toggle('active')">&#9776;</button>
     </div>
-</section>
+</nav>
 
-<!-- Stats -->
-<section class="stats">
-    <div class="stat">
-        <div class="stat-number">5+</div>
-        <div class="stat-label">Sources surveillées</div>
-    </div>
-    <div class="stat">
-        <div class="stat-number">24/7</div>
-        <div class="stat-label">Surveillance continue</div>
-    </div>
-    <div class="stat">
-        <div class="stat-number">100%</div>
-        <div class="stat-label">Via WhatsApp</div>
-    </div>
-</section>
-
-<!-- Features -->
-<section class="features">
-    <h2>Tout ce dont vous avez besoin</h2>
-    <p class="section-sub">Un assistant complet pour ne plus jamais rater un appel d'offres</p>
-    <div class="feature-grid">
-        <div class="feature-card">
-            <div class="feature-icon icon-veille">&#128270;</div>
-            <h3>Veille automatisée</h3>
-            <p>Tendo scrape automatiquement les plateformes de marchés publics : SYGMAP, journaux officiels, sites ministériels.</p>
-        </div>
-        <div class="feature-card">
-            <div class="feature-icon icon-alert">&#128276;</div>
-            <h3>Alertes personnalisées</h3>
-            <p>Recevez uniquement les appels d'offres qui correspondent à vos secteurs et régions d'intérêt.</p>
-        </div>
-        <div class="feature-card">
-            <div class="feature-icon icon-ai">&#129302;</div>
-            <h3>IA conversationnelle</h3>
-            <p>Posez vos questions en langage naturel. Tendo comprend vos besoins et vous guide dans vos démarches.</p>
-        </div>
-        <div class="feature-card">
-            <div class="feature-icon icon-pay">&#128179;</div>
-            <h3>Paiement Mobile Money</h3>
-            <p>Payez facilement via MTN ou Moov Money grâce à notre intégration FedaPay. Simple et sécurisé.</p>
-        </div>
-        <div class="feature-card">
-            <div class="feature-icon icon-email">&#128231;</div>
-            <h3>Suivi par email</h3>
-            <p>Optez pour un suivi email en complément de WhatsApp. Recevez des récapitulatifs détaillés.</p>
-        </div>
-        <div class="feature-card">
-            <div class="feature-icon icon-scrape">&#127757;</div>
-            <h3>Multi-sources</h3>
-            <p>SYGMAP, ARMP, journaux officiels, sites gouvernementaux... Tendo couvre toutes les sources pertinentes.</p>
-        </div>
-    </div>
-</section>
-
-<!-- How it works -->
-<section class="how-it-works">
-    <h2>Comment ca marche ?</h2>
-    <div class="steps">
-        <div class="step">
-            <div class="step-number">1</div>
-            <div>
-                <h3>Envoyez "menu" sur WhatsApp</h3>
-                <p>Scannez le QR code ou cliquez sur le bouton WhatsApp. Envoyez votre premier message pour activer votre compte.</p>
+<!-- ===== HERO ===== -->
+<section class="hero" id="home">
+    <div class="hero-inner">
+        <div>
+            <div class="hero-badge">&#9889; Essai gratuit 7 jours</div>
+            <h1>Gagnez vos <span class="highlight">marches publics</span> directement sur <span class="wa-highlight">WhatsApp</span></h1>
+            <p class="hero-desc">Tendo surveille les appels d'offres au Benin 24h/24, analyse les dossiers avec l'IA et vous alerte instantanement sur WhatsApp.</p>
+            <div class="hero-actions">
+                <a href="https://wa.me/22960412929?text=Bonjour%20Tendo%20!" class="btn btn-whatsapp">
+                    &#128172; Demarrer sur WhatsApp
+                </a>
+                <a href="#register" class="btn btn-outline">S'inscrire gratuitement</a>
+            </div>
+            <div class="hero-stats">
+                <div>
+                    <div class="hero-stat-value">120+</div>
+                    <div class="hero-stat-label">Appels d'offres actifs</div>
+                </div>
+                <div>
+                    <div class="hero-stat-value">9</div>
+                    <div class="hero-stat-label">Sources surveillees</div>
+                </div>
+                <div>
+                    <div class="hero-stat-value">24/7</div>
+                    <div class="hero-stat-label">Veille automatique</div>
+                </div>
             </div>
         </div>
-        <div class="step">
-            <div class="step-number">2</div>
-            <div>
-                <h3>Configurez vos preferences</h3>
-                <p>Choisissez vos secteurs d'activité (BTP, informatique, santé...) et vos régions d'intérêt.</p>
-            </div>
-        </div>
-        <div class="step">
-            <div class="step-number">3</div>
-            <div>
-                <h3>Recevez des alertes</h3>
-                <p>Tendo surveille les nouvelles publications et vous envoie les opportunités qui correspondent à votre profil.</p>
-            </div>
-        </div>
-        <div class="step">
-            <div class="step-number">4</div>
-            <div>
-                <h3>Posez vos questions</h3>
-                <p>Besoin d'un résumé ? D'un conseil sur un dossier ? Discutez avec Tendo comme avec un expert.</p>
+        <div class="hero-visual">
+            <div class="phone-mockup">
+                <div class="phone-screen">
+                    <div class="phone-header">
+                        <img src="/static/images/logo.png" alt="Tendo" style="height:24px;border-radius:50%;">
+                        <div>Tendo</div>
+                    </div>
+                    <div class="phone-messages">
+                        <div class="msg msg-bot"><b>Nouvel Appel d'Offres</b><br><br>Travaux de rehabilitation de la RN1 - Troncon Cotonou-Bohicon<br><br>Type : AOO<br>Autorite : MCA-Benin II<br>Date limite : 15/04/2026<br>Budget : 2.5 Mds FCFA<br><br><i>Tapez DETAIL pour l'analyse</i></div>
+                        <div class="msg msg-user">DETAIL</div>
+                        <div class="msg msg-bot"><b>Analyse IA</b><br><br>&#9989; Pieces requises identifiees<br>&#9989; Criteres de qualification<br>&#9989; Budget et financement<br>&#9989; Points d'attention</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </section>
 
-<!-- Pricing -->
-<section class="pricing">
-    <h2>Tarifs simples et transparents</h2>
-    <p class="section-sub">Commencez gratuitement, passez au premium quand vous etes pret</p>
-    <div class="pricing-grid">
-        <div class="plan">
-            <h3>Essentiel</h3>
-            <div class="price">5 000 <span>XOF/mois</span></div>
-            <ul>
-                <li>Alertes WhatsApp quotidiennes</li>
-                <li>3 secteurs de veille</li>
-                <li>Résumés IA des appels d'offres</li>
-                <li>Support par WhatsApp</li>
-                <li>Historique 30 jours</li>
-            </ul>
-            <a href="https://wa.me/22940809108?text=abonnement" class="plan-btn secondary">Choisir Essentiel</a>
-        </div>
-        <div class="plan featured">
-            <div class="plan-badge">Populaire</div>
-            <h3>Premium</h3>
-            <div class="price">15 000 <span>XOF/mois</span></div>
-            <ul>
-                <li>Tout l'Essentiel, plus :</li>
-                <li>Secteurs et régions illimités</li>
-                <li>Alertes en temps réel</li>
-                <li>Suivi email + WhatsApp</li>
-                <li>Analyse IA avancée des dossiers</li>
-                <li>Support prioritaire</li>
-            </ul>
-            <a href="https://wa.me/22940809108?text=premium" class="plan-btn primary">Choisir Premium</a>
+<!-- ===== PROBLEME / SOLUTION ===== -->
+<section class="problem" id="problem">
+    <div class="section-inner">
+        <div class="section-label">Le constat</div>
+        <div class="section-title">Vous perdez des opportunites chaque jour</div>
+        <div class="problem-grid">
+            <div class="problem-card">
+                <h3>&#128308; Sans Tendo</h3>
+                <ul class="problem-list">
+                    <li><span class="icon">&#10060;</span> Vous passez des heures a chercher les AO sur plusieurs sites</li>
+                    <li><span class="icon">&#10060;</span> Vous decouvrez les dossiers apres la date limite</li>
+                    <li><span class="icon">&#10060;</span> Vous ne savez pas quelles pieces preparer</li>
+                    <li><span class="icon">&#10060;</span> Les DAO sont longs et complexes a analyser</li>
+                    <li><span class="icon">&#10060;</span> Vous ratez des opportunites par manque de veille</li>
+                </ul>
+            </div>
+            <div class="solution-card">
+                <h3>&#9989; Avec Tendo</h3>
+                <ul class="problem-list">
+                    <li><span class="icon">&#10004;&#65039;</span> Les AO arrivent directement sur votre WhatsApp</li>
+                    <li><span class="icon">&#10004;&#65039;</span> Alerte instantanee des la publication</li>
+                    <li><span class="icon">&#10004;&#65039;</span> L'IA extrait les pieces requises automatiquement</li>
+                    <li><span class="icon">&#10004;&#65039;</span> Resume technique en 30 secondes</li>
+                    <li><span class="icon">&#10004;&#65039;</span> 9 sources surveillees 24h/24</li>
+                </ul>
+            </div>
         </div>
     </div>
 </section>
 
-<!-- Footer -->
-<footer style="padding-top: 5rem;">
-    <div class="logo" style="font-size: 1.5rem; color: white; margin-bottom: 0.5rem;">Ten<span style="color: #8b6cf6;">do</span></div>
-    <p>Assistant IA pour les marchés publics au Bénin et en Afrique de l'Ouest</p>
-    <div class="footer-links">
-        <a href="/privacy">Confidentialité</a>
-        <a href="/terms">Conditions d'utilisation</a>
-        <a href="/delete-data">Suppression des données</a>
+<!-- ===== SERVICES ===== -->
+<section id="services">
+    <div class="section-inner">
+        <div class="section-label">Nos services</div>
+        <div class="section-title">Tout ce qu'il faut pour gagner vos marches</div>
+        <div class="section-desc">Tendo combine veille automatisee et intelligence artificielle pour vous donner un avantage decisif.</div>
+        <div class="services-grid">
+            <div class="service-card">
+                <div class="service-icon">&#128269;</div>
+                <h3>Analyse DAO</h3>
+                <p>L'IA lit et resume les dossiers d'appels d'offres. Pieces requises, criteres, budget — tout en un clin d'oeil.</p>
+            </div>
+            <div class="service-card">
+                <div class="service-icon">&#128221;</div>
+                <h3>Aide a la Redaction</h3>
+                <p>Suggestions pour vos offres techniques et financieres basees sur les criteres identifies dans le DAO.</p>
+            </div>
+            <div class="service-card">
+                <div class="service-icon">&#9878;&#65039;</div>
+                <h3>Veille Juridique</h3>
+                <p>Suivez les decisions ARMP, PV d'attribution et modifications reglementaires en temps reel.</p>
+            </div>
+            <div class="service-card">
+                <div class="service-icon">&#9745;&#65039;</div>
+                <h3>Check-list Conformite</h3>
+                <p>Verificateur automatique : toutes les pieces administratives, techniques et financieres sont-elles pretes ?</p>
+            </div>
+        </div>
     </div>
-    <p class="footer-company">
-        &copy; 2026 <a href="https://shiftup.bj" style="color: #8b6cf6;">SHIFT UP</a> &mdash; Cotonou, Bénin
-    </p>
+</section>
+
+<!-- ===== PROCESS ===== -->
+<section class="process" id="process">
+    <div class="section-inner">
+        <div class="section-label" style="color: var(--primary-light);">Comment ca marche</div>
+        <div class="section-title">Pret en 3 etapes</div>
+        <div class="section-desc">Aucune application a installer. Tutto se passe sur WhatsApp.</div>
+        <div class="process-steps">
+            <div class="step">
+                <div class="step-number">1</div>
+                <h3>Ecrivez-nous sur WhatsApp</h3>
+                <p>Envoyez un simple "Bonjour" au +229 60 41 29 29. Tendo vous accueille et vous presente les AO en cours.</p>
+            </div>
+            <div class="step">
+                <div class="step-number">2</div>
+                <h3>Configurez votre profil</h3>
+                <p>Indiquez vos secteurs (BTP, fournitures, services...) et vos regions. Tendo filtre les AO pour vous.</p>
+            </div>
+            <div class="step">
+                <div class="step-number">3</div>
+                <h3>Recevez vos alertes</h3>
+                <p>Chaque matin et apres-midi, recevez les AO pertinents avec analyse IA et lien vers le dossier complet.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===== PRICING ===== -->
+<section id="pricing">
+    <div class="section-inner">
+        <div class="section-label">Tarifs</div>
+        <div class="section-title">Des formules adaptees a votre activite</div>
+        <div class="section-desc">Essai gratuit de 7 jours, sans engagement. Paiement par Mobile Money (MTN/Moov).</div>
+        <div class="pricing-grid">
+            <div class="price-card">
+                <div class="price-name">Decouverte</div>
+                <div style="color: var(--gray-500); font-size: 0.85rem;">Pour commencer</div>
+                <div class="price-amount">Gratuit</div>
+                <div class="price-period">7 jours d'essai</div>
+                <ul class="price-features">
+                    <li><span class="check">&#10003;</span> Alertes WhatsApp quotidiennes</li>
+                    <li><span class="check">&#10003;</span> 5 analyses DAO par jour</li>
+                    <li><span class="check">&#10003;</span> Recherche par secteur et region</li>
+                    <li><span class="check">&#10003;</span> Resume technique IA</li>
+                </ul>
+                <a href="https://wa.me/22960412929?text=Bonjour%20Tendo%20!" class="btn btn-outline" style="color: var(--gray-900); border-color: var(--gray-300); width: 100%; justify-content: center;">Essayer gratuitement</a>
+            </div>
+            <div class="price-card featured">
+                <div class="price-name">Essentiel</div>
+                <div style="color: var(--gray-500); font-size: 0.85rem;">Pour les professionnels</div>
+                <div class="price-amount">2 990 <span>FCFA/mois</span></div>
+                <div class="price-period">Paiement mensuel Mobile Money</div>
+                <ul class="price-features">
+                    <li><span class="check">&#10003;</span> Alertes WhatsApp illimitees</li>
+                    <li><span class="check">&#10003;</span> Analyse IA de tous les DAO</li>
+                    <li><span class="check">&#10003;</span> Telechargement des dossiers</li>
+                    <li><span class="check">&#10003;</span> Pieces requises extraites</li>
+                    <li><span class="check">&#10003;</span> Criteres de qualification</li>
+                    <li><span class="check">&#10003;</span> 9 sources surveillees 24/7</li>
+                    <li><span class="check">&#10003;</span> Support par WhatsApp</li>
+                </ul>
+                <a href="#register" class="btn btn-primary" style="width: 100%; justify-content: center;">Choisir Essentiel</a>
+            </div>
+            <div class="price-card">
+                <div class="price-name">Premium</div>
+                <div style="color: var(--gray-500); font-size: 0.85rem;">Pour les entreprises</div>
+                <div class="price-amount">9 990 <span>FCFA/mois</span></div>
+                <div class="price-period">Paiement mensuel Mobile Money</div>
+                <ul class="price-features">
+                    <li><span class="check">&#10003;</span> Tout Essentiel inclus</li>
+                    <li><span class="check">&#10003;</span> IA avancee (Claude)</li>
+                    <li><span class="check">&#10003;</span> Aide redaction offres techniques</li>
+                    <li><span class="check">&#10003;</span> Demande de dossier automatique</li>
+                    <li><span class="check">&#10003;</span> Veille juridique ARMP</li>
+                    <li><span class="check">&#10003;</span> Check-list conformite</li>
+                    <li><span class="check">&#10003;</span> Historique complet</li>
+                    <li><span class="check">&#10003;</span> Support dedie prioritaire</li>
+                </ul>
+                <a href="#register" class="btn btn-outline" style="color: var(--gray-900); border-color: var(--gray-300); width: 100%; justify-content: center;">Choisir Premium</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===== REGISTRATION ===== -->
+<section class="register" id="register">
+    <div class="section-inner" style="text-align: center;">
+        <div class="section-label">Inscription</div>
+        <div class="section-title">Commencez a recevoir vos AO</div>
+        <div class="section-desc" style="margin: 0 auto;">Remplissez le formulaire ci-dessous. Votre compte sera active sous 24h.</div>
+        <form class="register-form" id="registerForm" onsubmit="return handleSubmit(event)" novalidate>
+            <!-- Honeypot anti-bot -->
+            <div class="honeypot">
+                <input type="text" name="website" id="honeypot" tabindex="-1" autocomplete="off">
+            </div>
+            <input type="hidden" name="device_fp" id="deviceFp">
+            <input type="hidden" name="form_token" id="formToken">
+
+            <div class="form-group">
+                <label for="fullname">Nom complet *</label>
+                <input type="text" id="fullname" name="fullname" required minlength="3" maxlength="100" placeholder="Ex: Jean-Paul HOUESSOU" autocomplete="name">
+                <div class="form-error" id="err-fullname"></div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="phone">Numero WhatsApp *</label>
+                    <input type="tel" id="phone" name="phone" required pattern="[0-9+\s\-]{8,20}" placeholder="+229 60 XX XX XX" autocomplete="tel">
+                    <div class="form-error" id="err-phone"></div>
+                </div>
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" placeholder="jean@entreprise.bj" autocomplete="email">
+                    <div class="form-error" id="err-email"></div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="company">Entreprise / Organisation *</label>
+                <input type="text" id="company" name="company" required minlength="2" maxlength="200" placeholder="Ex: SOGEA SATOM Benin" autocomplete="organization">
+                <div class="form-error" id="err-company"></div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="sector">Secteur principal *</label>
+                    <select id="sector" name="sector" required>
+                        <option value="">Choisir...</option>
+                        <option value="BTP">BTP / Construction</option>
+                        <option value="Fournitures">Fournitures / Equipements</option>
+                        <option value="Services">Services / Conseil</option>
+                        <option value="TIC">TIC / Informatique</option>
+                        <option value="Sante">Sante / Medical</option>
+                        <option value="Education">Education / Formation</option>
+                        <option value="Agriculture">Agriculture / Rural</option>
+                        <option value="Energie">Energie / Solaire</option>
+                        <option value="Transport">Transport / Logistique</option>
+                        <option value="Environnement">Environnement / Eau</option>
+                    </select>
+                    <div class="form-error" id="err-sector"></div>
+                </div>
+                <div class="form-group">
+                    <label for="region">Region *</label>
+                    <select id="region" name="region" required>
+                        <option value="">Choisir...</option>
+                        <option value="National">Tout le Benin</option>
+                        <option value="Cotonou">Cotonou / Littoral</option>
+                        <option value="Porto-Novo">Porto-Novo / Oueme</option>
+                        <option value="Parakou">Parakou / Borgou</option>
+                        <option value="Abomey">Abomey / Zou</option>
+                        <option value="Natitingou">Natitingou / Atacora</option>
+                        <option value="CEDEAO">International / CEDEAO</option>
+                    </select>
+                    <div class="form-error" id="err-region"></div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="plan">Formule souhaitee *</label>
+                <select id="plan" name="plan" required>
+                    <option value="trial">Decouverte (7 jours gratuits)</option>
+                    <option value="essentiel" selected>Essentiel - 2 990 FCFA/mois</option>
+                    <option value="premium">Premium - 9 990 FCFA/mois</option>
+                </select>
+            </div>
+
+            <button type="submit" class="btn btn-primary form-submit" id="submitBtn">
+                Creer mon compte Tendo
+            </button>
+            <p class="form-note">En vous inscrivant, vous acceptez nos <a href="/terms" style="color: var(--primary);">Conditions d'utilisation</a> et notre <a href="/privacy" style="color: var(--primary);">Politique de confidentialite</a>.</p>
+        </form>
+    </div>
+</section>
+
+<!-- ===== TRUST / ABOUT ===== -->
+<section id="about">
+    <div class="section-inner" style="text-align: center;">
+        <div class="section-label">A propos</div>
+        <div class="section-title">Une solution by <span style="color:var(--primary);">SHIFT UP</span></div>
+        <div class="section-desc" style="margin: 0 auto 2rem;">SHIFT UP est une entreprise beninoise specialisee dans les solutions numeriques pour la commande publique. Tendo est notre outil phare, concu pour democratiser l'acces aux marches publics.</div>
+        <div style="margin-bottom:2rem;"><img src="/static/images/banner.png" alt="Tendo by SHIFT UP" style="max-width:500px;width:100%;border-radius:16px;box-shadow:0 8px 30px rgba(108,60,225,0.15);"></div>
+        <div class="trust-grid">
+            <div class="trust-item">
+                <div class="trust-icon">&#128274;</div>
+                <h3>Securise</h3>
+                <p>Vos donnees sont chiffrees et protegees. Aucune information n'est partagee avec des tiers.</p>
+            </div>
+            <div class="trust-item">
+                <div class="trust-icon">&#9889;</div>
+                <h3>Instantane</h3>
+                <p>Les alertes sont envoyees des la publication de l'AO. Pas de retard, pas d'oubli.</p>
+            </div>
+            <div class="trust-item">
+                <div class="trust-icon">&#129302;</div>
+                <h3>Intelligence Artificielle</h3>
+                <p>Nos algorithmes analysent chaque DAO et extraient les informations cles en quelques secondes.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ===== FOOTER ===== -->
+<footer class="footer">
+    <div class="footer-inner">
+        <div class="footer-brand">
+            <h3>Tend<span>o</span></h3>
+            <p>Assistant IA pour les marches publics au Benin et en Afrique de l'Ouest. Developpe par SHIFT UP.</p>
+            <p style="margin-top: 0.5rem;">&#128222; +229 60 41 29 29</p>
+            <p>&#9993; contact@shiftup.bj</p>
+        </div>
+        <div class="footer-col">
+            <h4>Liens utiles</h4>
+            <a href="#services">Services</a>
+            <a href="#pricing">Tarifs</a>
+            <a href="#register">S'inscrire</a>
+            <a href="https://wa.me/22960412929">WhatsApp</a>
+        </div>
+        <div class="footer-col">
+            <h4>Legal</h4>
+            <a href="/terms">Conditions d'utilisation</a>
+            <a href="/privacy">Politique de confidentialite</a>
+            <a href="/delete-data">Suppression de donnees</a>
+        </div>
+    </div>
+    <div class="footer-bottom">
+        <span>&copy; 2024-2026 SHIFT UP. Tous droits reserves.</span>
+        <span>Cotonou, Benin</span>
+    </div>
 </footer>
+
+<script>
+// ===== DEVICE FINGERPRINT =====
+(function() {
+    var fp = [];
+    fp.push(navigator.userAgent);
+    fp.push(screen.width + 'x' + screen.height);
+    fp.push(Intl.DateTimeFormat().resolvedOptions().timeZone);
+    fp.push(navigator.language);
+    fp.push(navigator.hardwareConcurrency || 0);
+    fp.push(new Date().getTimezoneOffset());
+    // Simple hash
+    var hash = 0;
+    var str = fp.join('|');
+    for (var i = 0; i < str.length; i++) {
+        var char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+    }
+    document.getElementById('deviceFp').value = Math.abs(hash).toString(36);
+})();
+
+// ===== FORM TOKEN (anti-CSRF) =====
+(function() {
+    var token = Date.now().toString(36) + Math.random().toString(36).substr(2, 8);
+    document.getElementById('formToken').value = token;
+})();
+
+// ===== ANTI-INJECTION SANITIZE =====
+function sanitize(str) {
+    if (!str) return '';
+    return str.replace(/[<>"'`\\\/;(){}]/g, '').trim();
+}
+
+function validatePhone(phone) {
+    var cleaned = phone.replace(/[\s\-]/g, '');
+    return /^\+?[0-9]{8,15}$/.test(cleaned);
+}
+
+function validateEmail(email) {
+    if (!email) return true; // Optional
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+// ===== FORM SUBMISSION =====
+function handleSubmit(e) {
+    e.preventDefault();
+
+    // Honeypot check
+    if (document.getElementById('honeypot').value) return false;
+
+    // Timing check (bot fills in < 3s)
+    var formLoadTime = parseInt(document.getElementById('formToken').value.split('').reverse().join(''), 36);
+    if (Date.now() - formLoadTime < 3000) return false;
+
+    var form = document.getElementById('registerForm');
+    var btn = document.getElementById('submitBtn');
+    var valid = true;
+
+    // Reset errors
+    document.querySelectorAll('.form-error').forEach(function(el) { el.style.display = 'none'; });
+    document.querySelectorAll('.invalid').forEach(function(el) { el.classList.remove('invalid'); });
+
+    // Validate fullname
+    var fullname = sanitize(document.getElementById('fullname').value);
+    if (fullname.length < 3) {
+        showError('fullname', 'Veuillez entrer votre nom complet (min. 3 caracteres)');
+        valid = false;
+    }
+
+    // Validate phone
+    var phone = document.getElementById('phone').value.trim();
+    if (!validatePhone(phone)) {
+        showError('phone', 'Numero invalide. Format: +229 60 XX XX XX');
+        valid = false;
+    }
+
+    // Validate email
+    var email = document.getElementById('email').value.trim();
+    if (email && !validateEmail(email)) {
+        showError('email', 'Adresse email invalide');
+        valid = false;
+    }
+
+    // Validate company
+    var company = sanitize(document.getElementById('company').value);
+    if (company.length < 2) {
+        showError('company', 'Veuillez entrer le nom de votre entreprise');
+        valid = false;
+    }
+
+    // Validate sector
+    if (!document.getElementById('sector').value) {
+        showError('sector', 'Veuillez choisir un secteur');
+        valid = false;
+    }
+
+    // Validate region
+    if (!document.getElementById('region').value) {
+        showError('region', 'Veuillez choisir une region');
+        valid = false;
+    }
+
+    if (!valid) return false;
+
+    // Submit
+    btn.disabled = true;
+    btn.textContent = 'Envoi en cours...';
+
+    var data = {
+        fullname: fullname,
+        phone: phone.replace(/[\s\-]/g, ''),
+        email: email,
+        company: company,
+        sector: document.getElementById('sector').value,
+        region: document.getElementById('region').value,
+        plan: document.getElementById('plan').value,
+        device_fp: document.getElementById('deviceFp').value,
+        form_token: document.getElementById('formToken').value,
+    };
+
+    fetch('/api/v1/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(result) {
+        if (result.success || result.user_id) {
+            // Redirect to WhatsApp or payment
+            if (data.plan !== 'trial' && result.payment_url) {
+                window.location.href = result.payment_url;
+            } else {
+                form.innerHTML = '<div style="text-align:center;padding:2rem;">' +
+                    '<div style="font-size:3rem;margin-bottom:1rem;">&#10004;&#65039;</div>' +
+                    '<h3 style="margin-bottom:0.5rem;">Inscription reussie !</h3>' +
+                    '<p style="color:#6B7280;">Votre essai gratuit de 7 jours est active.</p>' +
+                    '<a href="https://wa.me/22960412929?text=Bonjour%20Tendo%20!%20Je%20viens%20de%20m\'inscrire." class="btn btn-whatsapp" style="margin-top:1.5rem;">Ouvrir WhatsApp</a>' +
+                    '</div>';
+            }
+        } else {
+            btn.disabled = false;
+            btn.textContent = 'Creer mon compte Tendo';
+            alert(result.detail || result.message || 'Une erreur est survenue. Veuillez reessayer.');
+        }
+    })
+    .catch(function() {
+        btn.disabled = false;
+        btn.textContent = 'Creer mon compte Tendo';
+        alert('Erreur de connexion. Verifiez votre internet et reessayez.');
+    });
+
+    return false;
+}
+
+function showError(field, message) {
+    var errEl = document.getElementById('err-' + field);
+    var input = document.getElementById(field);
+    if (errEl) { errEl.textContent = message; errEl.style.display = 'block'; }
+    if (input) input.classList.add('invalid');
+}
+
+// ===== SMOOTH SCROLL =====
+document.querySelectorAll('a[href^="#"]').forEach(function(anchor) {
+    anchor.addEventListener('click', function(e) {
+        e.preventDefault();
+        var target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            document.getElementById('navLinks').classList.remove('active');
+        }
+    });
+});
+
+// ===== NAV SCROLL EFFECT =====
+window.addEventListener('scroll', function() {
+    var nav = document.getElementById('nav');
+    if (window.scrollY > 50) {
+        nav.style.boxShadow = '0 4px 20px rgba(0,0,0,0.3)';
+    } else {
+        nav.style.boxShadow = 'none';
+    }
+});
+</script>
 
 </body>
 </html>
