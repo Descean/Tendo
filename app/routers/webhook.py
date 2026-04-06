@@ -195,14 +195,20 @@ async def _process_message(from_number: str, body: str, db: AsyncSession):
         )
         db.add(user)
         await db.flush()
-        reply = await claude.chat(
-            f"Un nouvel utilisateur vient de m'ecrire pour la premiere fois. Son message: \"{body}\". "
-            "Accueille-le chaleureusement, presente Tendo brievement, et invite-le a taper Menu.",
-            is_premium=False,
-            db_session=db,
+        # Accueil interactif avec boutons
+        await whatsapp.send_interactive_buttons(
+            from_number,
+            "Bienvenue sur Tendo !\n\n"
+            "Votre assistant de veille sur les marches publics au Benin.\n\n"
+            "Vous beneficiez d'un essai gratuit de 7 jours.\n"
+            "Inscrivez-vous pour recevoir des alertes personnalisees.",
+            [
+                {"id": "menu_inscription", "title": "S'inscrire"},
+                {"id": "menu_menu", "title": "Voir le menu"},
+            ],
+            header="Bienvenue !",
+            footer="tendo.shiftup.bj",
         )
-        _save_conversation_history(user, body, reply)
-        await whatsapp.send_message(from_number, reply)
         return
 
     # Verifier le trial expire
@@ -219,10 +225,20 @@ async def _process_message(from_number: str, body: str, db: AsyncSession):
         allowed_intents = ("ABONNEMENT", "PAIEMENT", "SUPPORT")
         intent_result = await claude.detect_intent(body)
         if intent_result["intent"] not in allowed_intents:
-            await whatsapp.send_message(from_number, SUBSCRIPTION_EXPIRED)
+            await whatsapp.send_interactive_buttons(
+                from_number,
+                "Votre periode d'essai a expire.\n\n"
+                "Pour continuer a recevoir vos alertes marches publics, "
+                "souscrivez a un abonnement.",
+                [
+                    {"id": "menu_abonnement", "title": "Voir les plans"},
+                    {"id": "menu_support", "title": "Contacter support"},
+                ],
+                header="Abonnement expire",
+                footer="tendo.shiftup.bj",
+            )
             return
-        reply = await _handle_intent(intent_result["intent"], body, user, db)
-        await whatsapp.send_message(from_number, reply)
+        await _handle_intent(intent_result["intent"], body, user, from_number, db)
         return
 
     # Gerer le flux d'inscription en cours
@@ -242,6 +258,24 @@ async def _process_message(from_number: str, body: str, db: AsyncSession):
         reply = await _handle_delete_confirmation(user, body, db)
         await whatsapp.send_message(from_number, reply)
         return
+
+    # Reponses aux boutons du menu interactif
+    if body.startswith("menu_"):
+        menu_action = body.replace("menu_", "")
+        intent_map = {
+            "menu": "MENU", "inscription": "INSCRIPTION", "historique": "HISTORIQUE",
+            "abonnement": "ABONNEMENT", "paiement": "PAIEMENT", "profil": "MODIFIER_PROFIL",
+            "support": "SUPPORT", "pay_essentiel": "PAIEMENT", "pay_premium": "PAIEMENT",
+        }
+        intent = intent_map.get(menu_action)
+        if intent:
+            # Pour paiement, passer le plan dans body
+            if menu_action == "pay_premium":
+                body = "premium"
+            elif menu_action == "pay_essentiel":
+                body = "essentiel"
+            await _handle_intent(intent, body, user, from_number, db)
+            return
 
     # Reponses aux boutons interactifs (notifications)
     if body.startswith("voir_"):
@@ -280,70 +314,183 @@ async def _process_message(from_number: str, body: str, db: AsyncSession):
         history = _get_conversation_history(user)
         reply = await claude.chat(body, is_premium=is_premium, conversation_history=history, db_session=db)
         _save_conversation_history(user, body, reply)
+        await whatsapp.send_message(from_number, reply)
     else:
-        reply = await _handle_intent(intent, body, user, db)
-
-    await whatsapp.send_message(from_number, reply)
+        await _handle_intent(intent, body, user, from_number, db)
 
 
-async def _handle_intent(intent: str, body: str, user: User, db: AsyncSession) -> str:
-    """Gere l'intention detectee et retourne le message de reponse."""
+async def _handle_intent(intent: str, body: str, user: User, phone: str, db: AsyncSession):
+    """Gere l'intention detectee et envoie la reponse interactive."""
 
     if intent == "MENU":
-        return MENU_MESSAGE
+        await _send_menu(phone, user)
+        return
 
     elif intent == "INSCRIPTION":
         if user.name and user.sectors:
-            return (
-                "Vous etes deja inscrit.\n\n"
+            await whatsapp.send_interactive_buttons(
+                phone,
+                f"Vous etes deja inscrit.\n\n"
                 f"Nom : {user.name}\n"
                 f"Secteurs : {', '.join(user.sectors) if user.sectors else 'Tous'}\n"
-                f"Regions : {', '.join(user.regions) if user.regions else 'Tout le Benin'}\n\n"
-                "Tapez *Profil* pour modifier vos preferences."
+                f"Regions : {', '.join(user.regions) if user.regions else 'Tout le Benin'}",
+                [
+                    {"id": "menu_profil", "title": "Modifier profil"},
+                    {"id": "menu_historique", "title": "Mes alertes"},
+                ],
+                header="Profil Tendo",
+                footer="tendo.shiftup.bj",
             )
+            return
         user.conversation_state = "inscription_nom"
         user.conversation_data = {}
         flag_modified(user, "conversation_data")
-        return (
+        await whatsapp.send_message(phone,
             "INSCRIPTION TENDO\n\n"
             "Commencons votre inscription.\n"
             "Veuillez saisir votre nom complet :"
         )
+        return
 
     elif intent == "MODIFIER_PROFIL":
-        return _start_profile_modification(user)
+        reply = _start_profile_modification(user)
+        await whatsapp.send_message(phone, reply)
+        return
 
     elif intent == "SUPPRIMER_COMPTE":
-        return _start_account_deletion(user)
+        reply = _start_account_deletion(user)
+        await whatsapp.send_message(phone, reply)
+        return
 
     elif intent == "ABONNEMENT":
-        return PLANS_MESSAGE
+        await _send_plans(phone)
+        return
 
     elif intent == "HISTORIQUE":
-        return await _get_history(user, db)
+        await _send_history_interactive(user, phone, db)
+        return
 
     elif intent == "PAIEMENT":
         body_lower = body.lower()
-        if "premium" in body_lower:
-            return await _handle_payment(user, plan="premium")
-        return await _handle_payment(user, plan="essentiel")
+        plan = "premium" if "premium" in body_lower else "essentiel"
+        reply = await _handle_payment(user, plan=plan)
+        await whatsapp.send_message(phone, reply)
+        return
 
     elif intent == "SUPPORT":
-        return (
-            "SUPPORT TENDO\n\n"
+        await whatsapp.send_interactive_buttons(
+            phone,
             "Un agent va vous contacter prochainement.\n"
-            "En attendant, vous pouvez nous ecrire a : support@shiftup.bj"
+            "En attendant, vous pouvez nous ecrire a : support@shiftup.bj",
+            [
+                {"id": "menu_menu", "title": "Retour au menu"},
+            ],
+            header="Support Tendo",
+            footer="tendo.shiftup.bj",
         )
+        return
 
     elif intent == "DEMANDE_DOSSIER":
-        return await _handle_dossier_request(body, user, db)
+        reply = await _handle_dossier_request(body, user, db)
+        await whatsapp.send_message(phone, reply)
+        return
 
     else:
         is_premium = user.subscription_plan == "premium"
         history = _get_conversation_history(user)
         reply = await claude.chat(body, is_premium=is_premium, conversation_history=history, db_session=db)
         _save_conversation_history(user, body, reply)
-        return reply
+        await whatsapp.send_message(phone, reply)
+
+
+async def _send_menu(phone: str, user: User):
+    """Envoie le menu principal avec liste interactive."""
+    status = user.subscription_status or "trial"
+    status_label = {"trial": "Essai gratuit", "active": "Actif", "expired": "Expire"}.get(status, status)
+    plan_label = f" ({user.subscription_plan})" if user.subscription_plan else ""
+
+    await whatsapp.send_interactive_list(
+        phone,
+        f"Bienvenue sur Tendo !\n\n"
+        f"Votre formule : *{status_label.capitalize()}{plan_label}*\n\n"
+        f"Choisissez une option ci-dessous ou posez directement votre question.\n"
+        f"tendo.shiftup.bj",
+        "Voir le menu",
+        [{
+            "title": "Services Tendo",
+            "rows": [
+                {"id": "menu_inscription", "title": "Inscription", "description": "Configurer vos preferences secteurs/regions"},
+                {"id": "menu_historique", "title": "Mes dernieres alertes", "description": "Voir les appels d'offres recents"},
+                {"id": "menu_abonnement", "title": "Abonnement", "description": "Voir les plans et tarifs"},
+                {"id": "menu_paiement", "title": "Paiement", "description": "Gerer votre abonnement"},
+                {"id": "menu_profil", "title": "Modifier profil", "description": "Changer secteurs, regions, sources"},
+                {"id": "menu_support", "title": "Support", "description": "Contacter un agent"},
+            ],
+        }],
+        footer="Tendo - Marches Publics Benin",
+    )
+
+
+async def _send_plans(phone: str):
+    """Envoie les plans d'abonnement avec boutons interactifs."""
+    await whatsapp.send_interactive_buttons(
+        phone,
+        "PLANS D'ABONNEMENT TENDO\n\n"
+        "--- Essentiel -- 5 000 FCFA/mois ---\n"
+        "Alertes personnalisees, resumes IA, recherche\n\n"
+        "--- Premium -- 15 000 FCFA/mois ---\n"
+        "Tout Essentiel + IA expert, dossiers AO, email monitoring, support prioritaire",
+        [
+            {"id": "menu_pay_essentiel", "title": "Essentiel 5000F"},
+            {"id": "menu_pay_premium", "title": "Premium 15000F"},
+            {"id": "menu_menu", "title": "Retour au menu"},
+        ],
+        header="Abonnement",
+        footer="tendo.shiftup.bj",
+    )
+
+
+async def _send_history_interactive(user: User, phone: str, db: AsyncSession):
+    """Envoie l'historique avec liste interactive des publications."""
+    history_text = await _get_history(user, db)
+
+    # Recuperer les publications recentes pour les boutons
+    from sqlalchemy import and_
+    from datetime import timedelta
+    cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+    result = await db.execute(
+        select(Publication).where(
+            Publication.created_at >= cutoff
+        ).order_by(Publication.created_at.desc()).limit(10)
+    )
+    pubs = result.scalars().all()
+
+    if pubs:
+        rows = []
+        for pub in pubs[:10]:
+            title = pub.title[:24] if pub.title else f"Pub #{pub.id}"
+            desc = f"{pub.source} - {pub.document_type or 'AO'}"[:72]
+            rows.append({
+                "id": f"voir_{pub.id}",
+                "title": title,
+                "description": desc,
+            })
+
+        await whatsapp.send_interactive_list(
+            phone,
+            f"Voici les {len(pubs)} dossiers actifs.\n\n"
+            f"Selectionnez un dossier pour voir les details complets.",
+            "Voir les dossiers",
+            [{"title": "Publications recentes", "rows": rows}],
+            footer="Tendo - Marches Publics Benin",
+        )
+    else:
+        await whatsapp.send_interactive_buttons(
+            phone,
+            history_text,
+            [{"id": "menu_menu", "title": "Retour au menu"}],
+            footer="tendo.shiftup.bj",
+        )
 
 
 # ================================================
