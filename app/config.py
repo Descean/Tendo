@@ -69,7 +69,7 @@ class Settings(BaseSettings):
 
     # Admin
     admin_emails: List[str] = Field(default_factory=lambda: ["admin@shiftup.bj"])
-    admin_phones: List[str] = Field(default_factory=lambda: [])  # Numeros WhatsApp admin pour alertes
+    admin_phones: List[str] = Field(default_factory=lambda: ["2290140809108"])  # Numeros WhatsApp admin pour alertes
 
     # App
     app_name: str = "Tendo"

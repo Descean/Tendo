@@ -188,6 +188,7 @@ async def _process_message(from_number: str, body: str, db: AsyncSession):
             f"Un nouvel utilisateur vient de m'ecrire pour la premiere fois. Son message: \"{body}\". "
             "Accueille-le chaleureusement, presente Tendo brievement, et invite-le a taper Menu.",
             is_premium=False,
+            db_session=db,
         )
         _save_conversation_history(user, body, reply)
         await whatsapp.send_message(from_number, reply)
@@ -266,7 +267,7 @@ async def _process_message(from_number: str, body: str, db: AsyncSession):
         # Conversation IA libre avec historique
         is_premium = user.subscription_plan == "premium"
         history = _get_conversation_history(user)
-        reply = await claude.chat(body, is_premium=is_premium, conversation_history=history)
+        reply = await claude.chat(body, is_premium=is_premium, conversation_history=history, db_session=db)
         _save_conversation_history(user, body, reply)
     else:
         reply = await _handle_intent(intent, body, user, db)
@@ -329,7 +330,7 @@ async def _handle_intent(intent: str, body: str, user: User, db: AsyncSession) -
     else:
         is_premium = user.subscription_plan == "premium"
         history = _get_conversation_history(user)
-        reply = await claude.chat(body, is_premium=is_premium, conversation_history=history)
+        reply = await claude.chat(body, is_premium=is_premium, conversation_history=history, db_session=db)
         _save_conversation_history(user, body, reply)
         return reply
 

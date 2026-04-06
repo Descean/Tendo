@@ -18,13 +18,42 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import select, func, and_, delete, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from pydantic import BaseModel
+from typing import Optional, List
+
 from app.config import settings
+from app.models.knowledge_base import KnowledgeBase
 from app.models.notification import Notification
 from app.models.publication import Publication
 from app.models.subscription import Subscription
 from app.models.user import User, SubscriptionStatus
 from app.utils.db import get_db
 from app.utils.logger import logger
+
+
+# ── Schemas Pydantic pour Knowledge ──────────────────────────────────────────
+class KnowledgeCreate(BaseModel):
+    category: str
+    subcategory: str = ""
+    title: str
+    content: str
+    summary: Optional[str] = None
+    keywords: Optional[List[str]] = None
+    country: Optional[str] = "Benin"
+    source_url: Optional[str] = None
+    language: str = "fr"
+
+class KnowledgeUpdate(BaseModel):
+    category: Optional[str] = None
+    subcategory: Optional[str] = None
+    title: Optional[str] = None
+    content: Optional[str] = None
+    summary: Optional[str] = None
+    keywords: Optional[List[str]] = None
+    country: Optional[str] = None
+    source_url: Optional[str] = None
+    language: Optional[str] = None
+    is_active: Optional[bool] = None
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -112,6 +141,8 @@ body{background:#0B1121}
 .btn-danger{background:#DC2626;color:white}.btn-danger:hover{background:#B91C1C}
 .btn-success{background:#059669;color:white}.btn-success:hover{background:#047857}
 .btn-purple{background:#7C3AED;color:white}.btn-purple:hover{background:#6D28D9}
+.btn-warning{background:#D97706;color:white}.btn-warning:hover{background:#B45309}
+.line-clamp-2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .progress-track{height:5px;background:#1E293B;border-radius:4px;overflow:hidden}
 .progress-fill{height:100%;border-radius:4px;transition:width .6s ease}
 .alert{border-radius:8px;padding:10px 14px;font-size:12px;display:flex;align-items:flex-start;gap:10px}
@@ -504,6 +535,18 @@ tbody tr:hover{background:#1E293B30}
           <div><p class="text-[12px] text-slate-200 font-medium flex items-center gap-2"><i class="fa-solid fa-robot text-slate-600 text-[10px]"></i> Pipeline PDF (IA)</p><p class="text-[10px] text-slate-600 mt-0.5 ml-5">Extraire texte + classifier + resumer par IA</p></div>
           <button @click="trig('pdf-processing')" :disabled="trigging['pdf-processing']" class="btn btn-purple text-[11px]"><i class="fa-solid fa-play" :class="trigging['pdf-processing']&&'fa-spin'"></i> Lancer</button>
         </div>
+        <div class="flex items-center justify-between bg-slate-800/30 rounded-lg px-3 py-2.5 border border-slate-700/20">
+          <div><p class="text-[12px] text-amber-300 font-medium flex items-center gap-2"><i class="fa-solid fa-broom text-amber-600 text-[10px]"></i> Nettoyage AO expires</p><p class="text-[10px] text-slate-600 mt-0.5 ml-5">Supprimer les AO dont la deadline est passee</p></div>
+          <button @click="trig('cleanup-expired')" :disabled="trigging['cleanup-expired']" class="btn btn-warning text-[11px]"><i class="fa-solid fa-play" :class="trigging['cleanup-expired']&&'fa-spin'"></i> Lancer</button>
+        </div>
+        <div class="flex items-center justify-between bg-slate-800/30 rounded-lg px-3 py-2.5 border border-slate-700/20">
+          <div><p class="text-[12px] text-purple-300 font-medium flex items-center gap-2"><i class="fa-solid fa-brain text-purple-600 text-[10px]"></i> Enrichissement IA</p><p class="text-[10px] text-slate-600 mt-0.5 ml-5">DeepSeek analyse et resume les publications</p></div>
+          <button @click="trig('enrich-publications')" :disabled="trigging['enrich-publications']" class="btn btn-purple text-[11px]"><i class="fa-solid fa-play" :class="trigging['enrich-publications']&&'fa-spin'"></i> Lancer</button>
+        </div>
+        <div class="flex items-center justify-between bg-slate-800/30 rounded-lg px-3 py-2.5 border border-slate-700/20">
+          <div><p class="text-[12px] text-cyan-300 font-medium flex items-center gap-2"><i class="fa-solid fa-comments text-cyan-600 text-[10px]"></i> Discussion proactive</p><p class="text-[10px] text-slate-600 mt-0.5 ml-5">Tendo envoie un message proactif aux utilisateurs</p></div>
+          <button @click="trig('proactive-discussion')" :disabled="trigging['proactive-discussion']" class="btn btn-primary text-[11px]"><i class="fa-solid fa-play" :class="trigging['proactive-discussion']&&'fa-spin'"></i> Lancer</button>
+        </div>
       </div>
       <div x-show="trigMsg" class="mt-3 text-[11px] text-emerald-400 bg-emerald-900/20 rounded-lg px-3 py-2 border border-emerald-800/30 flex items-center gap-2" x-cloak><i class="fa-solid fa-circle-check"></i><span x-text="trigMsg"></span></div>
     </div>
@@ -533,6 +576,276 @@ tbody tr:hover{background:#1E293B30}
   </div>
 </section>
 
+<!-- TAB: CONNAISSANCES -->
+<section x-show="tab==='knowledge'" x-cloak>
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="text-lg font-semibold text-slate-200"><i class="fa-solid fa-book mr-2 text-cyan-400"></i>Base de Connaissances</h2>
+    <div class="flex gap-2">
+      <button @click="kbSeed()" class="btn btn-secondary text-[11px]"><i class="fa-solid fa-database"></i> Peupler initiale</button>
+      <button @click="kbLearn()" class="btn btn-purple text-[11px]"><i class="fa-solid fa-brain"></i> Auto-apprentissage</button>
+      <button @click="kbNew()" class="btn btn-primary text-[11px]"><i class="fa-solid fa-plus"></i> Ajouter</button>
+    </div>
+  </div>
+  <div x-show="kbMsg" class="mb-3 text-[11px] text-emerald-400 bg-emerald-900/20 rounded-lg px-3 py-2 border border-emerald-800/30 flex items-center gap-2" x-cloak><i class="fa-solid fa-circle-check"></i><span x-text="kbMsg"></span></div>
+
+  <!-- Formulaire ajout/edition -->
+  <div x-show="kbForm.title!==undefined && (kbEdit!==null || kbForm.category!=='' || kbForm.title!=='')" class="card mb-4" x-cloak>
+    <div class="card-header"><i class="fa-solid fa-pen"></i> <span x-text="kbEdit?'Modifier':'Ajouter'"></span> une connaissance</div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+      <div><label class="text-[10px] text-slate-500 block mb-1">Categorie *</label>
+        <select x-model="kbForm.category" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1.5 text-[12px] text-slate-200">
+          <option value="">-- Choisir --</option>
+          <option value="document_type">Type de document</option>
+          <option value="procedure">Procedure</option>
+          <option value="reglementation">Reglementation</option>
+          <option value="source_info">Source info</option>
+          <option value="lexique">Lexique</option>
+          <option value="intelligence_marche">Intelligence marche</option>
+          <option value="conseil_pratique">Conseil pratique</option>
+          <option value="auto_learn">Auto-apprentissage</option>
+        </select>
+      </div>
+      <div><label class="text-[10px] text-slate-500 block mb-1">Sous-categorie</label><input x-model="kbForm.subcategory" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1.5 text-[12px] text-slate-200" placeholder="Ex: AAO, DAO..."></div>
+      <div><label class="text-[10px] text-slate-500 block mb-1">Pays</label><input x-model="kbForm.country" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1.5 text-[12px] text-slate-200" placeholder="Benin"></div>
+      <div><label class="text-[10px] text-slate-500 block mb-1">Langue</label><input x-model="kbForm.language" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1.5 text-[12px] text-slate-200" placeholder="fr"></div>
+    </div>
+    <div class="mb-3"><label class="text-[10px] text-slate-500 block mb-1">Titre *</label><input x-model="kbForm.title" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1.5 text-[12px] text-slate-200" placeholder="Titre de la connaissance"></div>
+    <div class="mb-3"><label class="text-[10px] text-slate-500 block mb-1">Contenu *</label><textarea x-model="kbForm.content" rows="5" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1.5 text-[12px] text-slate-200" placeholder="Contenu detaille de la connaissance..."></textarea></div>
+    <div class="grid grid-cols-2 gap-3 mb-3">
+      <div><label class="text-[10px] text-slate-500 block mb-1">Resume (optionnel)</label><textarea x-model="kbForm.summary" rows="2" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1.5 text-[12px] text-slate-200" placeholder="Resume court..."></textarea></div>
+      <div><label class="text-[10px] text-slate-500 block mb-1">Mots-cles (separes par virgule)</label><input x-model="kbForm.keywords" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1.5 text-[12px] text-slate-200" placeholder="mot1, mot2, mot3"><label class="text-[10px] text-slate-500 block mt-2 mb-1">URL source (optionnel)</label><input x-model="kbForm.source_url" class="w-full bg-slate-800 border border-slate-700 rounded px-2 py-1.5 text-[12px] text-slate-200" placeholder="https://..."></div>
+    </div>
+    <div class="flex gap-2">
+      <button @click="kbSave()" class="btn btn-primary text-[11px]"><i class="fa-solid fa-save"></i> <span x-text="kbEdit?'Mettre a jour':'Enregistrer'"></span></button>
+      <button @click="kbEdit=null;kbForm.category='';kbForm.title=''" class="btn btn-secondary text-[11px]"><i class="fa-solid fa-xmark"></i> Annuler</button>
+    </div>
+  </div>
+
+  <!-- Filtres et liste -->
+  <div class="card">
+    <div class="flex items-center gap-3 mb-3">
+      <input x-model="kbQ" placeholder="Rechercher..." class="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-[12px] text-slate-200 w-64">
+      <select x-model="kbCatF" class="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-[12px] text-slate-200">
+        <option value="">Toutes categories</option>
+        <template x-for="c in kbCatOpts" :key="c"><option :value="c" x-text="c"></option></template>
+      </select>
+      <span class="text-[11px] text-slate-500 ml-auto" x-text="fKbs.length+' / '+kbs.length+' connaissances'"></span>
+    </div>
+    <div class="overflow-x-auto max-h-[500px] overflow-y-auto">
+      <table class="w-full text-left">
+        <thead class="text-[10px] text-slate-500 uppercase border-b border-slate-800 sticky top-0 bg-[#0F172A]">
+          <tr><th class="py-2 px-2">Categorie</th><th class="py-2 px-2">Titre</th><th class="py-2 px-2">Pays</th><th class="py-2 px-2">Mots-cles</th><th class="py-2 px-2">Actif</th><th class="py-2 px-2">V.</th><th class="py-2 px-2">Actions</th></tr>
+        </thead>
+        <tbody>
+          <template x-for="k in fKbs" :key="k.id">
+          <tr class="border-b border-slate-800/50 hover:bg-slate-800/20">
+            <td class="py-2 px-2"><span class="badge b-active text-[9px]" x-text="k.category"></span><br><span class="text-[10px] text-slate-600" x-text="k.subcategory"></span></td>
+            <td class="py-2 px-2 text-[12px] text-slate-200 max-w-xs"><span class="font-medium" x-text="k.title"></span><p class="text-[10px] text-slate-500 mt-0.5 line-clamp-2" x-text="(k.content||'').slice(0,120)+'...'"></p></td>
+            <td class="py-2 px-2 text-[11px] text-slate-400" x-text="k.country||'-'"></td>
+            <td class="py-2 px-2 text-[10px] text-slate-500 max-w-[120px] truncate" x-text="(k.keywords||[]).join(', ')"></td>
+            <td class="py-2 px-2"><span class="w-2 h-2 rounded-full inline-block" :class="k.is_active?'bg-emerald-400':'bg-red-400'"></span></td>
+            <td class="py-2 px-2 text-[11px] text-slate-500" x-text="k.version||1"></td>
+            <td class="py-2 px-2">
+              <div class="flex gap-1">
+                <button @click="kbEditItem(k)" class="btn btn-secondary text-[10px] py-0.5 px-1.5"><i class="fa-solid fa-pen"></i></button>
+                <button @click="kbToggle(k)" class="btn text-[10px] py-0.5 px-1.5" :class="k.is_active?'btn-warning':'btn-success'"><i :class="k.is_active?'fa-solid fa-eye-slash':'fa-solid fa-eye'"></i></button>
+                <button @click="kbDelete(k)" class="btn btn-danger text-[10px] py-0.5 px-1.5"><i class="fa-solid fa-trash"></i></button>
+              </div>
+            </td>
+          </tr>
+          </template>
+        </tbody>
+      </table>
+      <p x-show="!fKbs.length" class="text-slate-600 text-[12px] italic py-4 text-center">Aucune connaissance trouvee. Cliquez sur "Peupler initiale" ou "Ajouter".</p>
+    </div>
+  </div>
+</section>
+
+<!-- TAB: CODE CENTER -->
+<section x-show="tab==='code'" x-cloak x-init="$watch('tab',v=>{if(v==='code'&&!codeFiles.length)codeLoadFiles()})">
+  <div class="flex items-center justify-between mb-3">
+    <h2 class="text-lg font-semibold text-slate-200"><i class="fa-solid fa-code mr-2 text-emerald-400"></i>Centre de Code <span class="text-[11px] text-slate-500 font-normal ml-2">IA: Gemini Flash + Groq</span></h2>
+    <div class="flex gap-2">
+      <button @click="gitShowPanel=!gitShowPanel;if(gitShowPanel)gitLoadStatus()" class="btn btn-success text-[11px]"><i class="fa-brands fa-github"></i> Git</button>
+      <button @click="codeRestart()" class="btn btn-warning text-[11px]"><i class="fa-solid fa-arrows-rotate"></i> Redemarrer Tendo</button>
+      <button @click="codeLoadFiles()" class="btn btn-secondary text-[11px]"><i class="fa-solid fa-folder-open"></i> Rafraichir fichiers</button>
+    </div>
+  </div>
+  <div x-show="codeMsg" class="mb-2 text-[11px] text-emerald-400 bg-emerald-900/20 rounded-lg px-3 py-2 border border-emerald-800/30 flex items-center gap-2" x-cloak><i class="fa-solid fa-circle-check"></i><span x-text="codeMsg"></span></div>
+
+  <!-- Git Panel -->
+  <div x-show="gitShowPanel" class="card mb-3" x-cloak>
+    <div class="flex items-center justify-between mb-2">
+      <div class="card-header mb-0"><i class="fa-brands fa-github"></i> Git — <span class="text-cyan-400 font-mono text-[11px]" x-text="gitStatus.branch||'...'"></span></div>
+      <div class="flex gap-2">
+        <button @click="gitLoadStatus()" class="btn btn-secondary text-[10px] py-1"><i class="fa-solid fa-arrows-rotate"></i></button>
+        <button @click="gitShowPanel=false" class="btn btn-secondary text-[10px] py-1"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+    </div>
+    <div class="grid grid-cols-3 gap-3">
+      <!-- Fichiers modifies -->
+      <div>
+        <p class="text-[10px] text-slate-500 font-semibold mb-1 uppercase">Fichiers modifies</p>
+        <div class="bg-[#0B1121] rounded-lg p-2 max-h-32 overflow-y-auto border border-slate-800">
+          <p x-show="gitStatus.clean" class="text-[10px] text-slate-600 italic">Aucune modification</p>
+          <template x-for="f in (gitStatus.files||[])" :key="f.file">
+            <div class="text-[10px] font-mono py-0.5 flex items-center gap-1.5">
+              <span :class="f.status==='M'?'text-amber-400':f.status==='A'||f.status==='??'?'text-emerald-400':'text-red-400'" x-text="f.status"></span>
+              <span class="text-slate-300 truncate" x-text="f.file"></span>
+            </div>
+          </template>
+        </div>
+      </div>
+      <!-- Commit -->
+      <div>
+        <p class="text-[10px] text-slate-500 font-semibold mb-1 uppercase">Nouveau commit</p>
+        <input x-model="gitCommitMsg" class="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-[11px] text-slate-200 mb-1.5" placeholder="Message de commit...">
+        <div class="flex gap-1.5">
+          <button @click="gitCommit()" :disabled="gitBusy||!gitCommitMsg.trim()" class="btn btn-primary text-[10px] py-1 flex-1"><i class="fa-solid fa-check" :class="gitBusy&&'fa-spin'"></i> Commit</button>
+          <button @click="gitPush()" :disabled="gitBusy" class="btn btn-success text-[10px] py-1 flex-1"><i class="fa-solid fa-cloud-arrow-up" :class="gitBusy&&'fa-spin'"></i> Push</button>
+        </div>
+        <div x-show="gitMsg" class="mt-1.5 text-[10px] rounded px-2 py-1 border" :class="gitMsgOk?'text-emerald-400 bg-emerald-900/20 border-emerald-800/30':'text-red-400 bg-red-900/20 border-red-800/30'" x-text="gitMsg" x-cloak></div>
+      </div>
+      <!-- Derniers commits -->
+      <div>
+        <p class="text-[10px] text-slate-500 font-semibold mb-1 uppercase">Derniers commits</p>
+        <div class="bg-[#0B1121] rounded-lg p-2 max-h-32 overflow-y-auto border border-slate-800">
+          <template x-for="(c,i) in (gitStatus.recent_commits||[])" :key="i">
+            <div class="text-[10px] font-mono py-0.5 text-slate-400 truncate" x-text="c"></div>
+          </template>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-12 gap-3" style="height:calc(100vh - 160px)">
+
+    <!-- Colonne gauche : Arborescence fichiers -->
+    <div class="col-span-2 card overflow-y-auto" style="max-height:calc(100vh - 160px)">
+      <div class="card-header text-[11px]"><i class="fa-solid fa-folder-tree"></i> Fichiers projet</div>
+      <div class="text-[11px]" x-data="{openDirs:{}}">
+        <template x-for="f in codeFiles" :key="f">
+          <div @click="codeOpenFile(f)" class="px-2 py-1 cursor-pointer rounded hover:bg-slate-800/50 truncate flex items-center gap-1.5"
+               :class="codeCurFile===f?'bg-cyan-900/30 text-cyan-300':'text-slate-400'">
+            <i class="text-[9px]" :class="f.endsWith('.py')?'fa-brands fa-python text-blue-400':f.endsWith('.html')?'fa-solid fa-code text-orange-400':f.endsWith('.json')?'fa-solid fa-brackets-curly text-yellow-400':f.endsWith('.yml')||f.endsWith('.yaml')?'fa-solid fa-gear text-purple-400':'fa-solid fa-file text-slate-600'"></i>
+            <span x-text="f.split('/').pop()" :title="f"></span>
+          </div>
+        </template>
+        <p x-show="!codeFiles.length" class="text-slate-600 italic text-[10px] px-2">Chargement...</p>
+      </div>
+    </div>
+
+    <!-- Colonne centre : Editeur de code -->
+    <div class="col-span-5 flex flex-col gap-2" style="max-height:calc(100vh - 160px)">
+      <!-- Header editeur -->
+      <div class="card py-2 px-3 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-file-code text-slate-500 text-[12px]"></i>
+          <span class="text-[12px] text-slate-300 font-mono" x-text="codeCurFile||'Aucun fichier ouvert'"></span>
+          <span x-show="codeModified" class="badge b-trial text-[8px] ml-1">modifie</span>
+        </div>
+        <div class="flex gap-1.5">
+          <button x-show="codeModified" @click="codeRevert()" class="btn btn-secondary text-[10px] py-1 px-2"><i class="fa-solid fa-rotate-left"></i> Annuler</button>
+          <button x-show="codeModified" @click="codeSaveFile()" :disabled="codeSaveBusy" class="btn btn-primary text-[10px] py-1 px-2"><i class="fa-solid fa-save" :class="codeSaveBusy&&'fa-spin'"></i> Sauvegarder</button>
+        </div>
+      </div>
+      <!-- Zone editeur -->
+      <div class="card flex-1 p-0 overflow-hidden flex flex-col">
+        <div class="flex items-center justify-between px-3 py-1.5 border-b border-slate-800">
+          <span class="text-[10px] text-slate-500 font-mono" x-text="codeCurLang"></span>
+          <span class="text-[10px] text-slate-600" x-text="codeCurContent?codeCurContent.split('\\n').length+' lignes':''"></span>
+        </div>
+        <div class="flex-1 overflow-auto relative">
+          <div class="flex" style="min-height:100%">
+            <!-- Numeros de ligne -->
+            <div class="bg-slate-900/50 text-right pr-2 pl-2 pt-2 select-none border-r border-slate-800" style="min-width:40px">
+              <template x-for="(l,i) in (codeCurContent||'').split('\n')" :key="i">
+                <div class="text-[10px] leading-[18px] text-slate-700 font-mono" x-text="i+1"></div>
+              </template>
+            </div>
+            <!-- Textarea editeur -->
+            <textarea x-model="codeCurContent" spellcheck="false"
+              class="flex-1 bg-transparent text-[11px] leading-[18px] text-slate-200 font-mono p-2 resize-none outline-none border-none w-full"
+              style="tab-size:4;-moz-tab-size:4" :placeholder="codeCurFile?'':'Selectionnez un fichier a gauche...'"></textarea>
+          </div>
+        </div>
+      </div>
+      <!-- Terminal / Shell -->
+      <div class="card p-2" style="max-height:160px">
+        <div class="flex items-center gap-2 mb-1.5">
+          <span class="text-[10px] text-slate-500 font-mono"><i class="fa-solid fa-terminal mr-1"></i>Shell</span>
+          <div class="flex-1 flex gap-1">
+            <input x-model="codeCmdInput" @keydown.enter="codeRunCmd()" class="flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-[11px] text-emerald-300 font-mono" placeholder="Commande shell (ex: docker logs tendo-api --tail 20)">
+            <button @click="codeRunCmd()" :disabled="codeCmdBusy" class="btn btn-secondary text-[10px] py-1 px-2"><i class="fa-solid fa-play" :class="codeCmdBusy&&'fa-spin'"></i></button>
+          </div>
+        </div>
+        <div class="bg-[#0B1121] rounded p-2 text-[10px] font-mono text-slate-400 overflow-auto" style="max-height:100px"><pre x-text="codeCmdOutput||'$ _'"></pre></div>
+      </div>
+    </div>
+
+    <!-- Colonne droite : Chat IA -->
+    <div class="col-span-5 flex flex-col gap-2" style="max-height:calc(100vh - 160px)">
+      <div class="card flex-1 flex flex-col overflow-hidden">
+        <div class="card-header flex items-center justify-between py-2">
+          <div class="flex items-center gap-2"><i class="fa-solid fa-robot text-emerald-400"></i><span class="text-[12px]">Assistant Code IA</span></div>
+          <button @click="codeClearChat()" class="btn btn-secondary text-[9px] py-0.5 px-2"><i class="fa-solid fa-eraser"></i> Effacer</button>
+        </div>
+        <!-- Messages -->
+        <div id="codeChatScroll" class="flex-1 overflow-y-auto px-3 py-2 space-y-3">
+          <div x-show="!codeChat.length" class="text-center py-8">
+            <i class="fa-solid fa-wand-magic-sparkles text-3xl text-slate-700 mb-3"></i>
+            <p class="text-[12px] text-slate-500">Decrivez ce que vous voulez faire en langage naturel.</p>
+            <p class="text-[10px] text-slate-600 mt-2">Exemples :</p>
+            <div class="space-y-1 mt-2">
+              <p @click="codePrompt='Ajoute un nouveau scraper pour le site ungm.org'" class="text-[10px] text-cyan-500/70 cursor-pointer hover:text-cyan-400">"Ajoute un nouveau scraper pour ungm.org"</p>
+              <p @click="codePrompt='Modifie le fichier config.py pour ajouter un parametre MAX_RETRIES=3'" class="text-[10px] text-cyan-500/70 cursor-pointer hover:text-cyan-400">"Ajoute un parametre MAX_RETRIES=3 dans config.py"</p>
+              <p @click="codePrompt='Explique le fonctionnement du scheduler et propose des ameliorations'" class="text-[10px] text-cyan-500/70 cursor-pointer hover:text-cyan-400">"Explique le scheduler et propose des ameliorations"</p>
+              <p @click="codePrompt='Corrige les erreurs dans les logs recents'" class="text-[10px] text-cyan-500/70 cursor-pointer hover:text-cyan-400">"Corrige les erreurs dans les logs recents"</p>
+            </div>
+          </div>
+          <template x-for="(msg,i) in codeChat" :key="i">
+            <div :class="msg.role==='user'?'flex justify-end':'flex justify-start'">
+              <div :class="msg.role==='user'?'bg-cyan-900/30 border-cyan-800/30 max-w-[85%]':'bg-slate-800/50 border-slate-700/30 max-w-[90%]'" class="rounded-lg px-3 py-2 border">
+                <div class="flex items-center gap-1.5 mb-1">
+                  <i :class="msg.role==='user'?'fa-solid fa-user text-cyan-500':'fa-solid fa-robot text-emerald-400'" class="text-[9px]"></i>
+                  <span class="text-[9px] font-semibold" :class="msg.role==='user'?'text-cyan-400':'text-emerald-400'" x-text="msg.role==='user'?'Vous':'IA'"></span>
+                </div>
+                <div class="text-[11px] text-slate-300 whitespace-pre-wrap" x-text="msg.text"></div>
+                <!-- Bloc code genere -->
+                <template x-if="msg.code">
+                  <div class="mt-2">
+                    <div class="flex items-center justify-between bg-slate-900 rounded-t px-2 py-1 border border-slate-700 border-b-0">
+                      <span class="text-[9px] text-slate-500 font-mono" x-text="msg.file||'code'"></span>
+                      <div class="flex gap-1">
+                        <button @click="codeApply(msg)" class="text-[9px] bg-emerald-600 hover:bg-emerald-500 text-white px-2 py-0.5 rounded font-medium"><i class="fa-solid fa-check mr-1"></i>Appliquer</button>
+                        <button @click="navigator.clipboard.writeText(msg.code)" class="text-[9px] bg-slate-700 hover:bg-slate-600 text-slate-300 px-2 py-0.5 rounded"><i class="fa-solid fa-copy"></i></button>
+                      </div>
+                    </div>
+                    <pre class="bg-[#0B1121] text-[10px] text-emerald-300 font-mono p-2 rounded-b border border-slate-700 border-t-0 overflow-x-auto max-h-60 overflow-y-auto"><code x-text="msg.code"></code></pre>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+          <div x-show="codeGenBusy" class="flex justify-start">
+            <div class="bg-slate-800/50 border border-slate-700/30 rounded-lg px-3 py-2">
+              <div class="flex items-center gap-2"><i class="fa-solid fa-spinner fa-spin text-emerald-400 text-[10px]"></i><span class="text-[11px] text-slate-400">L'IA reflechit...</span></div>
+            </div>
+          </div>
+        </div>
+        <!-- Input prompt -->
+        <div class="border-t border-slate-800 px-3 py-2">
+          <div class="flex gap-2">
+            <textarea x-model="codePrompt" @keydown.ctrl.enter="codeGenerate()" rows="2" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-[12px] text-slate-200 resize-none" placeholder="Decrivez votre modification en francais... (Ctrl+Entree pour envoyer)"></textarea>
+            <button @click="codeGenerate()" :disabled="codeGenBusy||!codePrompt.trim()" class="btn btn-primary self-end text-[11px]"><i class="fa-solid fa-paper-plane" :class="codeGenBusy&&'fa-spin'"></i></button>
+          </div>
+          <p class="text-[9px] text-slate-600 mt-1">L'IA lit le fichier ouvert et genere du code adapte. Verifiez toujours avant de sauvegarder.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
   </div>
 </div>
 
@@ -546,8 +859,15 @@ function dashboard(){return{
     {id:'market',icon:'fa-solid fa-file-lines',label:'Marche'},
     {id:'users',icon:'fa-solid fa-users',label:'Utilisateurs'},
     {id:'ops',icon:'fa-solid fa-server',label:'Operations'},
+    {id:'knowledge',icon:'fa-solid fa-book',label:'Connaissances'},
+    {id:'code',icon:'fa-solid fa-code',label:'Centre de Code'},
   ],
-  S:{},users:[],pubs:[],sys:{},logs:[],
+  S:{},users:[],pubs:[],sys:{},logs:[],kbs:[],kbEdit:null,kbForm:{category:'',subcategory:'',title:'',content:'',summary:'',keywords:'',country:'Benin',source_url:'',language:'fr'},kbQ:'',kbCatF:'',kbMsg:'',
+  // Code Center state
+  codeFiles:[],codeTree:[],codeCurFile:'',codeCurContent:'',codeCurLang:'python',codeOrigContent:'',
+  codePrompt:'',codeChat:[],codeGenBusy:false,codeSaveBusy:false,codeMsg:'',
+  codeCmdInput:'',codeCmdOutput:'',codeCmdBusy:false,codeShowDiff:false,
+  gitShowPanel:false,gitStatus:{},gitCommitMsg:'',gitBusy:false,gitMsg:'',gitMsgOk:true,
   usrQ:'',usrF:'',pubQ:'',pubSrcF:'',pubTypeF:'',
   trigging:{},trigMsg:'',autoLog:false,_logI:null,
 
@@ -565,7 +885,7 @@ function dashboard(){return{
 
   async refreshAll(){
     this.busy=true;
-    await Promise.all([this.loadStats(),this.loadUsers(),this.loadPubs(),this.loadSys(),this.loadLogs()]);
+    await Promise.all([this.loadStats(),this.loadUsers(),this.loadPubs(),this.loadSys(),this.loadLogs(),this.loadKnowledge()]);
     this.lastRefresh=new Date().toLocaleTimeString('fr-FR');
     this.busy=false;this.$nextTick(()=>{this.drawCharts()});
   },
@@ -576,6 +896,124 @@ function dashboard(){return{
   async loadPubs(){try{const d=await this.api('/publications?limit=2000');this.pubs=d.publications??d}catch(e){}},
   async loadSys(){try{this.sys=await this.api('/system')}catch(e){}},
   async loadLogs(){try{const d=await this.api('/logs');this.logs=d.logs??[]}catch(e){}},
+  async loadKnowledge(){try{const d=await this.api('/knowledge');this.kbs=d.items??[]}catch(e){}},
+
+  get fKbs(){return this.kbs.filter(k=>{if(this.kbCatF&&k.category!==this.kbCatF)return false;if(!this.kbQ)return true;const q=this.kbQ.toLowerCase();return(k.title||'').toLowerCase().includes(q)||(k.content||'').toLowerCase().includes(q)||(k.category||'').toLowerCase().includes(q)})},
+  get kbCatOpts(){return[...new Set(this.kbs.map(k=>k.category))].filter(Boolean).sort()},
+
+  kbNew(){this.kbEdit=null;this.kbForm={category:'',subcategory:'',title:'',content:'',summary:'',keywords:'',country:'Benin',source_url:'',language:'fr'};this.kbMsg=''},
+  kbEditItem(k){this.kbEdit=k.id;this.kbForm={category:k.category||'',subcategory:k.subcategory||'',title:k.title||'',content:k.content||'',summary:k.summary||'',keywords:(k.keywords||[]).join(', '),country:k.country||'Benin',source_url:k.source_url||'',language:k.language||'fr'};this.kbMsg=''},
+  async kbSave(){
+    const payload={...this.kbForm,keywords:this.kbForm.keywords?this.kbForm.keywords.split(',').map(s=>s.trim()).filter(Boolean):[]};
+    try{
+      if(this.kbEdit){
+        const r=await fetch('/admin/api/knowledge/'+this.kbEdit+'?key='+encodeURIComponent(this.apiKey),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+        if(!r.ok)throw new Error('Erreur '+r.status);this.kbMsg='Connaissance mise a jour';
+      }else{
+        const r=await fetch('/admin/api/knowledge?key='+encodeURIComponent(this.apiKey),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+        if(!r.ok)throw new Error('Erreur '+r.status);this.kbMsg='Connaissance ajoutee';
+      }
+      await this.loadKnowledge();this.kbEdit=null;this.kbForm={category:'',subcategory:'',title:'',content:'',summary:'',keywords:'',country:'Benin',source_url:'',language:'fr'};
+      setTimeout(()=>this.kbMsg='',4000);
+    }catch(e){this.kbMsg='Erreur: '+e.message}
+  },
+  async kbDelete(k){if(!confirm('Supprimer "'+k.title.slice(0,50)+'" ?'))return;try{const r=await fetch('/admin/api/knowledge/'+k.id+'?key='+encodeURIComponent(this.apiKey),{method:'DELETE'});if(r.ok){this.kbs=this.kbs.filter(x=>x.id!==k.id);this.kbMsg='Supprime'}}catch(e){this.kbMsg='Erreur: '+e.message}},
+  async kbToggle(k){try{const r=await fetch('/admin/api/knowledge/'+k.id+'?key='+encodeURIComponent(this.apiKey),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({is_active:!k.is_active})});if(r.ok){k.is_active=!k.is_active}}catch(e){alert(e.message)}},
+  async kbSeed(){if(!confirm('Peupler la base avec les connaissances initiales ?'))return;try{const r=await fetch('/admin/trigger/seed-knowledge?key='+encodeURIComponent(this.apiKey),{method:'POST'});const d=await r.json();this.kbMsg=d.message||'OK';await this.loadKnowledge();setTimeout(()=>this.kbMsg='',4000)}catch(e){this.kbMsg='Erreur: '+e.message}},
+  async kbLearn(){try{const r=await fetch('/admin/trigger/self-learn?key='+encodeURIComponent(this.apiKey),{method:'POST'});const d=await r.json();this.kbMsg=d.message||'OK';setTimeout(()=>this.kbMsg='',4000)}catch(e){this.kbMsg='Erreur: '+e.message}},
+
+  // ── Code Center ──
+  async codeLoadFiles(){
+    try{const d=await this.api('/code/files');this.codeFiles=d.files||[];this.codeTree=this._buildTree(this.codeFiles)}catch(e){this.codeMsg='Erreur: '+e.message}
+  },
+  _buildTree(files){
+    const tree={};
+    files.forEach(f=>{
+      const parts=f.split('/');let node=tree;
+      parts.forEach((p,i)=>{
+        if(i===parts.length-1){if(!node._files)node._files=[];node._files.push(p)}
+        else{if(!node[p])node[p]={};node=node[p]}
+      });
+    });
+    return tree;
+  },
+  async codeOpenFile(path){
+    this.codeCurFile=path;this.codeCurLang=this._detectLang(path);
+    try{const d=await this.api('/code/read?path='+encodeURIComponent(path));this.codeCurContent=d.content||'';this.codeOrigContent=d.content||'';this.codeShowDiff=false}catch(e){this.codeMsg='Erreur lecture: '+e.message}
+  },
+  _detectLang(p){const ext=p.split('.').pop();const m={py:'python',js:'javascript',ts:'typescript',html:'html',css:'css',json:'json',yml:'yaml',yaml:'yaml',md:'markdown',sh:'bash',sql:'sql',txt:'text'};return m[ext]||'text'},
+  get codeModified(){return this.codeCurContent!==this.codeOrigContent},
+  async codeSaveFile(){
+    if(!this.codeCurFile||!this.codeModified)return;
+    this.codeSaveBusy=true;
+    try{
+      const r=await fetch('/admin/api/code/write?key='+encodeURIComponent(this.apiKey),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:this.codeCurFile,content:this.codeCurContent})});
+      const d=await r.json();if(!r.ok)throw new Error(d.detail||'Erreur');
+      this.codeOrigContent=this.codeCurContent;this.codeMsg='Fichier sauvegarde';this.codeShowDiff=false;setTimeout(()=>this.codeMsg='',3000);
+    }catch(e){this.codeMsg='Erreur: '+e.message}finally{this.codeSaveBusy=false}
+  },
+  async codeRevert(){if(confirm('Annuler les modifications ?')){this.codeCurContent=this.codeOrigContent;this.codeShowDiff=false}},
+  async codeGenerate(){
+    if(!this.codePrompt.trim())return;
+    const userMsg=this.codePrompt.trim();
+    this.codeChat.push({role:'user',text:userMsg});this.codePrompt='';this.codeGenBusy=true;
+    try{
+      const payload={prompt:userMsg,current_file:this.codeCurFile||'',current_content:this.codeCurContent||''};
+      const r=await fetch('/admin/api/code/generate?key='+encodeURIComponent(this.apiKey),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      const d=await r.json();if(!r.ok)throw new Error(d.detail||'Erreur IA');
+      this.codeChat.push({role:'assistant',text:d.response||'',code:d.code||'',file:d.target_file||'',action:d.action||''});
+      // Si l'IA propose du code et un fichier cible, proposer de l'appliquer
+      if(d.code && d.target_file){this.codeMsg='Code genere. Cliquez "Appliquer" pour integrer.'}
+    }catch(e){this.codeChat.push({role:'assistant',text:'Erreur: '+e.message,code:'',file:'',action:'error'})}finally{this.codeGenBusy=false;this.$nextTick(()=>{const el=document.getElementById('codeChatScroll');if(el)el.scrollTop=el.scrollHeight})}
+  },
+  async codeApply(msg){
+    if(!msg.code)return;
+    const targetFile=msg.file||this.codeCurFile;
+    if(targetFile&&targetFile!==this.codeCurFile){await this.codeOpenFile(targetFile)}
+    if(msg.action==='replace'){this.codeCurContent=msg.code}
+    else if(msg.action==='append'){this.codeCurContent+='\n'+msg.code}
+    else if(msg.action==='insert'&&msg.code){this.codeCurContent=msg.code}
+    else{this.codeCurContent=msg.code}
+    this.codeMsg='Code applique dans l\'editeur. Verifiez puis sauvegardez.';setTimeout(()=>this.codeMsg='',4000);
+  },
+  async codeRunCmd(){
+    if(!this.codeCmdInput.trim())return;this.codeCmdBusy=true;this.codeCmdOutput='Execution en cours...';
+    try{
+      const r=await fetch('/admin/api/code/exec?key='+encodeURIComponent(this.apiKey),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({command:this.codeCmdInput})});
+      const d=await r.json();if(!r.ok)throw new Error(d.detail||'Erreur');
+      this.codeCmdOutput=d.output||'(aucune sortie)';
+    }catch(e){this.codeCmdOutput='ERREUR: '+e.message}finally{this.codeCmdBusy=false}
+  },
+  async codeRestart(){
+    if(!confirm('Redemarrer le conteneur Tendo ?'))return;
+    this.codeCmdBusy=true;this.codeCmdOutput='Redemarrage en cours...';
+    try{
+      const r=await fetch('/admin/api/code/restart?key='+encodeURIComponent(this.apiKey),{method:'POST'});
+      const d=await r.json();this.codeCmdOutput=d.message||'Relance en cours...';
+    }catch(e){this.codeCmdOutput='ERREUR: '+e.message}finally{this.codeCmdBusy=false}
+  },
+  codeClearChat(){this.codeChat=[];this.codeMsg=''},
+
+  // ── Git ──
+  async gitLoadStatus(){try{const d=await this.api('/code/git/status');this.gitStatus=d}catch(e){this.gitMsg='Erreur: '+e.message;this.gitMsgOk=false}},
+  async gitCommit(){
+    if(!this.gitCommitMsg.trim())return;this.gitBusy=true;this.gitMsg='';
+    try{
+      const r=await fetch('/admin/api/code/git/commit?key='+encodeURIComponent(this.apiKey),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:this.gitCommitMsg})});
+      const d=await r.json();
+      if(d.success){this.gitMsg='Commit OK';this.gitMsgOk=true;this.gitCommitMsg='';await this.gitLoadStatus()}
+      else{this.gitMsg=d.output||'Erreur commit';this.gitMsgOk=false}
+    }catch(e){this.gitMsg='Erreur: '+e.message;this.gitMsgOk=false}finally{this.gitBusy=false;setTimeout(()=>this.gitMsg='',6000)}
+  },
+  async gitPush(){
+    this.gitBusy=true;this.gitMsg='Push en cours...';this.gitMsgOk=true;
+    try{
+      const r=await fetch('/admin/api/code/git/push?key='+encodeURIComponent(this.apiKey),{method:'POST'});
+      const d=await r.json();
+      if(d.success){this.gitMsg='Push OK vers GitHub';this.gitMsgOk=true;await this.gitLoadStatus()}
+      else{this.gitMsg=d.output||'Erreur push';this.gitMsgOk=false}
+    }catch(e){this.gitMsg='Erreur: '+e.message;this.gitMsgOk=false}finally{this.gitBusy=false;setTimeout(()=>this.gitMsg='',8000)}
+  },
 
   get alerts(){
     const a=[],S=this.S;
@@ -949,3 +1387,498 @@ async def trigger_proactive(key: str = ""):
         await job_proactive_discussions()
     asyncio.create_task(_run())
     return {"status": "started", "message": "Discussion proactive lancée"}
+
+
+@router.post("/trigger/seed-knowledge")
+async def trigger_seed_knowledge(key: str = ""):
+    _ck(key)
+    async def _run():
+        from app.utils.db import AsyncSessionLocal
+        from app.services.knowledge_service import seed_initial_knowledge
+        async with AsyncSessionLocal() as db:
+            await seed_initial_knowledge(db)
+    asyncio.create_task(_run())
+    return {"status": "started", "message": "Peuplement base de connaissances lance"}
+
+
+@router.post("/trigger/self-learn")
+async def trigger_self_learn(key: str = ""):
+    _ck(key)
+    async def _run():
+        from app.scheduler import job_self_learn
+        await job_self_learn()
+    asyncio.create_task(_run())
+    return {"status": "started", "message": "Auto-apprentissage lance en arriere-plan"}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# API Knowledge Base CRUD
+# ══════════════════════════════════════════════════════════════════════════════
+
+@router.get("/api/knowledge")
+async def api_knowledge(key: str = "", db: AsyncSession = Depends(get_db)):
+    _ck(key)
+    res = await db.execute(
+        select(KnowledgeBase).order_by(KnowledgeBase.category, KnowledgeBase.title)
+    )
+    items = []
+    for kb in res.scalars().all():
+        items.append({
+            "id": kb.id, "category": kb.category, "subcategory": kb.subcategory,
+            "title": kb.title, "content": kb.content, "summary": kb.summary,
+            "keywords": kb.keywords or [], "country": kb.country,
+            "source_url": kb.source_url, "language": kb.language,
+            "is_active": kb.is_active, "version": kb.version,
+            "created_at": kb.created_at.isoformat() if kb.created_at else None,
+            "updated_at": kb.updated_at.isoformat() if kb.updated_at else None,
+        })
+    return {"items": items, "total": len(items)}
+
+
+@router.post("/api/knowledge")
+async def api_create_knowledge(data: KnowledgeCreate, key: str = "", db: AsyncSession = Depends(get_db)):
+    _ck(key)
+    kb = KnowledgeBase(
+        category=data.category,
+        subcategory=data.subcategory,
+        title=data.title,
+        content=data.content,
+        summary=data.summary,
+        keywords=data.keywords or [],
+        country=data.country,
+        source_url=data.source_url,
+        language=data.language,
+    )
+    db.add(kb)
+    await db.commit()
+    await db.refresh(kb)
+    logger.info(f"[Admin] Connaissance ajoutee: {kb.title}")
+    return {"id": kb.id, "message": "Connaissance creee"}
+
+
+@router.put("/api/knowledge/{kb_id}")
+async def api_update_knowledge(kb_id: int, data: KnowledgeUpdate, key: str = "", db: AsyncSession = Depends(get_db)):
+    _ck(key)
+    res = await db.execute(select(KnowledgeBase).where(KnowledgeBase.id == kb_id))
+    kb = res.scalar_one_or_none()
+    if not kb:
+        raise HTTPException(status_code=404, detail="Connaissance non trouvee")
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(kb, field, value)
+    kb.version = (kb.version or 1) + 1
+    await db.commit()
+    logger.info(f"[Admin] Connaissance mise a jour: {kb.title}")
+    return {"id": kb.id, "message": "Connaissance mise a jour"}
+
+
+@router.delete("/api/knowledge/{kb_id}")
+async def api_delete_knowledge(kb_id: int, key: str = "", db: AsyncSession = Depends(get_db)):
+    _ck(key)
+    res = await db.execute(select(KnowledgeBase).where(KnowledgeBase.id == kb_id))
+    kb = res.scalar_one_or_none()
+    if not kb:
+        raise HTTPException(status_code=404, detail="Connaissance non trouvee")
+    await db.delete(kb)
+    await db.commit()
+    logger.info(f"[Admin] Connaissance supprimee: {kb.title}")
+    return {"message": f"Connaissance {kb_id} supprimee"}
+
+
+# ═���═══════════════════════════��════════════════════════════════════════════════
+# API Code Center
+# ═════════════════════════���════════════════════════════════════════════════════
+
+import os
+import subprocess
+
+# Repertoire racine du projet (dans le conteneur Docker = /app, sur host = /opt/tendo)
+_PROJECT_ROOT = os.environ.get("PROJECT_ROOT", "/app")
+# Extensions autorisees pour lecture/ecriture
+_ALLOWED_EXTS = {".py", ".html", ".css", ".js", ".json", ".yml", ".yaml", ".toml", ".cfg",
+                 ".txt", ".md", ".sh", ".sql", ".env.example", ".dockerfile", ""}
+# Dossiers a exclure du listing
+_EXCLUDED_DIRS = {"__pycache__", ".git", "node_modules", ".venv", "venv", ".mypy_cache",
+                  ".pytest_cache", "htmlcov", ".ruff_cache", "eggs", "*.egg-info"}
+
+
+def _safe_path(path: str) -> str:
+    """Valide et retourne le chemin absolu securise dans le projet."""
+    # Nettoyer : pas de .. ni chemins absolus
+    clean = path.replace("\\", "/").lstrip("/")
+    if ".." in clean:
+        raise HTTPException(status_code=400, detail="Chemin interdit")
+    full = os.path.join(_PROJECT_ROOT, clean)
+    # Verifier que le chemin reste dans le projet
+    if not os.path.realpath(full).startswith(os.path.realpath(_PROJECT_ROOT)):
+        raise HTTPException(status_code=400, detail="Chemin hors projet")
+    return full
+
+
+@router.get("/api/code/files")
+async def api_code_files(key: str = ""):
+    """Liste les fichiers du projet."""
+    _ck(key)
+    files = []
+    for root, dirs, filenames in os.walk(_PROJECT_ROOT):
+        # Exclure les dossiers non pertinents
+        dirs[:] = [d for d in dirs if d not in _EXCLUDED_DIRS and not d.endswith(".egg-info")]
+        rel_root = os.path.relpath(root, _PROJECT_ROOT).replace("\\", "/")
+        if rel_root == ".":
+            rel_root = ""
+        for fn in sorted(filenames):
+            ext = os.path.splitext(fn)[1].lower()
+            if ext in _ALLOWED_EXTS or fn in ("Dockerfile", "Makefile", ".env.example"):
+                rel_path = f"{rel_root}/{fn}" if rel_root else fn
+                files.append(rel_path)
+    return {"files": sorted(files)}
+
+
+@router.get("/api/code/read")
+async def api_code_read(path: str, key: str = ""):
+    """Lit le contenu d'un fichier."""
+    _ck(key)
+    full = _safe_path(path)
+    if not os.path.isfile(full):
+        raise HTTPException(status_code=404, detail=f"Fichier non trouve: {path}")
+    # Limiter la taille (2 Mo max)
+    size = os.path.getsize(full)
+    if size > 2 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail=f"Fichier trop volumineux ({size} bytes)")
+    try:
+        with open(full, "r", encoding="utf-8", errors="replace") as f:
+            content = f.read()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    return {"path": path, "content": content, "size": size}
+
+
+class CodeWriteRequest(BaseModel):
+    path: str
+    content: str
+
+@router.post("/api/code/write")
+async def api_code_write(data: CodeWriteRequest, key: str = ""):
+    """Ecrit/modifie un fichier du projet."""
+    _ck(key)
+    full = _safe_path(data.path)
+    # Interdire l'ecriture dans certains fichiers sensibles
+    basename = os.path.basename(full)
+    if basename in (".env", "credentials.json", "id_rsa", "id_ed25519"):
+        raise HTTPException(status_code=403, detail="Modification de ce fichier interdite")
+    # Creer le repertoire parent si necessaire
+    parent = os.path.dirname(full)
+    if not os.path.exists(parent):
+        os.makedirs(parent, exist_ok=True)
+    # Backup avant ecriture
+    if os.path.exists(full):
+        backup = full + ".bak"
+        try:
+            import shutil
+            shutil.copy2(full, backup)
+        except Exception:
+            pass
+    try:
+        with open(full, "w", encoding="utf-8") as f:
+            f.write(data.content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    logger.info(f"[CodeCenter] Fichier modifie: {data.path}")
+    return {"message": f"Fichier {data.path} sauvegarde", "path": data.path}
+
+
+class CodeGenerateRequest(BaseModel):
+    prompt: str
+    current_file: str = ""
+    current_content: str = ""
+
+@router.post("/api/code/generate")
+async def api_code_generate(data: CodeGenerateRequest, key: str = ""):
+    """Genere du code via IA a partir d'une instruction en langage naturel."""
+    _ck(key)
+
+    # Construire le contexte pour l'IA
+    system_prompt = """Tu es un assistant de developpement expert Python/FastAPI pour le projet Tendo.
+
+PROJET TENDO :
+- Framework : FastAPI + SQLAlchemy 2.0 async + PostgreSQL
+- Scheduler : APScheduler
+- WhatsApp : Meta Cloud API
+- IA : Groq (Llama 3.3), Gemini Flash, DeepSeek, Claude
+- Structure : app/routers/, app/services/, app/models/, app/utils/
+- Docker : docker-compose.yml, Dockerfile
+- Serveur : /opt/tendo/ sur Debian/Ubuntu
+
+REGLES DE GENERATION :
+1. Genere du code Python 3.11+ fonctionnel et complet
+2. Respecte les conventions du projet (async, SQLAlchemy 2.0, type hints)
+3. Si on te demande de modifier un fichier existant, retourne le fichier COMPLET modifie
+4. Si on te demande un nouveau fichier, retourne le code complet
+5. Reponds en francais pour les explications
+6. Inclus les imports necessaires
+7. Ne genere JAMAIS de code malveillant ou destructeur
+
+FORMAT DE REPONSE OBLIGATOIRE :
+Tu dois repondre avec exactement ce format JSON (pas de markdown, pas de ```json) :
+{"response": "explication courte de ce que fait le code", "code": "le code complet ici", "target_file": "chemin/relatif/du/fichier.py", "action": "replace"}
+
+Pour "action" : "replace" = remplacer tout le fichier, "append" = ajouter a la fin, "insert" = inserer le code
+Si tu n'as pas de code a generer (question, explication), utilise : {"response": "ta reponse", "code": "", "target_file": "", "action": ""}"""
+
+    user_prompt = data.prompt
+    if data.current_file:
+        user_prompt += f"\n\nFichier actuellement ouvert : {data.current_file}"
+    if data.current_content:
+        # Limiter le contenu envoye pour ne pas exploser les tokens
+        content_preview = data.current_content[:8000]
+        if len(data.current_content) > 8000:
+            content_preview += f"\n\n... (tronque, {len(data.current_content)} caracteres au total)"
+        user_prompt += f"\n\nContenu actuel du fichier :\n```\n{content_preview}\n```"
+
+    # Essayer les LLMs en cascade
+    import httpx
+    import json
+
+    raw_response = None
+
+    # 1. Groq (gratuit, rapide)
+    if settings.groq_api_key:
+        try:
+            async with httpx.AsyncClient(timeout=60) as client:
+                r = await client.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {settings.groq_api_key}", "Content-Type": "application/json"},
+                    json={"model": "llama-3.3-70b-versatile", "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ], "max_tokens": 4000, "temperature": 0.3},
+                )
+                if r.status_code == 200:
+                    raw_response = r.json()["choices"][0]["message"]["content"].strip()
+                    logger.info(f"[CodeCenter] Groq OK ({len(raw_response)} chars)")
+        except Exception as e:
+            logger.error(f"[CodeCenter] Groq erreur: {e}")
+
+    # 2. Gemini Flash (gratuit)
+    if not raw_response and settings.gemini_api_key:
+        try:
+            from app.services.claude import _get_gemini
+            client = _get_gemini()
+            if client:
+                def _sync():
+                    from google.genai import types
+                    resp = client.models.generate_content(
+                        model="gemini-2.0-flash",
+                        contents=[types.Content(role="user", parts=[types.Part(text=user_prompt)])],
+                        config=types.GenerateContentConfig(system_instruction=system_prompt, max_output_tokens=4000, temperature=0.3),
+                    )
+                    return resp.text.strip()
+                raw_response = await asyncio.to_thread(_sync)
+                logger.info(f"[CodeCenter] Gemini OK ({len(raw_response)} chars)")
+        except Exception as e:
+            logger.error(f"[CodeCenter] Gemini erreur: {e}")
+
+    # 3. DeepSeek (low-cost)
+    if not raw_response and settings.deepseek_api_key:
+        try:
+            async with httpx.AsyncClient(timeout=60) as client:
+                r = await client.post(
+                    "https://api.deepseek.com/chat/completions",
+                    headers={"Authorization": f"Bearer {settings.deepseek_api_key}", "Content-Type": "application/json"},
+                    json={"model": "deepseek-chat", "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_prompt},
+                    ], "max_tokens": 4000, "temperature": 0.3},
+                )
+                if r.status_code == 200:
+                    raw_response = r.json()["choices"][0]["message"]["content"].strip()
+                    logger.info(f"[CodeCenter] DeepSeek OK ({len(raw_response)} chars)")
+        except Exception as e:
+            logger.error(f"[CodeCenter] DeepSeek erreur: {e}")
+
+    if not raw_response:
+        raise HTTPException(status_code=503, detail="Aucun service IA disponible. Verifiez les cles API.")
+
+    # Parser la reponse JSON de l'IA
+    try:
+        # Nettoyer : l'IA peut envelopper dans ```json ... ```
+        cleaned = raw_response
+        if cleaned.startswith("```"):
+            cleaned = cleaned.split("\n", 1)[1] if "\n" in cleaned else cleaned[3:]
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3]
+        cleaned = cleaned.strip()
+        result = json.loads(cleaned)
+        return {
+            "response": result.get("response", ""),
+            "code": result.get("code", ""),
+            "target_file": result.get("target_file", ""),
+            "action": result.get("action", "replace"),
+        }
+    except json.JSONDecodeError:
+        # Si l'IA n'a pas respecte le format JSON, retourner comme texte
+        # Essayer d'extraire un bloc de code
+        code_block = ""
+        if "```" in raw_response:
+            parts = raw_response.split("```")
+            if len(parts) >= 3:
+                code_part = parts[1]
+                # Retirer le tag de langage (python, json, etc.)
+                if "\n" in code_part:
+                    code_block = code_part.split("\n", 1)[1].strip()
+                else:
+                    code_block = code_part.strip()
+        return {
+            "response": raw_response[:500] if not code_block else raw_response.split("```")[0].strip()[:300],
+            "code": code_block,
+            "target_file": data.current_file,
+            "action": "replace" if code_block else "",
+        }
+
+
+class CodeExecRequest(BaseModel):
+    command: str
+
+@router.post("/api/code/exec")
+async def api_code_exec(data: CodeExecRequest, key: str = ""):
+    """Execute une commande shell sur le serveur (securisee)."""
+    _ck(key)
+
+    cmd = data.command.strip()
+
+    # Commandes interdites (destructrices)
+    dangerous = ["rm -rf /", "mkfs", "dd if=", ":(){", "chmod -R 777 /",
+                 "wget|sh", "curl|sh", "shutdown", "reboot", "halt",
+                 "kill -9 1", "init 0", "init 6"]
+    cmd_lower = cmd.lower()
+    for d in dangerous:
+        if d in cmd_lower:
+            raise HTTPException(status_code=403, detail=f"Commande interdite: contient '{d}'")
+
+    try:
+        result = subprocess.run(
+            cmd, shell=True, capture_output=True, text=True,
+            timeout=30, cwd=_PROJECT_ROOT,
+        )
+        output = result.stdout
+        if result.stderr:
+            output += "\n--- STDERR ---\n" + result.stderr
+        if result.returncode != 0:
+            output += f"\n[exit code: {result.returncode}]"
+        # Limiter la sortie
+        if len(output) > 10000:
+            output = output[:10000] + f"\n... (tronque, {len(output)} chars total)"
+        return {"output": output or "(aucune sortie)", "returncode": result.returncode}
+    except subprocess.TimeoutExpired:
+        return {"output": "TIMEOUT: commande interrompue apres 30 secondes", "returncode": -1}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/api/code/restart")
+async def api_code_restart(key: str = ""):
+    """Redemarre l'application Tendo (signal au process uvicorn)."""
+    _ck(key)
+    logger.info("[CodeCenter] Redemarrage demande par admin")
+    # Dans un conteneur Docker, on ne peut pas docker compose depuis l'interieur.
+    # On peut envoyer un signal au process principal pour forcer un restart gracieux.
+    try:
+        import signal
+        os.kill(1, signal.SIGHUP)  # PID 1 = uvicorn dans le conteneur
+        return {"message": "Signal de redemarrage envoye. Le conteneur doit etre relance depuis l'hote avec: docker compose restart tendo-api"}
+    except Exception as e:
+        return {"message": f"Pour redemarrer, executez sur le serveur: cd /opt/tendo && docker compose restart tendo-api\nErreur signal: {e}"}
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# API Git (commit/push depuis le Code Center)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@router.get("/api/code/git/status")
+async def api_git_status(key: str = ""):
+    """Retourne le statut git du projet."""
+    _ck(key)
+    try:
+        status = subprocess.run(
+            "git status --porcelain", shell=True, capture_output=True, text=True,
+            timeout=10, cwd=_PROJECT_ROOT,
+        )
+        branch = subprocess.run(
+            "git branch --show-current", shell=True, capture_output=True, text=True,
+            timeout=5, cwd=_PROJECT_ROOT,
+        )
+        log = subprocess.run(
+            "git log --oneline -10", shell=True, capture_output=True, text=True,
+            timeout=10, cwd=_PROJECT_ROOT,
+        )
+        diff_stat = subprocess.run(
+            "git diff --stat", shell=True, capture_output=True, text=True,
+            timeout=10, cwd=_PROJECT_ROOT,
+        )
+        # Parse status lines
+        files = []
+        for line in status.stdout.strip().split("\n"):
+            if line.strip():
+                st = line[:2].strip()
+                fn = line[3:].strip()
+                files.append({"status": st, "file": fn})
+        return {
+            "branch": branch.stdout.strip(),
+            "files": files,
+            "clean": len(files) == 0,
+            "diff_stat": diff_stat.stdout.strip(),
+            "recent_commits": log.stdout.strip().split("\n") if log.stdout.strip() else [],
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class GitCommitRequest(BaseModel):
+    message: str
+    files: Optional[List[str]] = None  # None = all changed files
+
+@router.post("/api/code/git/commit")
+async def api_git_commit(data: GitCommitRequest, key: str = ""):
+    """Commit les modifications."""
+    _ck(key)
+    if not data.message.strip():
+        raise HTTPException(status_code=400, detail="Message de commit requis")
+    try:
+        # Stage files
+        if data.files:
+            for f in data.files:
+                subprocess.run(f"git add {f}", shell=True, cwd=_PROJECT_ROOT, timeout=5)
+        else:
+            subprocess.run("git add -A", shell=True, cwd=_PROJECT_ROOT, timeout=10)
+
+        # Commit
+        result = subprocess.run(
+            ["git", "commit", "-m", data.message],
+            capture_output=True, text=True, timeout=15, cwd=_PROJECT_ROOT,
+        )
+        if result.returncode != 0:
+            return {"success": False, "output": result.stderr or result.stdout}
+
+        logger.info(f"[CodeCenter] Git commit: {data.message[:80]}")
+        return {"success": True, "output": result.stdout}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/api/code/git/push")
+async def api_git_push(key: str = ""):
+    """Push les commits vers GitHub."""
+    _ck(key)
+    try:
+        result = subprocess.run(
+            "git push origin main", shell=True, capture_output=True, text=True,
+            timeout=60, cwd=_PROJECT_ROOT,
+        )
+        output = result.stdout + "\n" + result.stderr
+        if result.returncode != 0:
+            return {"success": False, "output": output.strip()}
+        logger.info("[CodeCenter] Git push OK")
+        return {"success": True, "output": output.strip() or "Push OK"}
+    except subprocess.TimeoutExpired:
+        return {"success": False, "output": "Timeout (60s) — verifiez la connexion"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

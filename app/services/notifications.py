@@ -19,11 +19,11 @@ from app.services import whatsapp
 from app.utils.logger import logger
 
 # Rate limiting
-SEND_DELAY = 3
-# Max publications par cycle
-MAX_PUBLICATIONS_PER_CYCLE = 15
-# Max notifications par utilisateur par cycle
-MAX_PER_USER = 5
+SEND_DELAY = 5
+# Max publications par cycle (envoi toutes les 30min de 9h-18h = ~18 cycles/jour)
+MAX_PUBLICATIONS_PER_CYCLE = 10
+# Max notifications par utilisateur par cycle (espacees de 30min minimum)
+MAX_PER_USER = 2
 # Ne notifier que les publications des N derniers jours
 PUBLICATION_AGE_DAYS = 7
 # Types de documents qui sont de la connaissance (pas de notification)

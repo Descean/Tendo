@@ -214,6 +214,7 @@ async def chat(
     is_premium: bool = False,
     conversation_history: Optional[List[dict]] = None,
     publication_context: Optional[str] = None,
+    db_session=None,
 ) -> str:
     """Envoie un message et retourne la reponse formatee pour WhatsApp.
 
@@ -224,6 +225,16 @@ async def chat(
     system_prompt = EXPERT_PROMPT if is_premium else COMMERCIAL_PROMPT
     if publication_context:
         system_prompt += f"\n\nContexte de la publication referencee :\n{publication_context}"
+
+    # Enrichir avec la base de connaissances
+    if db_session:
+        try:
+            from app.services.knowledge_service import get_knowledge_context
+            knowledge_ctx = await get_knowledge_context(db_session)
+            if knowledge_ctx:
+                system_prompt += f"\n\nBASE DE CONNAISSANCES TENDO :\n{knowledge_ctx}"
+        except Exception as e:
+            logger.error(f"[IA] Erreur chargement knowledge: {e}")
 
     # Premium : essayer Claude d'abord
     if is_premium:

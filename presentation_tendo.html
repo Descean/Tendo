@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tendo by SHIFT UP - Presentation Investisseurs</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #7C3AED;
+            --primary-dark: #5B21B6;
+            --primary-light: #A78BFA;
+            --accent: #10B981;
+            --accent-dark: #059669;
+            --bg-dark: #0B1121;
+            --bg-card: #111827;
+            --bg-card-alt: #1F2937;
+            --text-white: #F9FAFB;
+            --text-gray: #9CA3AF;
+            --text-light: #D1D5DB;
+            --border: #374151;
+            --gradient-1: linear-gradient(135deg, #7C3AED, #2563EB);
+            --gradient-2: linear-gradient(135deg, #10B981, #059669);
+            --gradient-3: linear-gradient(135deg, #F59E0B, #D97706);
+            --gradient-4: linear-gradient(135deg, #EF4444, #DC2626);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-white);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* NAVIGATION */
+        nav {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            background: rgba(11, 17, 33, 0.95);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            padding: 0 2rem;
+        }
+        .nav-inner {
+            max-width: 1200px; margin: 0 auto;
+            display: flex; align-items: center; justify-content: space-between;
+            height: 70px;
+        }
+        .nav-logo {
+            font-size: 1.5rem; font-weight: 800;
+            background: var(--gradient-1); -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .nav-logo span { font-weight: 400; font-size: 0.9rem; color: var(--text-gray); -webkit-text-fill-color: var(--text-gray); }
+        .nav-links { display: flex; gap: 2rem; list-style: none; }
+        .nav-links a {
+            color: var(--text-gray); text-decoration: none; font-size: 0.9rem;
+            font-weight: 500; transition: color 0.3s;
+        }
+        .nav-links a:hover { color: var(--primary-light); }
+
+        /* HERO */
+        .hero {
+            padding: 140px 2rem 80px;
+            text-align: center;
+            background: radial-gradient(ellipse at center top, rgba(124,58,237,0.15), transparent 60%);
+        }
+        .hero-badge {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            background: rgba(124,58,237,0.15); border: 1px solid rgba(124,58,237,0.3);
+            border-radius: 999px; padding: 0.4rem 1.2rem; font-size: 0.85rem;
+            color: var(--primary-light); margin-bottom: 1.5rem;
+        }
+        .hero h1 {
+            font-size: 3.5rem; font-weight: 900; line-height: 1.1;
+            margin-bottom: 1.5rem; max-width: 800px; margin-left: auto; margin-right: auto;
+        }
+        .hero h1 .highlight {
+            background: var(--gradient-1); -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .hero p {
+            font-size: 1.25rem; color: var(--text-gray); max-width: 650px;
+            margin: 0 auto 2.5rem;
+        }
+        .hero-stats {
+            display: flex; justify-content: center; gap: 3rem;
+            margin-top: 3rem; flex-wrap: wrap;
+        }
+        .hero-stat {
+            text-align: center;
+        }
+        .hero-stat .number {
+            font-size: 2.5rem; font-weight: 800;
+            background: var(--gradient-1); -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .hero-stat .label { color: var(--text-gray); font-size: 0.9rem; }
+
+        /* SECTIONS */
+        section { padding: 80px 2rem; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .section-label {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            color: var(--primary-light); font-size: 0.85rem; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 2px; margin-bottom: 0.75rem;
+        }
+        .section-title {
+            font-size: 2.5rem; font-weight: 800; margin-bottom: 1rem;
+        }
+        .section-subtitle {
+            font-size: 1.1rem; color: var(--text-gray); max-width: 600px;
+            margin-bottom: 3rem;
+        }
+
+        /* CARDS GRID */
+        .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem; }
+        .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 1.5rem; }
+        .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2rem;
+            transition: transform 0.3s, border-color 0.3s;
+        }
+        .card:hover {
+            transform: translateY(-4px);
+            border-color: var(--primary);
+        }
+        .card-icon {
+            width: 52px; height: 52px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.3rem; color: white; margin-bottom: 1.25rem;
+        }
+        .card h3 { font-size: 1.15rem; font-weight: 700; margin-bottom: 0.75rem; }
+        .card p { color: var(--text-gray); font-size: 0.95rem; line-height: 1.7; }
+        .card ul { list-style: none; margin-top: 0.75rem; }
+        .card ul li {
+            padding: 0.35rem 0; color: var(--text-light); font-size: 0.9rem;
+            display: flex; align-items: flex-start; gap: 0.5rem;
+        }
+        .card ul li i { color: var(--accent); margin-top: 4px; font-size: 0.75rem; }
+
+        /* PROBLEM/SOLUTION */
+        .problem-section { background: linear-gradient(180deg, var(--bg-dark), rgba(124,58,237,0.05)); }
+        .problem-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: start; }
+        .problem-box {
+            background: rgba(239,68,68,0.08);
+            border: 1px solid rgba(239,68,68,0.2);
+            border-radius: 16px; padding: 2rem;
+        }
+        .problem-box h3 { color: #F87171; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+        .solution-box {
+            background: rgba(16,185,129,0.08);
+            border: 1px solid rgba(16,185,129,0.2);
+            border-radius: 16px; padding: 2rem;
+        }
+        .solution-box h3 { color: #34D399; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+
+        /* PIPELINE / FLOW */
+        .pipeline {
+            display: flex; flex-direction: column; gap: 0;
+            position: relative;
+        }
+        .pipeline-step {
+            display: flex; gap: 2rem; align-items: flex-start;
+            position: relative; padding-bottom: 2.5rem;
+        }
+        .pipeline-step:last-child { padding-bottom: 0; }
+        .pipeline-number {
+            width: 48px; height: 48px; min-width: 48px;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 1.1rem; color: white;
+            position: relative; z-index: 2;
+        }
+        .pipeline-step::before {
+            content: '';
+            position: absolute; left: 23px; top: 48px; bottom: 0;
+            width: 2px; background: var(--border); z-index: 1;
+        }
+        .pipeline-step:last-child::before { display: none; }
+        .pipeline-content h4 { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.4rem; }
+        .pipeline-content p { color: var(--text-gray); font-size: 0.95rem; }
+        .pipeline-content .tech-tag {
+            display: inline-block; background: rgba(124,58,237,0.15);
+            color: var(--primary-light); padding: 0.15rem 0.6rem;
+            border-radius: 6px; font-size: 0.8rem; margin-top: 0.3rem; margin-right: 0.3rem;
+        }
+
+        /* TABLE */
+        .table-wrap {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 16px; overflow: hidden;
+        }
+        table { width: 100%; border-collapse: collapse; }
+        th {
+            background: var(--bg-card-alt); padding: 1rem 1.25rem; text-align: left;
+            font-size: 0.85rem; font-weight: 600; color: var(--text-gray);
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+        td {
+            padding: 0.85rem 1.25rem; border-top: 1px solid var(--border);
+            font-size: 0.9rem; color: var(--text-light);
+        }
+        tr:hover td { background: rgba(124,58,237,0.03); }
+
+        /* PRICING */
+        .pricing-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+        .pricing-card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 16px; padding: 2.5rem 2rem; text-align: center;
+            position: relative; transition: transform 0.3s, border-color 0.3s;
+        }
+        .pricing-card:hover { transform: translateY(-4px); }
+        .pricing-card.featured {
+            border-color: var(--primary);
+            background: linear-gradient(180deg, rgba(124,58,237,0.1), var(--bg-card));
+        }
+        .pricing-card .badge {
+            position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+            background: var(--gradient-1); color: white; padding: 0.25rem 1rem;
+            border-radius: 999px; font-size: 0.8rem; font-weight: 600;
+        }
+        .pricing-card h3 { font-size: 1.3rem; margin-bottom: 0.5rem; }
+        .pricing-card .price {
+            font-size: 2.5rem; font-weight: 900; margin: 1rem 0 0.25rem;
+        }
+        .pricing-card .price span { font-size: 1rem; font-weight: 400; color: var(--text-gray); }
+        .pricing-card .period { color: var(--text-gray); font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .pricing-card ul { list-style: none; text-align: left; margin-bottom: 1.5rem; }
+        .pricing-card ul li {
+            padding: 0.5rem 0; color: var(--text-light); font-size: 0.9rem;
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+        .pricing-card ul li i { color: var(--accent); }
+
+        /* ARCHITECTURE */
+        .arch-block {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 16px; padding: 2rem; margin-bottom: 1.5rem;
+        }
+        .arch-block h4 {
+            font-size: 1rem; font-weight: 700; margin-bottom: 1rem;
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+        .arch-diagram {
+            background: var(--bg-card-alt); border-radius: 12px; padding: 1.5rem;
+            font-family: 'Courier New', monospace; font-size: 0.85rem;
+            line-height: 1.8; color: var(--text-light); overflow-x: auto;
+            white-space: pre;
+        }
+
+        /* FOOTER */
+        footer {
+            border-top: 1px solid var(--border);
+            padding: 3rem 2rem; text-align: center;
+        }
+        footer p { color: var(--text-gray); font-size: 0.9rem; }
+        footer .brand {
+            font-size: 1.2rem; font-weight: 700;
+            background: var(--gradient-1); -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent; margin-bottom: 0.5rem;
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 2.2rem; }
+            .hero-stats { gap: 1.5rem; }
+            .problem-grid { grid-template-columns: 1fr; }
+            .pricing-cards { grid-template-columns: 1fr; }
+            .grid-2 { grid-template-columns: 1fr; }
+            .nav-links { display: none; }
+        }
+
+        /* ANIMATIONS */
+        .fade-in {
+            opacity: 0; transform: translateY(30px);
+            transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+        .fade-in.visible { opacity: 1; transform: translateY(0); }
+
+        /* TAG */
+        .tag {
+            display: inline-block; padding: 0.2rem 0.6rem;
+            border-radius: 6px; font-size: 0.75rem; font-weight: 600;
+        }
+        .tag-green { background: rgba(16,185,129,0.15); color: #34D399; }
+        .tag-blue { background: rgba(37,99,235,0.15); color: #60A5FA; }
+        .tag-purple { background: rgba(124,58,237,0.15); color: #A78BFA; }
+        .tag-yellow { background: rgba(245,158,11,0.15); color: #FBBF24; }
+
+        /* CTA */
+        .cta-section {
+            background: linear-gradient(135deg, rgba(124,58,237,0.15), rgba(37,99,235,0.1));
+            border-radius: 24px; padding: 4rem 3rem; text-align: center;
+            border: 1px solid rgba(124,58,237,0.2);
+        }
+        .cta-section h2 { font-size: 2rem; margin-bottom: 1rem; }
+        .cta-section p { color: var(--text-gray); margin-bottom: 2rem; max-width: 500px; margin-left: auto; margin-right: auto; }
+
+        .source-list {
+            display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem;
+        }
+        .source-tag {
+            background: var(--bg-card-alt); border: 1px solid var(--border);
+            border-radius: 8px; padding: 0.4rem 0.8rem;
+            font-size: 0.8rem; color: var(--text-light);
+            display: flex; align-items: center; gap: 0.4rem;
+        }
+        .source-tag i { color: var(--primary-light); font-size: 0.7rem; }
+    </style>
+</head>
+<body>
+
+<!-- NAVIGATION -->
+<nav>
+    <div class="nav-inner">
+        <div class="nav-logo">TENDO <span>by SHIFT UP</span></div>
+        <ul class="nav-links">
+            <li><a href="#problem">Probleme</a></li>
+            <li><a href="#solution">Solution</a></li>
+            <li><a href="#pipeline">Pipeline</a></li>
+            <li><a href="#ia">Intelligence IA</a></li>
+            <li><a href="#whatsapp">WhatsApp</a></li>
+            <li><a href="#architecture">Architecture</a></li>
+            <li><a href="#pricing">Tarifs</a></li>
+        </ul>
+    </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+    <div class="hero-badge">
+        <i class="fa-solid fa-rocket"></i>
+        Operationnel depuis mars 2026
+    </div>
+    <h1>L'assistant IA qui <span class="highlight">democratise</span> l'acces aux marches publics</h1>
+    <p>Tendo surveille en continu 18 sources d'appels d'offres, analyse les documents avec l'IA, et livre les opportunites directement sur WhatsApp avec des actions en un clic.</p>
+
+    <div class="hero-stats">
+        <div class="hero-stat">
+            <div class="number">18</div>
+            <div class="label">Sources surveillees</div>
+        </div>
+        <div class="hero-stat">
+            <div class="number">4</div>
+            <div class="label">Moteurs IA</div>
+        </div>
+        <div class="hero-stat">
+            <div class="number">12</div>
+            <div class="label">Jobs automatises</div>
+        </div>
+        <div class="hero-stat">
+            <div class="number">24/7</div>
+            <div class="label">Surveillance continue</div>
+        </div>
+    </div>
+</section>
+
+<!-- PROBLEME / SOLUTION -->
+<section id="problem" class="problem-section">
+    <div class="container">
+        <div class="section-label"><i class="fa-solid fa-bullseye"></i> Probleme & Solution</div>
+        <h2 class="section-title">Pourquoi Tendo existe</h2>
+        <div class="section-subtitle">Les marches publics representent des milliards de FCFA d'opportunites, mais y acceder est un parcours du combattant.</div>
+
+        <div class="problem-grid">
+            <div class="problem-box">
+                <h3><i class="fa-solid fa-triangle-exclamation"></i> Le probleme</h3>
+                <ul style="list-style:none;">
+                    <li style="padding: 0.6rem 0; color: var(--text-light); display: flex; gap: 0.5rem;">
+                        <i class="fa-solid fa-xmark" style="color:#F87171; margin-top:4px;"></i>
+                        <span><strong>Information dispersee</strong> : 18+ sites web differents a consulter quotidiennement</span>
+                    </li>
+                    <li style="padding: 0.6rem 0; color: var(--text-light); display: flex; gap: 0.5rem;">
+                        <i class="fa-solid fa-xmark" style="color:#F87171; margin-top:4px;"></i>
+                        <span><strong>Documents complexes</strong> : PDF de 50+ pages sans resume, en jargon juridique</span>
+                    </li>
+                    <li style="padding: 0.6rem 0; color: var(--text-light); display: flex; gap: 0.5rem;">
+                        <i class="fa-solid fa-xmark" style="color:#F87171; margin-top:4px;"></i>
+                        <span><strong>Deadlines ratees</strong> : Delais courts, pas de systeme d'alerte</span>
+                    </li>
+                    <li style="padding: 0.6rem 0; color: var(--text-light); display: flex; gap: 0.5rem;">
+                        <i class="fa-solid fa-xmark" style="color:#F87171; margin-top:4px;"></i>
+                        <span><strong>Barriere d'entree</strong> : PME/TPE n'ont pas les ressources pour veiller</span>
+                    </li>
+                    <li style="padding: 0.6rem 0; color: var(--text-light); display: flex; gap: 0.5rem;">
+                        <i class="fa-solid fa-xmark" style="color:#F87171; margin-top:4px;"></i>
+                        <span><strong>Pas de conseil</strong> : Aucune aide pour comprendre les exigences de soumission</span>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="solution-box">
+                <h3><i class="fa-solid fa-check-circle"></i> La solution Tendo</h3>
+                <ul style="list-style:none;">
+                    <li style="padding: 0.6rem 0; color: var(--text-light); display: flex; gap: 0.5rem;">
+                        <i class="fa-solid fa-check" style="color:#34D399; margin-top:4px;"></i>
+                        <span><strong>Centralisation totale</strong> : 18 sources scrapees automatiquement</span>
+                    </li>
+                    <li style="padding: 0.6rem 0; color: var(--text-light); display: flex; gap: 0.5rem;">
+                        <i class="fa-solid fa-check" style="color:#34D399; margin-top:4px;"></i>
+                        <span><strong>IA qui lit et resume</strong> : DeepSeek extrait les infos cles de chaque PDF</span>
+                    </li>
+                    <li style="padding: 0.6rem 0; color: var(--text-light); display: flex; gap: 0.5rem;">
+                        <i class="fa-solid fa-check" style="color:#34D399; margin-top:4px;"></i>
+                        <span><strong>Alertes WhatsApp instantanees</strong> : Notifications avec boutons d'action</span>
+                    </li>
+                    <li style="padding: 0.6rem 0; color: var(--text-light); display: flex; gap: 0.5rem;">
+                        <i class="fa-solid fa-check" style="color:#34D399; margin-top:4px;"></i>
+                        <span><strong>Accessible a tous</strong> : WhatsApp = 95% de penetration au Benin</span>
+                    </li>
+                    <li style="padding: 0.6rem 0; color: var(--text-light); display: flex; gap: 0.5rem;">
+                        <i class="fa-solid fa-check" style="color:#34D399; margin-top:4px;"></i>
+                        <span><strong>Conseil IA proactif</strong> : Analyses du marche et recommandations 2x/semaine</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- SOURCES DE DONNEES -->
+<section id="sources">
+    <div class="container">
+        <div class="section-label"><i class="fa-solid fa-database"></i> Sources de donnees</div>
+        <h2 class="section-title">18 sources surveillees en continu</h2>
+        <div class="section-subtitle">Tendo agrege les appels d'offres depuis toutes les plateformes officielles beninoise et internationales.</div>
+
+        <div class="grid-3">
+            <div class="card">
+                <div class="card-icon" style="background: var(--gradient-1);"><i class="fa-solid fa-flag"></i></div>
+                <h3>Sources Nationales</h3>
+                <p>Les plateformes officielles du gouvernement beninois</p>
+                <div class="source-list">
+                    <span class="source-tag"><i class="fa-solid fa-circle"></i> ARMP</span>
+                    <span class="source-tag"><i class="fa-solid fa-circle"></i> marches-publics.bj</span>
+                    <span class="source-tag"><i class="fa-solid fa-circle"></i> gouv.bj</span>
+                    <span class="source-tag"><i class="fa-solid fa-circle"></i> JNMP</span>
+                    <span class="source-tag"><i class="fa-solid fa-circle"></i> ADPME</span>
+                    <span class="source-tag"><i class="fa-solid fa-circle"></i> ABE</span>
+                    <span class="source-tag"><i class="fa-solid fa-circle"></i> TNS</span>
+                    <span class="source-tag"><i class="fa-solid fa-circle"></i> J360</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-icon" style="background: var(--gradient-2);"><i class="fa-solid fa-globe"></i></div>
+                <h3>Sources Internationales</h3>
+                <p>Bailleurs de fonds et organismes multinationaux</p>
+                <div class="source-list">
+                    <span class="source-tag"><i class="fa-solid fa-circle"></i> Banque Mondiale</span>
+                    <span class="source-tag"><i class="fa-solid fa-circle"></i> BAD</span>
+                    <span class="source-tag"><i class="fa-solid fa-circle"></i> AFD</span>
+                    <span class="source-tag"><i class="fa-solid fa-circle"></i> UNGM</span>
+                    <span class="source-tag"><i class="fa-solid fa-circle"></i> UNFPA</span>
+                    <span class="source-tag"><i class="fa-solid fa-circle"></i> UEMOA</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-icon" style="background: var(--gradient-3);"><i class="fa-solid fa-handshake"></i></div>
+                <h3>ONG et Cooperation</h3>
+                <p>Organisations non gouvernementales actives au Benin</p>
+                <div class="source-list">
+                    <span class="source-tag"><i class="fa-solid fa-circle"></i> CARE Benin</span>
+                    <span class="source-tag"><i class="fa-solid fa-circle"></i> GIZ</span>
+                    <span class="source-tag"><i class="fa-solid fa-circle"></i> ENABEL</span>
+                    <span class="source-tag"><i class="fa-solid fa-circle"></i> ASIN</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- PIPELINE COMPLET -->
+<section id="pipeline" style="background: linear-gradient(180deg, var(--bg-dark), rgba(16,185,129,0.03));">
+    <div class="container">
+        <div class="section-label"><i class="fa-solid fa-diagram-project"></i> Pipeline de traitement</div>
+        <h2 class="section-title">Du scraping a la notification : chaque etape</h2>
+        <div class="section-subtitle">Tendo execute une chaine de traitement completement automatisee, de la collecte a la livraison.</div>
+
+        <div class="pipeline">
+            <div class="pipeline-step">
+                <div class="pipeline-number" style="background: var(--gradient-1);">1</div>
+                <div class="pipeline-content">
+                    <h4><i class="fa-solid fa-spider"></i> Scraping automatique (18 sources)</h4>
+                    <p>Les 18 scrapers parcourent les sites d'appels d'offres et collectent titre, reference, budget, date limite, URL du PDF, autorite contractante. Le job tourne toutes les 6 heures.</p>
+                    <span class="tech-tag">Python</span>
+                    <span class="tech-tag">BeautifulSoup</span>
+                    <span class="tech-tag">httpx</span>
+                    <span class="tech-tag">APScheduler</span>
+                </div>
+            </div>
+
+            <div class="pipeline-step">
+                <div class="pipeline-number" style="background: var(--gradient-1);">2</div>
+                <div class="pipeline-content">
+                    <h4><i class="fa-solid fa-tags"></i> Classification et detection de secteurs</h4>
+                    <p>Chaque publication est classifiee par type (AAO, DAO, AMI, PV, Decision ARMP...) et par secteur d'activite (BTP, Sante, IT, Agriculture...). Detection automatique par mots-cles dans 10 categories.</p>
+                    <span class="tech-tag">11 types de documents</span>
+                    <span class="tech-tag">10 secteurs</span>
+                    <span class="tech-tag">Regex + NLP</span>
+                </div>
+            </div>
+
+            <div class="pipeline-step">
+                <div class="pipeline-number" style="background: var(--gradient-2);">3</div>
+                <div class="pipeline-content">
+                    <h4><i class="fa-solid fa-file-pdf"></i> Extraction PDF (pypdf + OCR + Vision)</h4>
+                    <p>Le texte brut est extrait des PDF en cascade : pypdf 4.3.1 d'abord, puis OCR Tesseract si le PDF est scanne, puis Gemini Vision en dernier recours pour les images.</p>
+                    <span class="tech-tag">pypdf</span>
+                    <span class="tech-tag">Tesseract OCR</span>
+                    <span class="tech-tag">Gemini Vision</span>
+                </div>
+            </div>
+
+            <div class="pipeline-step">
+                <div class="pipeline-number" style="background: var(--gradient-2);">4</div>
+                <div class="pipeline-content">
+                    <h4><i class="fa-solid fa-brain"></i> Enrichissement IA (DeepSeek Reader)</h4>
+                    <p>DeepSeek lit le contenu PDF et extrait 16 champs structures : autorite contractante, budget, garantie de soumission, date/heure de depot, documents requis, conditions de participation, source de financement, etc. 3 passages par jour.</p>
+                    <span class="tech-tag">DeepSeek</span>
+                    <span class="tech-tag">16 champs structures</span>
+                    <span class="tech-tag">Fallback Groq/Gemini</span>
+                </div>
+            </div>
+
+            <div class="pipeline-step">
+                <div class="pipeline-number" style="background: var(--gradient-3);">5</div>
+                <div class="pipeline-content">
+                    <h4><i class="fa-solid fa-newspaper"></i> Segmentation JNMP</h4>
+                    <p>Les journaux JNMP (recueils PDF de 10-20+ documents) sont decoupes en appels d'offres individuels. Detection de 25+ types de rubriques avec extraction des metadonnees par regex.</p>
+                    <span class="tech-tag">jnmp_analyzer.py</span>
+                    <span class="tech-tag">25+ rubriques</span>
+                    <span class="tech-tag">2x/jour</span>
+                </div>
+            </div>
+
+            <div class="pipeline-step">
+                <div class="pipeline-number" style="background: var(--gradient-3);">6</div>
+                <div class="pipeline-content">
+                    <h4><i class="fa-solid fa-filter"></i> Filtrage intelligent</h4>
+                    <p>Les PV d'attribution, PV d'ouverture et Decisions ARMP sont exclus des notifications et conserves comme base de connaissances pour l'IA conversationnelle. Les AO expires sont supprimes automatiquement chaque nuit.</p>
+                    <span class="tech-tag">Knowledge base</span>
+                    <span class="tech-tag">Auto-cleanup</span>
+                </div>
+            </div>
+
+            <div class="pipeline-step">
+                <div class="pipeline-number" style="background: var(--gradient-4);">7</div>
+                <div class="pipeline-content">
+                    <h4><i class="fa-brands fa-whatsapp" style="color: #25D366;"></i> Notification WhatsApp avec boutons</h4>
+                    <p>Chaque AO est envoye sur WhatsApp avec un message structure (autorite, objet, reference, type, budget/garantie, deadline) et 3 boutons interactifs : "Voir le dossier", "En savoir plus", "Demander dossier".</p>
+                    <span class="tech-tag">Meta Cloud API</span>
+                    <span class="tech-tag">Messages interactifs</span>
+                    <span class="tech-tag">Tracking par utilisateur</span>
+                </div>
+            </div>
+
+            <div class="pipeline-step">
+                <div class="pipeline-number" style="background: var(--gradient-4);">8</div>
+                <div class="pipeline-content">
+                    <h4><i class="fa-solid fa-hand-pointer"></i> Actions utilisateur (boutons)</h4>
+                    <p>Quand l'utilisateur clique un bouton : "Voir le dossier" telecharge le PDF, "En savoir plus" declenche une analyse IA complete, "Demander dossier" envoie un email a l'autorite contractante au nom de l'utilisateur.</p>
+                    <span class="tech-tag">PDF download</span>
+                    <span class="tech-tag">Analyse IA</span>
+                    <span class="tech-tag">Email SMTP</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- INTELLIGENCE ARTIFICIELLE -->
+<section id="ia">
+    <div class="container">
+        <div class="section-label"><i class="fa-solid fa-microchip"></i> Intelligence Artificielle</div>
+        <h2 class="section-title">4 moteurs IA en cascade intelligente</h2>
+        <div class="section-subtitle">Tendo optimise les couts en utilisant les modeles gratuits en priorite, avec fallback automatique.</div>
+
+        <div class="grid-2">
+            <div class="card">
+                <div class="card-icon" style="background: var(--gradient-1);"><i class="fa-solid fa-comments"></i></div>
+                <h3>IA Conversationnelle</h3>
+                <p>Repond aux questions des utilisateurs sur les marches publics, les procedures, les exigences de soumission.</p>
+                <ul>
+                    <li><i class="fa-solid fa-circle"></i> <strong>Groq</strong> (gratuit) — Llama 3.3 70B, 30 req/min</li>
+                    <li><i class="fa-solid fa-circle"></i> <strong>Gemini</strong> (gratuit) — Flash, 15 req/min</li>
+                    <li><i class="fa-solid fa-circle"></i> <strong>DeepSeek</strong> (low-cost) — Chat intelligent</li>
+                    <li><i class="fa-solid fa-circle"></i> <strong>Claude</strong> (premium) — Analyse avancee</li>
+                    <li><i class="fa-solid fa-circle"></i> <strong>Fallback</strong> — Reponse generique</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <div class="card-icon" style="background: var(--gradient-2);"><i class="fa-solid fa-file-lines"></i></div>
+                <h3>IA Lecture de Documents</h3>
+                <p>Extrait automatiquement 16 champs structures depuis chaque PDF d'appel d'offres.</p>
+                <ul>
+                    <li><i class="fa-solid fa-circle"></i> Autorite contractante et contact</li>
+                    <li><i class="fa-solid fa-circle"></i> Budget et garantie de soumission</li>
+                    <li><i class="fa-solid fa-circle"></i> Date/heure et lieu de depot</li>
+                    <li><i class="fa-solid fa-circle"></i> Documents requis et conditions</li>
+                    <li><i class="fa-solid fa-circle"></i> Source de financement et lots</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <div class="card-icon" style="background: var(--gradient-3);"><i class="fa-solid fa-robot"></i></div>
+                <h3>IA Proactive</h3>
+                <p>Tendo initie des conversations 2 fois par semaine avec des analyses de marche.</p>
+                <ul>
+                    <li><i class="fa-solid fa-circle"></i> Tendances du marche des AO</li>
+                    <li><i class="fa-solid fa-circle"></i> Secteurs les plus actifs</li>
+                    <li><i class="fa-solid fa-circle"></i> Conseils pour soumissionnaires</li>
+                    <li><i class="fa-solid fa-circle"></i> Statistiques recentes</li>
+                    <li><i class="fa-solid fa-circle"></i> Mardi et vendredi a 11h (Cotonou)</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <div class="card-icon" style="background: var(--gradient-4);"><i class="fa-solid fa-magnifying-glass-chart"></i></div>
+                <h3>IA Classification</h3>
+                <p>Classe automatiquement chaque document par type et par secteur d'activite.</p>
+                <ul>
+                    <li><i class="fa-solid fa-circle"></i> 11 types : AAO, DAO, AMI, RFQ, PV, Decision...</li>
+                    <li><i class="fa-solid fa-circle"></i> 10 secteurs : BTP, Sante, IT, Agriculture...</li>
+                    <li><i class="fa-solid fa-circle"></i> Detection des sources de financement</li>
+                    <li><i class="fa-solid fa-circle"></i> Extraction autorite par regex</li>
+                    <li><i class="fa-solid fa-circle"></i> Resume technique IA (5-8 points cles)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- WHATSAPP -->
+<section id="whatsapp" style="background: linear-gradient(180deg, var(--bg-dark), rgba(37,211,102,0.05));">
+    <div class="container">
+        <div class="section-label"><i class="fa-brands fa-whatsapp"></i> Experience WhatsApp</div>
+        <h2 class="section-title">Une interface naturelle et puissante</h2>
+        <div class="section-subtitle">WhatsApp est l'application la plus utilisee au Benin. Tendo s'y integre nativement.</div>
+
+        <div class="grid-3">
+            <div class="card">
+                <div class="card-icon" style="background: linear-gradient(135deg, #25D366, #128C7E);"><i class="fa-solid fa-bell"></i></div>
+                <h3>Notifications structurees</h3>
+                <p>Chaque AO arrive avec un message formate :</p>
+                <ul>
+                    <li><i class="fa-solid fa-circle"></i> Autorite contractante</li>
+                    <li><i class="fa-solid fa-circle"></i> Objet du marche</li>
+                    <li><i class="fa-solid fa-circle"></i> Reference</li>
+                    <li><i class="fa-solid fa-circle"></i> Type de document</li>
+                    <li><i class="fa-solid fa-circle"></i> Budget ou garantie</li>
+                    <li><i class="fa-solid fa-circle"></i> Date limite de depot</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <div class="card-icon" style="background: linear-gradient(135deg, #25D366, #128C7E);"><i class="fa-solid fa-hand-pointer"></i></div>
+                <h3>3 boutons d'action</h3>
+                <p>Chaque notification inclut 3 boutons interactifs :</p>
+                <ul>
+                    <li><i class="fa-solid fa-circle"></i> <strong>Voir le dossier</strong> : telecharge le PDF</li>
+                    <li><i class="fa-solid fa-circle"></i> <strong>En savoir plus</strong> : analyse IA complete</li>
+                    <li><i class="fa-solid fa-circle"></i> <strong>Demander dossier</strong> : email a l'autorite</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <div class="card-icon" style="background: linear-gradient(135deg, #25D366, #128C7E);"><i class="fa-solid fa-message"></i></div>
+                <h3>Commandes texte</h3>
+                <p>En plus des boutons, l'utilisateur peut taper :</p>
+                <ul>
+                    <li><i class="fa-solid fa-circle"></i> <strong>MENU</strong> : options disponibles</li>
+                    <li><i class="fa-solid fa-circle"></i> <strong>DETAIL AO-XXX</strong> : analyse complete</li>
+                    <li><i class="fa-solid fa-circle"></i> <strong>Rechercher [mot]</strong> : trouver des AO</li>
+                    <li><i class="fa-solid fa-circle"></i> <strong>Question libre</strong> : IA repond</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- SCHEDULER / AUTOMATISATION -->
+<section id="scheduler">
+    <div class="container">
+        <div class="section-label"><i class="fa-solid fa-clock"></i> Automatisation</div>
+        <h2 class="section-title">12 taches automatisees</h2>
+        <div class="section-subtitle">Tendo fonctionne de maniere autonome 24/7 grace a APScheduler.</div>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Job</th>
+                        <th>Frequence</th>
+                        <th>Heure Cotonou</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><i class="fa-solid fa-spider" style="color:var(--primary-light);"></i> Scraping</td>
+                        <td><span class="tag tag-blue">Toutes les 6h</span></td>
+                        <td>—</td>
+                        <td>Collecte depuis 18 sources</td>
+                    </tr>
+                    <tr>
+                        <td><i class="fa-solid fa-bell" style="color:var(--primary-light);"></i> Notifications</td>
+                        <td><span class="tag tag-blue">Toutes les 2h</span></td>
+                        <td>—</td>
+                        <td>Envoi WhatsApp + boutons interactifs</td>
+                    </tr>
+                    <tr>
+                        <td><i class="fa-solid fa-brain" style="color:var(--primary-light);"></i> Enrichissement IA</td>
+                        <td><span class="tag tag-purple">3x/jour</span></td>
+                        <td>08h, 16h, 00h</td>
+                        <td>DeepSeek lit les PDF et enrichit les publications</td>
+                    </tr>
+                    <tr>
+                        <td><i class="fa-solid fa-newspaper" style="color:var(--primary-light);"></i> Segmentation JNMP</td>
+                        <td><span class="tag tag-purple">2x/jour</span></td>
+                        <td>07h30, 19h30</td>
+                        <td>Decoupe journaux JNMP en AO individuels</td>
+                    </tr>
+                    <tr>
+                        <td><i class="fa-solid fa-comments" style="color:var(--primary-light);"></i> Discussions proactives</td>
+                        <td><span class="tag tag-green">Mar + Ven</span></td>
+                        <td>11h00</td>
+                        <td>Analyses du marche envoyees aux utilisateurs</td>
+                    </tr>
+                    <tr>
+                        <td><i class="fa-solid fa-trash-can" style="color:var(--primary-light);"></i> Nettoyage AO expires</td>
+                        <td><span class="tag tag-yellow">Quotidien</span></td>
+                        <td>02h00</td>
+                        <td>Supprime AO expires, preserve PV/Decisions</td>
+                    </tr>
+                    <tr>
+                        <td><i class="fa-solid fa-credit-card" style="color:var(--primary-light);"></i> Verification abonnements</td>
+                        <td><span class="tag tag-yellow">Quotidien</span></td>
+                        <td>01h00</td>
+                        <td>Desactive les abonnements expires</td>
+                    </tr>
+                    <tr>
+                        <td><i class="fa-solid fa-clock" style="color:var(--primary-light);"></i> Rappels expiration</td>
+                        <td><span class="tag tag-yellow">Quotidien</span></td>
+                        <td>10h00</td>
+                        <td>Rappel 3 jours avant expiration</td>
+                    </tr>
+                    <tr>
+                        <td><i class="fa-solid fa-chart-bar" style="color:var(--primary-light);"></i> Rapport quotidien</td>
+                        <td><span class="tag tag-yellow">Quotidien</span></td>
+                        <td>21h00</td>
+                        <td>Statistiques admin du jour</td>
+                    </tr>
+                    <tr>
+                        <td><i class="fa-solid fa-envelope" style="color:var(--primary-light);"></i> Scan emails</td>
+                        <td><span class="tag tag-blue">2x/jour</span></td>
+                        <td>11h, 17h</td>
+                        <td>Reponses aux demandes de dossier</td>
+                    </tr>
+                    <tr>
+                        <td><i class="fa-solid fa-book" style="color:var(--primary-light);"></i> Seed Knowledge</td>
+                        <td><span class="tag tag-green">Au demarrage</span></td>
+                        <td>—</td>
+                        <td>Base de connaissances initiale</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+<!-- ARCHITECTURE TECHNIQUE -->
+<section id="architecture" style="background: linear-gradient(180deg, var(--bg-dark), rgba(124,58,237,0.03));">
+    <div class="container">
+        <div class="section-label"><i class="fa-solid fa-server"></i> Architecture technique</div>
+        <h2 class="section-title">Stack production-ready</h2>
+        <div class="section-subtitle">Infrastructure Docker sur VPS, optimisee pour la performance et la fiabilite.</div>
+
+        <div class="arch-block">
+            <h4><i class="fa-solid fa-sitemap" style="color:var(--primary-light);"></i> Architecture globale</h4>
+            <div class="arch-diagram">
+Utilisateur (WhatsApp)
+    |
+    v
+Meta Cloud API  ------>  Webhook WhatsApp (FastAPI)
+                              |
+                              +---> Detection d'intent
+                              +---> IA Conversationnelle (Groq > Gemini > DeepSeek > Claude)
+                              +---> Handlers boutons (voir / savoir / demander)
+                              +---> Historique conversation
+                              |
+                              v
+                        PostgreSQL 16
+                         (Docker)
+                              ^
+                              |
+    +-------------------------+-------------------------+
+    |                         |                         |
+Scrapers (18)         Scheduler (12 jobs)        Admin Dashboard
+    |                    |        |                (SPA Alpine.js)
+    v                    v        v
+Sources web      DeepSeek Reader   Notifications
+(ARMP, BAD,      (enrichissement)  (WhatsApp + boutons)
+ BM, AFD...)          |
+                      v
+                Email SMTP  -------->  Autorites contractantes
+                (demande dossier)
+
+Inscription (tendo.shiftup.bj)
+    |
+    v
+FedaPay (Mobile Money MTN/Moov)
+    |
+    v
+Webhook paiement --> Active abonnement --> Message WhatsApp
+            </div>
+        </div>
+
+        <div class="grid-2">
+            <div class="card">
+                <div class="card-icon" style="background: var(--gradient-1);"><i class="fa-solid fa-layer-group"></i></div>
+                <h3>Stack Technique</h3>
+                <ul>
+                    <li><i class="fa-solid fa-circle"></i> <strong>Backend</strong> : Python 3.11, FastAPI, async</li>
+                    <li><i class="fa-solid fa-circle"></i> <strong>ORM</strong> : SQLAlchemy 2.0 (asyncpg)</li>
+                    <li><i class="fa-solid fa-circle"></i> <strong>Base de donnees</strong> : PostgreSQL 16</li>
+                    <li><i class="fa-solid fa-circle"></i> <strong>Conteneurisation</strong> : Docker Compose</li>
+                    <li><i class="fa-solid fa-circle"></i> <strong>Reverse proxy</strong> : Nginx + SSL Let's Encrypt</li>
+                    <li><i class="fa-solid fa-circle"></i> <strong>Scheduler</strong> : APScheduler (in-process)</li>
+                    <li><i class="fa-solid fa-circle"></i> <strong>Migrations</strong> : Alembic</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <div class="card-icon" style="background: var(--gradient-2);"><i class="fa-solid fa-plug"></i></div>
+                <h3>Integrations externes</h3>
+                <ul>
+                    <li><i class="fa-solid fa-circle"></i> <strong>WhatsApp</strong> : Meta Cloud API (1000 conv/mois gratuit)</li>
+                    <li><i class="fa-solid fa-circle"></i> <strong>Paiement</strong> : FedaPay (MTN/Moov Mobile Money)</li>
+                    <li><i class="fa-solid fa-circle"></i> <strong>IA</strong> : Groq, Gemini, DeepSeek, Claude</li>
+                    <li><i class="fa-solid fa-circle"></i> <strong>PDF</strong> : pypdf, Tesseract OCR, Gemini Vision</li>
+                    <li><i class="fa-solid fa-circle"></i> <strong>Email</strong> : SMTP/IMAP (Gmail)</li>
+                    <li><i class="fa-solid fa-circle"></i> <strong>Hebergement</strong> : VPS Contabo</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- MODELE ECONOMIQUE / PRICING -->
+<section id="pricing">
+    <div class="container">
+        <div class="section-label"><i class="fa-solid fa-coins"></i> Modele economique</div>
+        <h2 class="section-title">3 plans adaptes au marche beninois</h2>
+        <div class="section-subtitle">Paiement par Mobile Money (MTN/Moov) via FedaPay. Inscription sur tendo.shiftup.bj.</div>
+
+        <div class="pricing-cards">
+            <div class="pricing-card">
+                <h3><i class="fa-solid fa-seedling" style="color: var(--accent);"></i> Decouverte</h3>
+                <div class="price">Gratuit</div>
+                <div class="period">7 jours d'essai</div>
+                <ul>
+                    <li><i class="fa-solid fa-check"></i> Notifications WhatsApp</li>
+                    <li><i class="fa-solid fa-check"></i> Boutons interactifs</li>
+                    <li><i class="fa-solid fa-check"></i> Recherche d'AO</li>
+                    <li><i class="fa-solid fa-check"></i> IA basique (Groq)</li>
+                    <li><i class="fa-solid fa-check"></i> Menu personnalise</li>
+                </ul>
+            </div>
+
+            <div class="pricing-card featured">
+                <div class="badge">Populaire</div>
+                <h3><i class="fa-solid fa-star" style="color: var(--primary-light);"></i> Essentiel</h3>
+                <div class="price">2 990 <span>FCFA/mois</span></div>
+                <div class="period">~4,50 EUR/mois</div>
+                <ul>
+                    <li><i class="fa-solid fa-check"></i> Tout le plan Decouverte</li>
+                    <li><i class="fa-solid fa-check"></i> Analyse IA des documents</li>
+                    <li><i class="fa-solid fa-check"></i> Demande de dossier par email</li>
+                    <li><i class="fa-solid fa-check"></i> Discussions proactives</li>
+                    <li><i class="fa-solid fa-check"></i> Support prioritaire</li>
+                </ul>
+            </div>
+
+            <div class="pricing-card">
+                <h3><i class="fa-solid fa-crown" style="color: #FBBF24;"></i> Premium</h3>
+                <div class="price">9 990 <span>FCFA/mois</span></div>
+                <div class="period">~15 EUR/mois</div>
+                <ul>
+                    <li><i class="fa-solid fa-check"></i> Tout le plan Essentiel</li>
+                    <li><i class="fa-solid fa-check"></i> IA Claude (analyses avancees)</li>
+                    <li><i class="fa-solid fa-check"></i> Alertes en temps reel</li>
+                    <li><i class="fa-solid fa-check"></i> Assistance soumission</li>
+                    <li><i class="fa-solid fa-check"></i> Support WhatsApp dedicace</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- MARCHE / OPPORTUNITY -->
+<section id="market" style="background: linear-gradient(180deg, var(--bg-dark), rgba(245,158,11,0.03));">
+    <div class="container">
+        <div class="section-label"><i class="fa-solid fa-chart-line"></i> Opportunite de marche</div>
+        <h2 class="section-title">Un marche massif et sous-exploite</h2>
+
+        <div class="grid-3">
+            <div class="card">
+                <div class="card-icon" style="background: var(--gradient-3);"><i class="fa-solid fa-landmark"></i></div>
+                <h3>Marches publics au Benin</h3>
+                <p>Les marches publics representent une part significative du PIB beninois. Des milliers d'appels d'offres sont publies chaque annee, mais la majorite des PME/TPE n'y accedent pas faute de veille.</p>
+            </div>
+
+            <div class="card">
+                <div class="card-icon" style="background: var(--gradient-1);"><i class="fa-solid fa-mobile-screen-button"></i></div>
+                <h3>Penetration WhatsApp</h3>
+                <p>WhatsApp est l'application de messagerie dominante au Benin avec plus de 95% de penetration chez les professionnels. C'est le canal naturel pour toucher les entreprises.</p>
+            </div>
+
+            <div class="card">
+                <div class="card-icon" style="background: var(--gradient-2);"><i class="fa-solid fa-money-bill-transfer"></i></div>
+                <h3>Mobile Money</h3>
+                <p>MTN et Moov Mobile Money sont les moyens de paiement les plus utilises au Benin. L'integration FedaPay permet un paiement sans friction directement depuis le telephone.</p>
+            </div>
+        </div>
+
+        <div style="margin-top: 3rem;">
+            <div class="grid-4">
+                <div class="card" style="text-align: center;">
+                    <div style="font-size: 2rem; font-weight: 800; color: var(--primary-light);">1000+</div>
+                    <p>AO/mois detectes</p>
+                </div>
+                <div class="card" style="text-align: center;">
+                    <div style="font-size: 2rem; font-weight: 800; color: var(--accent);">50k+</div>
+                    <p>PME/TPE au Benin</p>
+                </div>
+                <div class="card" style="text-align: center;">
+                    <div style="font-size: 2rem; font-weight: 800; color: #FBBF24;">~0%</div>
+                    <p>Concurrence directe</p>
+                </div>
+                <div class="card" style="text-align: center;">
+                    <div style="font-size: 2rem; font-weight: 800; color: #F87171;">UEMOA</div>
+                    <p>Expansion regionale possible</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- AVANTAGES COMPETITIFS -->
+<section id="advantages">
+    <div class="container">
+        <div class="section-label"><i class="fa-solid fa-shield-halved"></i> Avantages competitifs</div>
+        <h2 class="section-title">Ce qui differencie Tendo</h2>
+
+        <div class="grid-3">
+            <div class="card">
+                <div class="card-icon" style="background: var(--gradient-1);"><i class="fa-solid fa-bolt"></i></div>
+                <h3>IA a cout quasi-nul</h3>
+                <p>La cascade Groq (gratuit) > Gemini (gratuit) > DeepSeek (low-cost) > Claude permet d'offrir une IA puissante avec des couts d'exploitation negligeables.</p>
+            </div>
+
+            <div class="card">
+                <div class="card-icon" style="background: var(--gradient-2);"><i class="fa-solid fa-universal-access"></i></div>
+                <h3>Zero barriere d'entree</h3>
+                <p>Pas d'application a telecharger. Pas de compte a creer sur une plateforme. WhatsApp suffit. L'inscription se fait en 2 minutes via le site web.</p>
+            </div>
+
+            <div class="card">
+                <div class="card-icon" style="background: var(--gradient-3);"><i class="fa-solid fa-scale-balanced"></i></div>
+                <h3>Couverture exhaustive</h3>
+                <p>18 sources = la quasi-totalite des AO publies au Benin et par les bailleurs internationaux. Aucun concurrent ne couvre autant de sources.</p>
+            </div>
+
+            <div class="card">
+                <div class="card-icon" style="background: var(--gradient-4);"><i class="fa-solid fa-gauge-high"></i></div>
+                <h3>Automatisation totale</h3>
+                <p>12 jobs automatises, zero intervention manuelle. Scraping, classification, enrichissement, notification, nettoyage — tout tourne 24/7.</p>
+            </div>
+
+            <div class="card">
+                <div class="card-icon" style="background: linear-gradient(135deg, #EC4899, #BE185D);"><i class="fa-solid fa-expand"></i></div>
+                <h3>Scalabilite UEMOA</h3>
+                <p>Le champ "country" dans le modele Publication permet l'expansion vers le Togo, Niger, Burkina Faso, Cote d'Ivoire... en ajoutant simplement de nouveaux scrapers.</p>
+            </div>
+
+            <div class="card">
+                <div class="card-icon" style="background: linear-gradient(135deg, #06B6D4, #0891B2);"><i class="fa-solid fa-chart-pie"></i></div>
+                <h3>Dashboard strategique</h3>
+                <p>Un dashboard admin complet avec KPIs financiers (MRR, ARR, ARPU), graphiques d'evolution, gestion des utilisateurs et declencheurs manuels.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ROADMAP -->
+<section id="roadmap" style="background: linear-gradient(180deg, var(--bg-dark), rgba(124,58,237,0.05));">
+    <div class="container">
+        <div class="section-label"><i class="fa-solid fa-road"></i> Roadmap</div>
+        <h2 class="section-title">Prochaines etapes</h2>
+
+        <div class="grid-2">
+            <div class="card">
+                <div class="card-icon" style="background: var(--gradient-1);"><i class="fa-solid fa-user-gear"></i></div>
+                <h3>Dashboard utilisateur</h3>
+                <p>Interface web personnelle ou chaque utilisateur peut consulter ses alertes, son historique de recherches, et gerer son abonnement directement en ligne.</p>
+                <span class="tag tag-purple" style="margin-top: 0.5rem;">Priorite 1</span>
+            </div>
+
+            <div class="card">
+                <div class="card-icon" style="background: var(--gradient-2);"><i class="fa-solid fa-arrows-rotate"></i></div>
+                <h3>Renouvellement automatique</h3>
+                <p>Generation automatique d'un lien de paiement FedaPay dans le rappel d'expiration. L'utilisateur clique et renouvelle directement depuis WhatsApp.</p>
+                <span class="tag tag-green" style="margin-top: 0.5rem;">Priorite 2</span>
+            </div>
+
+            <div class="card">
+                <div class="card-icon" style="background: var(--gradient-3);"><i class="fa-solid fa-earth-africa"></i></div>
+                <h3>Expansion regionale (UEMOA)</h3>
+                <p>Ajout de scrapers pour le Togo, Niger, Burkina Faso, Cote d'Ivoire, Senegal. L'architecture est deja prete avec le champ "country".</p>
+                <span class="tag tag-yellow" style="margin-top: 0.5rem;">Priorite 3</span>
+            </div>
+
+            <div class="card">
+                <div class="card-icon" style="background: var(--gradient-4);"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+                <h3>Assistant de soumission IA</h3>
+                <p>Tendo aide l'utilisateur a preparer sa soumission : checklist des documents, modeles de lettres, calcul des garanties, verification des criteres d'eligibilite.</p>
+                <span class="tag tag-blue" style="margin-top: 0.5rem;">Vision</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA FINAL -->
+<section>
+    <div class="container">
+        <div class="cta-section">
+            <h2><i class="fa-solid fa-rocket"></i> Tendo est operationnel et en production</h2>
+            <p>18 sources, 4 moteurs IA, 12 taches automatisees, paiement Mobile Money, notifications WhatsApp avec boutons interactifs.</p>
+            <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+		<ul class="nav-links"> <a href="https://tendo.shiftup.bj">
+                	<div style="background: var(--gradient-1); padding: 0.75rem 2rem; border-radius: 12px; font-weight: 600;">
+                    		<i class="fa-solid fa-globe"></i> Essayer Tendo
+                	</div>
+		</a>
+		<a href="https://wa.me/2290197714320">
+                <div style="background: rgba(255,255,255,0.1); border: 1px solid var(--border); padding: 0.75rem 2rem; border-radius: 12px; font-weight: 600;">
+                    <i class="fa-brands fa-whatsapp"></i> Rejoindre Tendo
+                </div>
+		</a> </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+    <div class="brand">TENDO by SHIFT UP</div>
+    <p>Assistant IA pour les marches publics au Benin</p>
+    <p style="margin-top: 0.5rem; font-size: 0.8rem;">Cotonou, Benin &mdash; 2026</p>
+</footer>
+
+<!-- SCROLL ANIMATION -->
+<script>
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+            }
+        });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('.card, .pipeline-step, .arch-block, .pricing-card, .problem-box, .solution-box').forEach(el => {
+        el.classList.add('fade-in');
+        observer.observe(el);
+    });
+</script>
+
+</body>
+</html>

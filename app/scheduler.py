@@ -85,6 +85,21 @@ async def job_run_scrapers():
                     pass
 
     logger.info(f"[Scheduler] Scraping termine: {total_new} nouvelles publications")
+
+    # --- Pipeline chainé : JNMP segmentation + DeepSeek enrichissement ---
+    if total_new > 0:
+        logger.info("[Scheduler] Pipeline: lancement segmentation JNMP...")
+        try:
+            await job_process_jnmp_journals()
+        except Exception as e:
+            logger.error(f"[Scheduler] Pipeline JNMP: {e}")
+
+        logger.info("[Scheduler] Pipeline: lancement enrichissement DeepSeek...")
+        try:
+            await job_enrich_publications()
+        except Exception as e:
+            logger.error(f"[Scheduler] Pipeline enrichissement: {e}")
+
     return total_new
 
 
@@ -425,7 +440,7 @@ async def job_enrich_publications():
     telecharge le PDF, extrait le texte, puis utilise l'IA pour extraire
     les champs structures (autorite, budget, deadline, garantie, etc.).
     """
-    from sqlalchemy import select, and_, or_
+    from sqlalchemy import select, and_, or_, func
     from app.models.publication import Publication
     from app.services.document_analyzer import extract_pdf_text
     from app.services.deepseek_reader import extract_document_info
@@ -450,7 +465,7 @@ async def job_enrich_publications():
                     )
                 )
                 .order_by(Publication.created_at.desc())
-                .limit(10)
+                .limit(50)
             )
             publications = result.scalars().all()
 
@@ -529,6 +544,54 @@ async def job_enrich_publications():
 
         except Exception as e:
             logger.error(f"[Scheduler] Erreur enrichissement global: {e}")
+            await db.rollback()
+
+    # --- Phase 2: enrichir les publications SANS PDF (texte brut du scraping) ---
+    async with AsyncSessionLocal() as db:
+        try:
+            result = await db.execute(
+                select(Publication).where(
+                    and_(
+                        Publication.created_at >= cutoff,
+                        or_(Publication.pdf_url == None, Publication.pdf_url == ""),
+                        or_(Publication.technical_summary == None, Publication.technical_summary == ""),
+                        Publication.summary != None,
+                        func.length(Publication.summary) > 100,
+                    )
+                )
+                .order_by(Publication.created_at.desc())
+                .limit(30)
+            )
+            text_pubs = result.scalars().all()
+
+            for pub in text_pubs:
+                try:
+                    info = await extract_document_info(pub.summary + "\n" + (pub.html_content or ""))
+                    if info:
+                        if not pub.authority_name and info.get("authority_name"):
+                            pub.authority_name = info["authority_name"]
+                        if not pub.budget and info.get("budget"):
+                            pub.budget = info["budget"]
+                        if not pub.document_type and info.get("document_type"):
+                            pub.document_type = info["document_type"]
+                        if not pub.financing_source and info.get("financing_source"):
+                            pub.financing_source = info["financing_source"]
+                        if info.get("guarantee_amount") and not pub.guarantee_amount:
+                            pub.guarantee_amount = info["guarantee_amount"]
+                        if info.get("required_documents") and not pub.required_documents:
+                            docs = info["required_documents"]
+                            pub.required_documents = [d.strip() for d in docs.split(",")] if isinstance(docs, str) else docs
+
+                        pub.technical_summary = info.get("summary", "")[:500]
+                        enriched += 1
+
+                    await asyncio.sleep(2)
+                except Exception as e:
+                    logger.error(f"[Scheduler] Erreur enrichissement texte {pub.reference}: {e}")
+
+            await db.commit()
+        except Exception as e:
+            logger.error(f"[Scheduler] Erreur enrichissement texte global: {e}")
             await db.rollback()
 
     logger.info(f"[Scheduler] {enriched} publications enrichies par IA")
@@ -652,49 +715,340 @@ Redige le message directement, sans introduction."""
             logger.error(f"[Scheduler] Erreur discussions proactives: {e}")
 
 
+async def job_self_learn():
+    """Auto-apprentissage : Tendo analyse les PV d'attribution, les patterns de marches,
+    et enrichit sa base de connaissances automatiquement.
+
+    Extrait :
+    - Fourchettes de prix par secteur/type de marche
+    - Entreprises frequemment attributaires
+    - Taux de reussite par nombre de soumissionnaires
+    - Patterns de deadlines et saisonnalite
+    """
+    from sqlalchemy import select, func, and_, or_
+    from app.models.publication import Publication
+    from app.models.knowledge_base import KnowledgeBase
+
+    logger.info("[Self-Learn] Demarrage auto-apprentissage...")
+
+    async with AsyncSessionLocal() as db:
+        try:
+            learned = 0
+
+            # ── 1. Analyse des PV d'attribution → intelligence de prix ──
+            pv_results = await db.execute(
+                select(Publication).where(
+                    and_(
+                        Publication.document_type.in_(["PV_ATTRIBUTION", "PV_OUVERTURE"]),
+                        Publication.budget != None,
+                        Publication.budget > 0,
+                    )
+                ).order_by(Publication.created_at.desc()).limit(200)
+            )
+            pvs = pv_results.scalars().all()
+
+            if pvs:
+                # Analyser les fourchettes de prix par secteur
+                sector_budgets = {}
+                for pv in pvs:
+                    for sector in (pv.sectors or []):
+                        if sector not in sector_budgets:
+                            sector_budgets[sector] = []
+                        sector_budgets[sector].append(float(pv.budget))
+
+                for sector, budgets in sector_budgets.items():
+                    if len(budgets) < 3:
+                        continue
+                    budgets.sort()
+                    avg = sum(budgets) / len(budgets)
+                    median = budgets[len(budgets) // 2]
+                    min_b, max_b = budgets[0], budgets[-1]
+
+                    title = f"Intelligence prix - Secteur {sector}"
+                    existing = await db.execute(
+                        select(KnowledgeBase).where(
+                            and_(KnowledgeBase.title == title, KnowledgeBase.category == "intelligence_marche")
+                        )
+                    )
+                    kb = existing.scalar_one_or_none()
+
+                    content = (
+                        f"Analyse de {len(budgets)} marches attribues dans le secteur {sector}.\n"
+                        f"Budget moyen: {avg:,.0f} FCFA\n"
+                        f"Budget median: {median:,.0f} FCFA\n"
+                        f"Fourchette: {min_b:,.0f} - {max_b:,.0f} FCFA\n"
+                        f"Nombre de marches analyses: {len(budgets)}\n"
+                        f"Derniere mise a jour: {datetime.now(timezone.utc).strftime('%d/%m/%Y')}"
+                    )
+
+                    if kb:
+                        kb.content = content
+                        kb.version = (kb.version or 1) + 1
+                        kb.updated_at = datetime.now(timezone.utc)
+                    else:
+                        db.add(KnowledgeBase(
+                            category="intelligence_marche",
+                            subcategory="prix_secteur",
+                            title=title,
+                            content=content,
+                            keywords=[sector, "prix", "budget", "attribution"],
+                            country="Benin",
+                            language="fr",
+                        ))
+                    learned += 1
+
+            # ── 2. Analyse des sources les plus actives ──
+            source_stats = await db.execute(
+                select(
+                    Publication.source,
+                    func.count(Publication.id).label("cnt"),
+                    func.avg(Publication.budget).label("avg_budget"),
+                ).where(
+                    Publication.created_at >= datetime.now(timezone.utc) - timedelta(days=30)
+                ).group_by(Publication.source).order_by(func.count(Publication.id).desc())
+            )
+            sources = source_stats.all()
+
+            if sources:
+                title = "Activite des sources - 30 derniers jours"
+                content_lines = [f"Analyse des {sum(s.cnt for s in sources)} publications sur 30 jours:\n"]
+                for src in sources:
+                    avg_str = f" (budget moyen: {src.avg_budget:,.0f} FCFA)" if src.avg_budget else ""
+                    content_lines.append(f"- {src.source}: {src.cnt} publications{avg_str}")
+                content_lines.append(f"\nDerniere mise a jour: {datetime.now(timezone.utc).strftime('%d/%m/%Y')}")
+
+                existing = await db.execute(
+                    select(KnowledgeBase).where(
+                        and_(KnowledgeBase.title == title, KnowledgeBase.category == "intelligence_marche")
+                    )
+                )
+                kb = existing.scalar_one_or_none()
+                content = "\n".join(content_lines)
+
+                if kb:
+                    kb.content = content
+                    kb.version = (kb.version or 1) + 1
+                    kb.updated_at = datetime.now(timezone.utc)
+                else:
+                    db.add(KnowledgeBase(
+                        category="intelligence_marche",
+                        subcategory="activite_sources",
+                        title=title,
+                        content=content,
+                        keywords=["source", "activite", "tendance", "statistique"],
+                        country="Benin",
+                        language="fr",
+                    ))
+                learned += 1
+
+            # ── 3. Analyse des types de documents les plus frequents ──
+            type_stats = await db.execute(
+                select(
+                    Publication.document_type,
+                    func.count(Publication.id).label("cnt"),
+                ).where(
+                    and_(
+                        Publication.document_type != None,
+                        Publication.document_type != "",
+                    )
+                ).group_by(Publication.document_type).order_by(func.count(Publication.id).desc())
+            )
+            types = type_stats.all()
+
+            if types:
+                title = "Repartition des types de documents"
+                total = sum(t.cnt for t in types)
+                content_lines = [f"Analyse de {total} publications classifiees:\n"]
+                for t in types:
+                    pct = round(t.cnt / total * 100, 1)
+                    content_lines.append(f"- {t.document_type}: {t.cnt} ({pct}%)")
+                content_lines.append(f"\nDerniere mise a jour: {datetime.now(timezone.utc).strftime('%d/%m/%Y')}")
+
+                existing = await db.execute(
+                    select(KnowledgeBase).where(
+                        and_(KnowledgeBase.title == title, KnowledgeBase.category == "intelligence_marche")
+                    )
+                )
+                kb = existing.scalar_one_or_none()
+                content = "\n".join(content_lines)
+
+                if kb:
+                    kb.content = content
+                    kb.version = (kb.version or 1) + 1
+                    kb.updated_at = datetime.now(timezone.utc)
+                else:
+                    db.add(KnowledgeBase(
+                        category="intelligence_marche",
+                        subcategory="types_documents",
+                        title=title,
+                        content=content,
+                        keywords=["type", "document", "repartition", "statistique"],
+                        country="Benin",
+                        language="fr",
+                    ))
+                learned += 1
+
+            # ── 4. Autorites contractantes les plus actives ──
+            auth_stats = await db.execute(
+                select(
+                    Publication.authority_name,
+                    func.count(Publication.id).label("cnt"),
+                ).where(
+                    and_(
+                        Publication.authority_name != None,
+                        Publication.authority_name != "",
+                    )
+                ).group_by(Publication.authority_name)
+                .order_by(func.count(Publication.id).desc())
+                .limit(20)
+            )
+            authorities = auth_stats.all()
+
+            if authorities:
+                title = "Top autorites contractantes"
+                content_lines = [f"Les {len(authorities)} autorites contractantes les plus actives:\n"]
+                for a in authorities:
+                    content_lines.append(f"- {a.authority_name}: {a.cnt} marches publies")
+                content_lines.append(f"\nDerniere mise a jour: {datetime.now(timezone.utc).strftime('%d/%m/%Y')}")
+
+                existing = await db.execute(
+                    select(KnowledgeBase).where(
+                        and_(KnowledgeBase.title == title, KnowledgeBase.category == "intelligence_marche")
+                    )
+                )
+                kb = existing.scalar_one_or_none()
+                content = "\n".join(content_lines)
+
+                if kb:
+                    kb.content = content
+                    kb.version = (kb.version or 1) + 1
+                    kb.updated_at = datetime.now(timezone.utc)
+                else:
+                    db.add(KnowledgeBase(
+                        category="intelligence_marche",
+                        subcategory="autorites_actives",
+                        title=title,
+                        content=content,
+                        keywords=["autorite", "contractante", "ministere", "actif"],
+                        country="Benin",
+                        language="fr",
+                    ))
+                learned += 1
+
+            await db.commit()
+            logger.info(f"[Self-Learn] {learned} connaissances creees/mises a jour")
+
+        except Exception as e:
+            logger.error(f"[Self-Learn] Erreur: {e}")
+            await db.rollback()
+
+
 async def job_daily_report():
-    """Envoie un rapport quotidien aux administrateurs."""
-    from sqlalchemy import select, func
-    from app.models.user import User
+    """Envoie un rapport quotidien complet a l'administrateur via WhatsApp.
+
+    Envoye a 19h GMT au numero +2290140809108.
+    """
+    from sqlalchemy import select, func, and_
+    from app.models.user import User, SubscriptionStatus
     from app.models.publication import Publication
     from app.models.notification import Notification
-    from app.services.monitoring import send_daily_report
+    from app.services.whatsapp import send_message
 
-    logger.info("[Scheduler] Generation du rapport quotidien...")
+    ADMIN_PHONE = "2290140809108"
+
+    logger.info("[Scheduler] Generation du rapport quotidien admin...")
 
     async with AsyncSessionLocal() as db:
         try:
             now = datetime.now(timezone.utc)
-            yesterday = now.replace(hour=0, minute=0, second=0) - __import__("datetime").timedelta(days=1)
+            today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
-            # Compter publications du jour
-            pub_count = await db.execute(
+            # Publications du jour
+            pub_today = await db.execute(
                 select(func.count(Publication.id)).where(
-                    Publication.created_at >= yesterday
+                    Publication.created_at >= today_start
                 )
             )
-            scraped = pub_count.scalar() or 0
+            pubs_count = pub_today.scalar() or 0
 
-            # Compter notifications du jour
-            notif_count = await db.execute(
+            # Publications par source aujourd'hui
+            source_stats = await db.execute(
+                select(Publication.source, func.count(Publication.id)).where(
+                    Publication.created_at >= today_start
+                ).group_by(Publication.source).order_by(func.count(Publication.id).desc()).limit(8)
+            )
+            sources = source_stats.all()
+
+            # Notifications envoyees aujourd'hui
+            notif_today = await db.execute(
                 select(func.count(Notification.id)).where(
-                    Notification.sent_at >= yesterday
+                    Notification.sent_at >= today_start
                 )
             )
-            notifs = notif_count.scalar() or 0
+            notifs_count = notif_today.scalar() or 0
 
-            # Compter utilisateurs actifs
-            user_count = await db.execute(
-                select(func.count(User.id)).where(User.is_active == True)
+            # Utilisateurs actifs (trial + active)
+            active_count = await db.execute(
+                select(func.count(User.id)).where(
+                    and_(
+                        User.is_active == True,
+                        User.subscription_status.in_([
+                            SubscriptionStatus.TRIAL.value,
+                            SubscriptionStatus.ACTIVE.value,
+                        ]),
+                    )
+                )
             )
-            users = user_count.scalar() or 0
+            active_users = active_count.scalar() or 0
 
-            await send_daily_report(
-                scraped_count=scraped,
-                notifications_sent=notifs,
-                active_users=users,
-                errors_count=0,
+            # Utilisateurs total
+            total_users = await db.execute(select(func.count(User.id)))
+            total = total_users.scalar() or 0
+
+            # Publications enrichies (avec pdf_content)
+            enriched_count = await db.execute(
+                select(func.count(Publication.id)).where(
+                    and_(
+                        Publication.created_at >= today_start,
+                        Publication.pdf_content != None,
+                        Publication.pdf_content != "",
+                        Publication.pdf_content != "[extraction_failed]",
+                    )
+                )
             )
+            enriched = enriched_count.scalar() or 0
+
+            # Total publications en base
+            total_pubs = await db.execute(select(func.count(Publication.id)))
+            total_publications = total_pubs.scalar() or 0
+
+            # Construire le rapport
+            date_str = now.strftime("%d/%m/%Y")
+            source_lines = "\n".join(
+                f"  - {src}: {cnt}" for src, cnt in sources
+            ) if sources else "  Aucune"
+
+            report = (
+                f"RAPPORT QUOTIDIEN TENDO\n"
+                f"{date_str}\n"
+                f"{'=' * 30}\n\n"
+                f"PUBLICATIONS\n"
+                f"  Nouvelles aujourd'hui: {pubs_count}\n"
+                f"  Enrichies par IA: {enriched}\n"
+                f"  Total en base: {total_publications}\n\n"
+                f"SOURCES DU JOUR\n"
+                f"{source_lines}\n\n"
+                f"NOTIFICATIONS\n"
+                f"  Envoyees aujourd'hui: {notifs_count}\n\n"
+                f"UTILISATEURS\n"
+                f"  Actifs: {active_users}\n"
+                f"  Total inscrits: {total}\n\n"
+                f"Tendo fonctionne normalement."
+            )
+
+            await send_message(ADMIN_PHONE, report)
+            logger.info(f"[Scheduler] Rapport quotidien envoye a {ADMIN_PHONE}")
+
         except Exception as e:
             logger.error(f"[Scheduler] Erreur rapport quotidien: {e}")
 
@@ -721,12 +1075,12 @@ def setup_scheduler():
             replace_existing=True,
         )
 
-    # Notifications -- 5 minutes apres le scraping, puis toutes les 2 heures
+    # Notifications continues -- toutes les 30 min de 9h a 18h GMT
     scheduler.add_job(
         job_send_notifications,
-        CronTrigger(minute="5", hour="*/2"),
+        CronTrigger(minute="0,30", hour="9-18"),
         id="notifications",
-        name="Envoi notifications",
+        name="Envoi notifications (9h-18h GMT, /30min)",
         replace_existing=True,
     )
 
@@ -775,12 +1129,12 @@ def setup_scheduler():
         replace_existing=True,
     )
 
-    # Rapport quotidien -- chaque jour a 20h
+    # Rapport quotidien -- chaque jour a 19h GMT au +2290140809108
     scheduler.add_job(
         job_daily_report,
-        CronTrigger(hour="20", minute="0"),
+        CronTrigger(hour="19", minute="0"),
         id="daily_report",
-        name="Rapport quotidien",
+        name="Rapport quotidien admin (19h GMT)",
         replace_existing=True,
     )
 
@@ -799,6 +1153,15 @@ def setup_scheduler():
         CronTrigger(hour="6,18", minute="30"),
         id="jnmp_processing",
         name="Segmentation journaux JNMP",
+        replace_existing=True,
+    )
+
+    # Auto-apprentissage -- chaque dimanche a 3h du matin
+    scheduler.add_job(
+        job_self_learn,
+        CronTrigger(day_of_week="sun", hour="3", minute="0"),
+        id="self_learn",
+        name="Auto-apprentissage (analyse marches)",
         replace_existing=True,
     )
 
