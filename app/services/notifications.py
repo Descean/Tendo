@@ -21,7 +21,7 @@ from app.utils.logger import logger
 # Rate limiting
 SEND_DELAY = 5
 # Max publications par cycle (envoi toutes les 30min de 9h-18h = ~18 cycles/jour)
-MAX_PUBLICATIONS_PER_CYCLE = 10
+MAX_PUBLICATIONS_PER_CYCLE = 50
 # Max notifications par utilisateur par cycle (espacees de 30min minimum)
 MAX_PER_USER = 2
 # Ne notifier que les publications des N derniers jours
@@ -107,13 +107,19 @@ async def process_new_publications(db: AsyncSession) -> int:
         logger.info("[Notifications] Aucun utilisateur actif")
         return 0
 
-    # Publications recentes (derniers N jours) avec deadline future ou sans deadline
+    # Publications recentes (derniers N jours), excluant connaissance et JNMP parents
     cutoff = datetime.now(timezone.utc) - timedelta(days=PUBLICATION_AGE_DAYS)
+    from sqlalchemy import or_
     result = await db.execute(
         select(Publication)
         .where(
             and_(
                 Publication.created_at >= cutoff,
+                # Exclure les types de connaissance (pas des AO)
+                or_(
+                    Publication.document_type == None,
+                    ~Publication.document_type.in_(KNOWLEDGE_DOCUMENT_TYPES),
+                ),
                 # Exclure les publications JNMP parent (journaux complets)
                 ~and_(
                     Publication.source == "JNMP",
