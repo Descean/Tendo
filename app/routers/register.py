@@ -85,8 +85,8 @@ async def register_user(data: RegisterRequest):
                 user.name = fullname
             if not user.company:
                 user.company = company
-            if email and not user.email:
-                user.email = email
+            if email and not user.email_address:
+                user.email_address = email
             if sectors_list and (not user.sectors or user.sectors == []):
                 user.sectors = sectors_list
             if data.region and (not user.regions or user.regions == []):
@@ -108,7 +108,7 @@ async def register_user(data: RegisterRequest):
             phone_number=phone,
             name=fullname,
             company=company,
-            email=email,
+            email_address=email,
             sectors=sectors_list,
             regions=[data.region] if data.region else [],
             subscription_status=SubscriptionStatus.TRIAL.value,
@@ -133,17 +133,14 @@ async def register_user(data: RegisterRequest):
         if plan in ("essentiel", "premium"):
             try:
                 from app.services.payment import create_payment_link
-                amount = 2990 if plan == "essentiel" else 9990
                 payment = await create_payment_link(
-                    amount=amount,
-                    user_id=user.id,
+                    user_phone=phone,
                     plan=plan,
-                    customer_name=fullname,
-                    customer_email=email or f"{phone}@tendo.shiftup.bj",
-                    customer_phone=phone,
+                    user_name=fullname,
+                    user_email=email or f"{phone}@tendo.shiftup.bj",
                 )
-                if payment and payment.get("url"):
-                    response["payment_url"] = payment["url"]
+                if payment and payment.get("payment_link"):
+                    response["payment_url"] = payment["payment_link"]
             except Exception as e:
                 logger.error(f"[Register] Erreur paiement: {e}")
                 # On continue sans paiement - l'user est en trial
