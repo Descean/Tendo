@@ -328,6 +328,27 @@
             border-top-right-radius: 2px;
         }
         .msg b { font-weight: 600; }
+        .msg-buttons {
+            display: flex;
+            flex-direction: column;
+            margin-top: 4px;
+        }
+        .msg-btn {
+            text-align: center;
+            padding: 6px;
+            color: #0099ff;
+            font-size: 0.72rem;
+            font-weight: 500;
+            border-top: 1px solid #e8e8e8;
+        }
+        .msg-alert-hdr {
+            background: #f0ecf8;
+            padding: 4px 8px;
+            font-size: 0.65rem;
+            color: #5228B5;
+            font-weight: 600;
+            border-radius: 8px 8px 0 0;
+        }
 
         /* ===== SECTION COMMON ===== */
         section { padding: 5rem 2rem; }
@@ -702,6 +723,34 @@
             .services-grid { grid-template-columns: 1fr; }
             section { padding: 3rem 1.2rem; }
         }
+        /* ===== ANIMATIONS ===== */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes floatPhone {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .hero-badge, .hero h1, .hero-desc, .hero-actions, .hero-stats {
+            animation: fadeInUp 0.8s ease-out both;
+        }
+        .hero h1 { animation-delay: 0.1s; }
+        .hero-desc { animation-delay: 0.2s; }
+        .hero-actions { animation-delay: 0.3s; }
+        .hero-stats { animation-delay: 0.4s; }
+        .phone-mockup {
+            animation: floatPhone 4s ease-in-out infinite, fadeInUp 1s ease-out 0.5s both;
+        }
+        .fade-in {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+        .fade-in.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
     </style>
 </head>
 <body>
@@ -757,9 +806,27 @@
                         <div>Tendo</div>
                     </div>
                     <div class="phone-messages">
-                        <div class="msg msg-bot"><b>Nouvel Appel d'Offres</b><br><br>Travaux de rehabilitation de la RN1 - Troncon Cotonou-Bohicon<br><br>Type : AOO<br>Autorite : MCA-Benin II<br>Date limite : 15/04/2026<br>Budget : 2.5 Mds FCFA<br><br><i>Tapez DETAIL pour l'analyse</i></div>
-                        <div class="msg msg-user">DETAIL</div>
-                        <div class="msg msg-bot"><b>Analyse IA</b><br><br><i class="fa-solid fa-check" style="color:#25D366;"></i> Pieces requises identifiees<br><i class="fa-solid fa-check" style="color:#25D366;"></i> Criteres de qualification<br><i class="fa-solid fa-check" style="color:#25D366;"></i> Budget et financement<br><i class="fa-solid fa-check" style="color:#25D366;"></i> Points d'attention</div>
+                        <div class="msg msg-bot">Bienvenue sur Tendo.<br>Votre assistant de veille sur les marches publics au Benin.
+                            <div class="msg-buttons">
+                                <div class="msg-btn">S'inscrire</div>
+                                <div class="msg-btn">Voir le menu</div>
+                            </div>
+                        </div>
+                        <div class="msg msg-user">Voir le menu</div>
+                        <div class="msg msg-bot" style="padding:0;overflow:hidden;">
+                            <div class="msg-alert-hdr">SYGMAP | Travaux</div>
+                            <div style="padding:6px 8px;font-size:0.72rem;line-height:1.45;">
+                                <b>Autorite:</b> Mairie de Cotonou<br>
+                                <b>Objet:</b> Construction centre de sante<br>
+                                <b>Ref:</b> MC-2026-0412<br>
+                                <b>Date limite:</b> 25/04/2026
+                            </div>
+                            <div class="msg-buttons">
+                                <div class="msg-btn">Voir le dossier</div>
+                                <div class="msg-btn">En savoir plus</div>
+                                <div class="msg-btn">Demander dossier</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1248,6 +1315,18 @@ window.addEventListener('scroll', function() {
         nav.style.boxShadow = 'none';
     }
 });
+
+// ===== SCROLL REVEAL ANIMATIONS =====
+var fadeEls = document.querySelectorAll('.service-card, .problem-card, .solution-card, .step, .price-card, .trust-card, .section-label, .section-title');
+fadeEls.forEach(function(el) { el.classList.add('fade-in'); });
+var observer = new IntersectionObserver(function(entries) {
+    entries.forEach(function(entry) {
+        if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+        }
+    });
+}, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+fadeEls.forEach(function(el) { observer.observe(el); });
 </script>
 
 </body>
