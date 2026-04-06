@@ -31,26 +31,56 @@ KNOWLEDGE_DOCUMENT_TYPES = {"PV_ATTRIBUTION", "PV_OUVERTURE", "DECISION_ARMP"}
 
 
 def matches_user_preferences(user: User, publication: Publication) -> bool:
-    """Verifie si une publication correspond aux preferences d'un utilisateur."""
+    """Verifie si une publication correspond aux preferences d'un utilisateur.
+
+    Regles de matching :
+    - Si l'utilisateur n'a aucune preference, tout matche
+    - Si la publication n'a pas de secteurs/regions, elle matche tout le monde
+    - 'National' dans les regions d'une publication matche toute region utilisateur
+    - 'Autres', 'Marches Publics', 'General' sont des secteurs generiques -> matchent tous
+    """
     if not user.sectors and not user.regions and not user.preferred_sources:
         return True
 
-    if user.sectors and publication.sectors:
-        if any(s in user.sectors for s in publication.sectors):
-            return True
+    # Secteurs generiques qui matchent tous les utilisateurs
+    GENERIC_SECTORS = {"Autres", "Marches Publics", "General", "Divers"}
 
-    if user.regions and publication.regions:
-        if any(r in user.regions for r in publication.regions):
-            return True
+    # -- Secteurs --
+    sector_match = False
+    if user.sectors:
+        if not publication.sectors:
+            # Pas de secteur sur la publication -> matche tout le monde
+            sector_match = True
+        elif any(s in GENERIC_SECTORS for s in publication.sectors):
+            # Secteur generique -> matche tout le monde
+            sector_match = True
+        elif any(s in user.sectors for s in publication.sectors):
+            sector_match = True
 
+    # -- Regions --
+    region_match = False
+    if user.regions:
+        if not publication.regions:
+            # Pas de region -> matche tout le monde
+            region_match = True
+        elif "National" in publication.regions:
+            # National matche toute region utilisateur
+            region_match = True
+        elif any(r in user.regions for r in publication.regions):
+            region_match = True
+
+    # -- Sources --
+    source_match = False
     if user.preferred_sources:
         if publication.source in user.preferred_sources:
-            return True
+            source_match = True
 
-    if user.sectors or user.regions or user.preferred_sources:
-        return False
+    # Si l'utilisateur a des preferences, au moins un critere doit matcher
+    has_prefs = bool(user.sectors or user.regions or user.preferred_sources)
+    if not has_prefs:
+        return True
 
-    return True
+    return sector_match or region_match or source_match
 
 
 async def process_new_publications(db: AsyncSession) -> int:

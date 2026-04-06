@@ -597,6 +597,90 @@ async def job_enrich_publications():
     logger.info(f"[Scheduler] {enriched} publications enrichies par IA")
 
 
+async def job_reenrich_deadlines():
+    """Re-enrichit les publications qui ont du pdf_content mais pas de deadline.
+
+    Utile pour extraire les dates de soumission des documents deja traites
+    dont la deadline n'a pas ete parsee lors du premier enrichissement.
+    """
+    from sqlalchemy import select, and_
+    from app.models.publication import Publication
+    from app.services.deepseek_reader import extract_document_info
+
+    logger.info("[Scheduler] Re-enrichissement deadlines...")
+    enriched = 0
+
+    async with AsyncSessionLocal() as db:
+        try:
+            # Publications avec contenu PDF mais sans deadline
+            result = await db.execute(
+                select(Publication).where(
+                    and_(
+                        Publication.pdf_content != None,
+                        Publication.pdf_content != "",
+                        Publication.pdf_content != "[extraction_failed]",
+                        Publication.deadline == None,
+                        Publication.document_type.in_(["AAO", "DAO", "AMI", "RFQ", "RFP", None]),
+                    )
+                )
+                .order_by(Publication.created_at.desc())
+                .limit(50)
+            )
+            publications = result.scalars().all()
+
+            if not publications:
+                logger.info("[Scheduler] Aucune publication a re-enrichir pour deadlines")
+                return
+
+            logger.info(f"[Scheduler] {len(publications)} publications a re-enrichir")
+
+            for pub in publications:
+                try:
+                    content = pub.pdf_content
+                    if pub.summary:
+                        content = pub.summary + "\n" + content
+
+                    info = await extract_document_info(content)
+                    if info:
+                        # Deadline
+                        if info.get("deadline_date"):
+                            from app.services.scraping.gouv_bj import GouvBJScraper
+                            parsed = GouvBJScraper._parse_date(None, info["deadline_date"])
+                            if parsed:
+                                from datetime import datetime as dt
+                                try:
+                                    pub.deadline = dt.fromisoformat(parsed)
+                                    enriched += 1
+                                    logger.info(f"[Scheduler] Deadline trouvee: {pub.reference} -> {pub.deadline}")
+                                except Exception:
+                                    pass
+
+                        # Aussi mettre a jour les champs manquants
+                        if not pub.authority_name and info.get("authority_name"):
+                            pub.authority_name = info["authority_name"]
+                        if not pub.budget and info.get("budget"):
+                            pub.budget = info["budget"]
+                        if not pub.document_type and info.get("document_type"):
+                            pub.document_type = info["document_type"]
+                        if not pub.financing_source and info.get("financing_source"):
+                            pub.financing_source = info["financing_source"]
+                        if info.get("guarantee_amount") and not pub.guarantee_amount:
+                            pub.guarantee_amount = info["guarantee_amount"]
+
+                    await asyncio.sleep(2)
+
+                except Exception as e:
+                    logger.error(f"[Scheduler] Erreur re-enrichissement {pub.reference}: {e}")
+
+            await db.commit()
+
+        except Exception as e:
+            logger.error(f"[Scheduler] Erreur re-enrichissement global: {e}")
+            await db.rollback()
+
+    logger.info(f"[Scheduler] {enriched} deadlines extraites par re-enrichissement")
+
+
 async def job_proactive_discussions():
     """Tendo lance des discussions proactives sur les marches publics.
 

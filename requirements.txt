@@ -24,7 +24,7 @@ apscheduler==3.10.4
 
 # AI — Groq (GRATUIT: 30 req/min) + Gemini (fallback) + Claude (premium)
 google-genai==1.14.0
-anthropic==0.39.0
+anthropic>=0.45.0
 
 # Scraping
 beautifulsoup4==4.12.3

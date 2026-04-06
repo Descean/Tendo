@@ -606,6 +606,10 @@ tbody tr:hover{background:#1E293B30}
           <button @click="trig('enrich-publications')" :disabled="trigging['enrich-publications']" class="btn btn-purple text-[11px]"><i class="fa-solid fa-play" :class="trigging['enrich-publications']&&'fa-spin'"></i> Lancer</button>
         </div>
         <div class="flex items-center justify-between bg-slate-800/30 rounded-lg px-3 py-2.5 border border-slate-700/20">
+          <div><p class="text-[12px] text-orange-300 font-medium flex items-center gap-2"><i class="fa-solid fa-calendar-check text-orange-600 text-[10px]"></i> Re-enrichir deadlines</p><p class="text-[10px] text-slate-600 mt-0.5 ml-5">Extraire les dates de soumission manquantes via DeepSeek</p></div>
+          <button @click="trig('reenrich-deadlines')" :disabled="trigging['reenrich-deadlines']" class="btn btn-warning text-[11px]"><i class="fa-solid fa-play" :class="trigging['reenrich-deadlines']&&'fa-spin'"></i> Lancer</button>
+        </div>
+        <div class="flex items-center justify-between bg-slate-800/30 rounded-lg px-3 py-2.5 border border-slate-700/20">
           <div><p class="text-[12px] text-cyan-300 font-medium flex items-center gap-2"><i class="fa-solid fa-comments text-cyan-600 text-[10px]"></i> Discussion proactive</p><p class="text-[10px] text-slate-600 mt-0.5 ml-5">Tendo envoie un message proactif aux utilisateurs</p></div>
           <button @click="trig('proactive-discussion')" :disabled="trigging['proactive-discussion']" class="btn btn-primary text-[11px]"><i class="fa-solid fa-play" :class="trigging['proactive-discussion']&&'fa-spin'"></i> Lancer</button>
         </div>
@@ -1481,6 +1485,20 @@ async def trigger_enrich(key: str = ""):
         await job_enrich_publications()
     asyncio.create_task(_run())
     return {"status": "started", "message": "Enrichissement IA lancé"}
+
+
+@router.post("/trigger/reenrich-deadlines")
+async def trigger_reenrich_deadlines(key: str = ""):
+    _ck(key)
+    async def _run():
+        try:
+            from app.scheduler import job_reenrich_deadlines
+            await job_reenrich_deadlines()
+            logger.info("[Admin] Re-enrichissement deadlines terminé")
+        except Exception as e:
+            logger.error(f"[Admin] Erreur re-enrichissement deadlines: {e}")
+    asyncio.create_task(_run())
+    return {"status": "started", "message": "Re-enrichissement deadlines lancé (DeepSeek)"}
 
 
 @router.post("/trigger/proactive-discussion")
