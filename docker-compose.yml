@@ -13,6 +13,10 @@ services:
       - APP_ENV=production
       - DATABASE_URL=postgresql+asyncpg://tendo:${POSTGRES_PASSWORD:-tendo2024}@db:5432/tendo
       - DATABASE_URL_SYNC=postgresql://tendo:${POSTGRES_PASSWORD:-tendo2024}@db:5432/tendo
+    volumes:
+      - /opt/tendo/app:/app/app
+      - /opt/tendo/.git:/app/.git
+      - /opt/tendo/.gitignore:/app/.gitignore
     depends_on:
       db:
         condition: service_healthy
