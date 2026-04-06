@@ -1,13 +1,12 @@
-name: Déploiement de Tendo sur VPS
+name: Tendo - Vérification syntaxe
 
 on:
   push:
     branches: [main]
-  workflow_dispatch:
 
 jobs:
   test:
-    name: Vérification syntaxe
+    name: Vérification syntaxe Python
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,63 +16,7 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Verify Python syntax
+      - name: Vérifier syntaxe
         run: |
           find app -name "*.py" -exec python -m py_compile {} +
           echo "✅ Syntaxe Python OK"
-
-  deploy:
-    name: Déploiement sur VPS
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-
-    steps:
-      - name: Vérifier secrets configurés
-        run: |
-          if [ -z "${{ secrets.VPS_HOST }}" ] || [ -z "${{ secrets.VPS_USER }}" ] || [ -z "${{ secrets.VPS_PASSWORD }}" ]; then
-            echo "❌ ERREUR: Les secrets VPS ne sont pas configurés."
-            echo ""
-            echo "Allez dans GitHub → Settings → Secrets and variables → Actions"
-            echo "Ajoutez ces 3 secrets :"
-            echo "  - VPS_HOST     : adresse IP du serveur (ex: 207.180.221.113)"
-            echo "  - VPS_USER     : utilisateur SSH (ex: root)"
-            echo "  - VPS_PASSWORD : mot de passe SSH"
-            exit 1
-          fi
-
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          password: ${{ secrets.VPS_PASSWORD }}
-          port: 22
-          script: |
-            set -e
-            cd /opt/tendo
-
-            echo "[Deploy] Pull des derniers changements..."
-            git pull origin main
-
-            echo "[Deploy] Rebuild des containers..."
-            docker compose up -d --build
-
-            echo "[Deploy] Attente du demarrage (20s)..."
-            sleep 20
-
-            echo "[Deploy] Verification sante..."
-            for i in 1 2 3 4 5; do
-              if curl -sf http://localhost:8000/health > /dev/null 2>&1; then
-                echo "[Deploy] ✅ Tendo est operationnel !"
-                curl -s http://localhost:8000/health
-                echo "[Tendo] Deploiement reussi a $(date '+%Y-%m-%d %H:%M:%S')" >> /opt/tendo/deploy.log
-                exit 0
-              fi
-              echo "[Deploy] Tentative $i/5 - en attente..."
-              sleep 5
-            done
-
-            echo "[Deploy] ❌ Tendo ne repond pas apres 5 tentatives"
-            docker compose logs --tail=30 tendo
-            exit 1

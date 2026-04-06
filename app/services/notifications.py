@@ -153,8 +153,21 @@ async def process_new_publications(db: AsyncSession) -> int:
                 await asyncio.sleep(SEND_DELAY)
 
             except Exception as e:
+                err_str = str(e)
+                # Si fenêtre 24h fermée, tenter via template proactif
+                if "131047" in err_str or "window" in err_str.lower():
+                    try:
+                        await whatsapp.send_proactive_message(user.phone_number, body)
+                        notification = Notification(user_id=user.id, publication_id=pub.id)
+                        db.add(notification)
+                        sent_count += 1
+                        user_sent += 1
+                        await asyncio.sleep(SEND_DELAY)
+                        continue
+                    except Exception:
+                        pass
                 logger.error(f"Erreur envoi user={user.id} pub={pub.id}: {e}")
-                if "rate limit" in str(e).lower() or "131056" in str(e):
+                if "rate limit" in err_str.lower() or "131056" in err_str:
                     logger.warning("[Notifications] Rate limit, pause 30s")
                     await asyncio.sleep(30)
                     break

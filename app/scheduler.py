@@ -697,12 +697,13 @@ Redige le message directement, sans introduction."""
                 return
 
             # Envoyer a tous les utilisateurs actifs (avec rate limiting)
+            # Utilise send_proactive_message car hors fenêtre 24h
             sent = 0
             for user in users:
                 try:
-                    await whatsapp.send_message(user.phone_number, message)
+                    await whatsapp.send_proactive_message(user.phone_number, message)
                     sent += 1
-                    await asyncio.sleep(3)
+                    await asyncio.sleep(5)  # Rate limit plus conservateur pour proactif
                 except Exception as e:
                     logger.error(f"[Scheduler] Erreur proactive user={user.id}: {e}")
                     if "rate limit" in str(e).lower():

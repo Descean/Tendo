@@ -354,6 +354,31 @@ async def send_template_message(to: str, template_name: str, **kwargs) -> dict:
         )
 
 
+async def send_proactive_message(to: str, body: str) -> dict:
+    """Envoie un message proactif — utilise template hello_world pour ouvrir
+    la fenêtre de conversation, puis envoie le vrai message.
+
+    WhatsApp Business API exige un template pré-approuvé pour initier
+    une conversation en dehors de la fenêtre de 24h.
+    """
+    import asyncio
+    try:
+        # Etape 1: Envoyer le template hello_world pour ouvrir la fenêtre
+        await _meta_send_template(to, "hello_world", language="en_US")
+        # Attendre que la fenêtre s'ouvre
+        await asyncio.sleep(2)
+        # Etape 2: Envoyer le vrai message
+        result = await _meta_send_message(to, body)
+        return result
+    except Exception as e:
+        logger.warning(f"[Meta] Proactif echoue pour {to}: {e}")
+        # Fallback: essayer juste le message texte (si fenêtre déjà ouverte)
+        try:
+            return await _meta_send_message(to, body)
+        except Exception:
+            raise
+
+
 # ================================================
 #  MESSAGES PREDEFINIS -- TENDO (sans emojis)
 # ================================================
