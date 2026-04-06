@@ -13,6 +13,7 @@
     <meta property="og:image" content="https://tendo.shiftup.bj/static/images/banner.png">
     <link rel="icon" type="image/png" href="/static/images/logo.png">
     <link rel="canonical" href="https://tendo.shiftup.bj">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -44,6 +45,31 @@
             color: var(--gray-900);
             line-height: 1.6;
             -webkit-font-smoothing: antialiased;
+        }
+
+        
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid var(--gray-300);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.85rem;
+        }
+        .checkbox-label:hover {
+            border-color: var(--primary);
+            background: rgba(108,60,225,0.04);
+        }
+        .checkbox-label input:checked + span {
+            color: var(--primary);
+            font-weight: 600;
+        }
+        .checkbox-label:has(input:checked) {
+            border-color: var(--primary);
+            background: rgba(108,60,225,0.06);
         }
 
         /* ===== HEADER / NAV ===== */
@@ -691,7 +717,7 @@
             <li><a href="#about">A propos</a></li>
             <li><a href="#register" class="nav-cta">S'inscrire</a></li>
         </ul>
-        <button class="mobile-menu-btn" onclick="document.getElementById('navLinks').classList.toggle('active')">&#9776;</button>
+        <button class="mobile-menu-btn" onclick="document.getElementById('navLinks').classList.toggle('active')"><i class="fa-solid fa-bars"></i></button>
     </div>
 </nav>
 
@@ -699,12 +725,12 @@
 <section class="hero" id="home">
     <div class="hero-inner">
         <div>
-            <div class="hero-badge">&#9889; Essai gratuit 7 jours</div>
+            <div class="hero-badge"><i class="fa-solid fa-bolt"></i> Essai gratuit 7 jours</div>
             <h1>Gagnez vos <span class="highlight">marches publics</span> directement sur <span class="wa-highlight">WhatsApp</span></h1>
             <p class="hero-desc">Tendo surveille les appels d'offres au Benin 24h/24, analyse les dossiers avec l'IA et vous alerte instantanement sur WhatsApp.</p>
             <div class="hero-actions">
-                <a href="https://wa.me/22960412929?text=Bonjour%20Tendo%20!" class="btn btn-whatsapp">
-                    &#128172; Demarrer sur WhatsApp
+                <a href="https://wa.me/22941889921?text=Bonjour%20Tendo%20!" class="btn btn-whatsapp">
+                    <i class="fa-brands fa-whatsapp"></i> Demarrer sur WhatsApp
                 </a>
                 <a href="#register" class="btn btn-outline">S'inscrire gratuitement</a>
             </div>
@@ -733,7 +759,7 @@
                     <div class="phone-messages">
                         <div class="msg msg-bot"><b>Nouvel Appel d'Offres</b><br><br>Travaux de rehabilitation de la RN1 - Troncon Cotonou-Bohicon<br><br>Type : AOO<br>Autorite : MCA-Benin II<br>Date limite : 15/04/2026<br>Budget : 2.5 Mds FCFA<br><br><i>Tapez DETAIL pour l'analyse</i></div>
                         <div class="msg msg-user">DETAIL</div>
-                        <div class="msg msg-bot"><b>Analyse IA</b><br><br>&#9989; Pieces requises identifiees<br>&#9989; Criteres de qualification<br>&#9989; Budget et financement<br>&#9989; Points d'attention</div>
+                        <div class="msg msg-bot"><b>Analyse IA</b><br><br><i class="fa-solid fa-check" style="color:#25D366;"></i> Pieces requises identifiees<br><i class="fa-solid fa-check" style="color:#25D366;"></i> Criteres de qualification<br><i class="fa-solid fa-check" style="color:#25D366;"></i> Budget et financement<br><i class="fa-solid fa-check" style="color:#25D366;"></i> Points d'attention</div>
                     </div>
                 </div>
             </div>
@@ -748,23 +774,23 @@
         <div class="section-title">Vous perdez des opportunites chaque jour</div>
         <div class="problem-grid">
             <div class="problem-card">
-                <h3>&#128308; Sans Tendo</h3>
+                <h3><i class="fa-solid fa-circle-xmark" style="color:var(--danger);"></i> Sans Tendo</h3>
                 <ul class="problem-list">
-                    <li><span class="icon">&#10060;</span> Vous passez des heures a chercher les AO sur plusieurs sites</li>
-                    <li><span class="icon">&#10060;</span> Vous decouvrez les dossiers apres la date limite</li>
-                    <li><span class="icon">&#10060;</span> Vous ne savez pas quelles pieces preparer</li>
-                    <li><span class="icon">&#10060;</span> Les DAO sont longs et complexes a analyser</li>
-                    <li><span class="icon">&#10060;</span> Vous ratez des opportunites par manque de veille</li>
+                    <li><span class="icon"><i class="fa-solid fa-xmark" style="color:var(--danger);"></i></span> Vous passez des heures a chercher les AO sur plusieurs sites</li>
+                    <li><span class="icon"><i class="fa-solid fa-xmark" style="color:var(--danger);"></i></span> Vous decouvrez les dossiers apres la date limite</li>
+                    <li><span class="icon"><i class="fa-solid fa-xmark" style="color:var(--danger);"></i></span> Vous ne savez pas quelles pieces preparer</li>
+                    <li><span class="icon"><i class="fa-solid fa-xmark" style="color:var(--danger);"></i></span> Les DAO sont longs et complexes a analyser</li>
+                    <li><span class="icon"><i class="fa-solid fa-xmark" style="color:var(--danger);"></i></span> Vous ratez des opportunites par manque de veille</li>
                 </ul>
             </div>
             <div class="solution-card">
-                <h3>&#9989; Avec Tendo</h3>
+                <h3><i class="fa-solid fa-circle-check" style="color:var(--success);"></i> Avec Tendo</h3>
                 <ul class="problem-list">
-                    <li><span class="icon">&#10004;&#65039;</span> Les AO arrivent directement sur votre WhatsApp</li>
-                    <li><span class="icon">&#10004;&#65039;</span> Alerte instantanee des la publication</li>
-                    <li><span class="icon">&#10004;&#65039;</span> L'IA extrait les pieces requises automatiquement</li>
-                    <li><span class="icon">&#10004;&#65039;</span> Resume technique en 30 secondes</li>
-                    <li><span class="icon">&#10004;&#65039;</span> 9 sources surveillees 24h/24</li>
+                    <li><span class="icon"><i class="fa-solid fa-check" style="color:var(--success);"></i></span> Les AO arrivent directement sur votre WhatsApp</li>
+                    <li><span class="icon"><i class="fa-solid fa-check" style="color:var(--success);"></i></span> Alerte instantanee des la publication</li>
+                    <li><span class="icon"><i class="fa-solid fa-check" style="color:var(--success);"></i></span> L'IA extrait les pieces requises automatiquement</li>
+                    <li><span class="icon"><i class="fa-solid fa-check" style="color:var(--success);"></i></span> Resume technique en 30 secondes</li>
+                    <li><span class="icon"><i class="fa-solid fa-check" style="color:var(--success);"></i></span> 9 sources surveillees 24h/24</li>
                 </ul>
             </div>
         </div>
@@ -779,22 +805,22 @@
         <div class="section-desc">Tendo combine veille automatisee et intelligence artificielle pour vous donner un avantage decisif.</div>
         <div class="services-grid">
             <div class="service-card">
-                <div class="service-icon">&#128269;</div>
+                <div class="service-icon"><i class="fa-solid fa-magnifying-glass-chart"></i></div>
                 <h3>Analyse DAO</h3>
                 <p>L'IA lit et resume les dossiers d'appels d'offres. Pieces requises, criteres, budget — tout en un clin d'oeil.</p>
             </div>
             <div class="service-card">
-                <div class="service-icon">&#128221;</div>
+                <div class="service-icon"><i class="fa-solid fa-file-pen"></i></div>
                 <h3>Aide a la Redaction</h3>
                 <p>Suggestions pour vos offres techniques et financieres basees sur les criteres identifies dans le DAO.</p>
             </div>
             <div class="service-card">
-                <div class="service-icon">&#9878;&#65039;</div>
+                <div class="service-icon"><i class="fa-solid fa-scale-balanced"></i></div>
                 <h3>Veille Juridique</h3>
                 <p>Suivez les decisions ARMP, PV d'attribution et modifications reglementaires en temps reel.</p>
             </div>
             <div class="service-card">
-                <div class="service-icon">&#9745;&#65039;</div>
+                <div class="service-icon"><i class="fa-solid fa-clipboard-check"></i></div>
                 <h3>Check-list Conformite</h3>
                 <p>Verificateur automatique : toutes les pieces administratives, techniques et financieres sont-elles pretes ?</p>
             </div>
@@ -807,12 +833,12 @@
     <div class="section-inner">
         <div class="section-label" style="color: var(--primary-light);">Comment ca marche</div>
         <div class="section-title">Pret en 3 etapes</div>
-        <div class="section-desc">Aucune application a installer. Tutto se passe sur WhatsApp.</div>
+        <div class="section-desc">Aucune application a installer. Tout se passe sur WhatsApp.</div>
         <div class="process-steps">
             <div class="step">
                 <div class="step-number">1</div>
                 <h3>Ecrivez-nous sur WhatsApp</h3>
-                <p>Envoyez un simple "Bonjour" au +229 60 41 29 29. Tendo vous accueille et vous presente les AO en cours.</p>
+                <p>Envoyez un simple "Bonjour" au +229 41 88 99 21. Tendo vous accueille et vous presente les AO en cours.</p>
             </div>
             <div class="step">
                 <div class="step-number">2</div>
@@ -841,12 +867,12 @@
                 <div class="price-amount">Gratuit</div>
                 <div class="price-period">7 jours d'essai</div>
                 <ul class="price-features">
-                    <li><span class="check">&#10003;</span> Alertes WhatsApp quotidiennes</li>
-                    <li><span class="check">&#10003;</span> 5 analyses DAO par jour</li>
-                    <li><span class="check">&#10003;</span> Recherche par secteur et region</li>
-                    <li><span class="check">&#10003;</span> Resume technique IA</li>
+                    <li><span class="check"><i class="fa-solid fa-check"></i></span> Alertes WhatsApp quotidiennes</li>
+                    <li><span class="check"><i class="fa-solid fa-check"></i></span> 5 analyses DAO par jour</li>
+                    <li><span class="check"><i class="fa-solid fa-check"></i></span> Recherche par secteur et region</li>
+                    <li><span class="check"><i class="fa-solid fa-check"></i></span> Resume technique IA</li>
                 </ul>
-                <a href="https://wa.me/22960412929?text=Bonjour%20Tendo%20!" class="btn btn-outline" style="color: var(--gray-900); border-color: var(--gray-300); width: 100%; justify-content: center;">Essayer gratuitement</a>
+                <a href="#register" class="btn btn-outline" style="color: var(--gray-900); border-color: var(--gray-300); width: 100%; justify-content: center;" onclick="document.getElementById('plan').value='trial';"><i class="fa-solid fa-gift"></i> Essayer gratuitement</a>
             </div>
             <div class="price-card featured">
                 <div class="price-name">Essentiel</div>
@@ -854,15 +880,15 @@
                 <div class="price-amount">2 990 <span>FCFA/mois</span></div>
                 <div class="price-period">Paiement mensuel Mobile Money</div>
                 <ul class="price-features">
-                    <li><span class="check">&#10003;</span> Alertes WhatsApp illimitees</li>
-                    <li><span class="check">&#10003;</span> Analyse IA de tous les DAO</li>
-                    <li><span class="check">&#10003;</span> Telechargement des dossiers</li>
-                    <li><span class="check">&#10003;</span> Pieces requises extraites</li>
-                    <li><span class="check">&#10003;</span> Criteres de qualification</li>
-                    <li><span class="check">&#10003;</span> 9 sources surveillees 24/7</li>
-                    <li><span class="check">&#10003;</span> Support par WhatsApp</li>
+                    <li><span class="check"><i class="fa-solid fa-check"></i></span> Alertes WhatsApp illimitees</li>
+                    <li><span class="check"><i class="fa-solid fa-check"></i></span> Analyse IA de tous les DAO</li>
+                    <li><span class="check"><i class="fa-solid fa-check"></i></span> Telechargement des dossiers</li>
+                    <li><span class="check"><i class="fa-solid fa-check"></i></span> Pieces requises extraites</li>
+                    <li><span class="check"><i class="fa-solid fa-check"></i></span> Criteres de qualification</li>
+                    <li><span class="check"><i class="fa-solid fa-check"></i></span> 9 sources surveillees 24/7</li>
+                    <li><span class="check"><i class="fa-solid fa-check"></i></span> Support par WhatsApp</li>
                 </ul>
-                <a href="#register" class="btn btn-primary" style="width: 100%; justify-content: center;">Choisir Essentiel</a>
+                <a href="#register" class="btn btn-primary" style="width: 100%; justify-content: center;" onclick="document.getElementById('plan').value='essentiel';"><i class="fa-solid fa-arrow-right"></i> Choisir Essentiel</a>
             </div>
             <div class="price-card">
                 <div class="price-name">Premium</div>
@@ -870,16 +896,16 @@
                 <div class="price-amount">9 990 <span>FCFA/mois</span></div>
                 <div class="price-period">Paiement mensuel Mobile Money</div>
                 <ul class="price-features">
-                    <li><span class="check">&#10003;</span> Tout Essentiel inclus</li>
-                    <li><span class="check">&#10003;</span> IA avancee (Claude)</li>
-                    <li><span class="check">&#10003;</span> Aide redaction offres techniques</li>
-                    <li><span class="check">&#10003;</span> Demande de dossier automatique</li>
-                    <li><span class="check">&#10003;</span> Veille juridique ARMP</li>
-                    <li><span class="check">&#10003;</span> Check-list conformite</li>
-                    <li><span class="check">&#10003;</span> Historique complet</li>
-                    <li><span class="check">&#10003;</span> Support dedie prioritaire</li>
+                    <li><span class="check"><i class="fa-solid fa-check"></i></span> Tout Essentiel inclus</li>
+                    <li><span class="check"><i class="fa-solid fa-check"></i></span> IA avancee (Claude)</li>
+                    <li><span class="check"><i class="fa-solid fa-check"></i></span> Aide redaction offres techniques</li>
+                    <li><span class="check"><i class="fa-solid fa-check"></i></span> Demande de dossier automatique</li>
+                    <li><span class="check"><i class="fa-solid fa-check"></i></span> Veille juridique ARMP</li>
+                    <li><span class="check"><i class="fa-solid fa-check"></i></span> Check-list conformite</li>
+                    <li><span class="check"><i class="fa-solid fa-check"></i></span> Historique complet</li>
+                    <li><span class="check"><i class="fa-solid fa-check"></i></span> Support dedie prioritaire</li>
                 </ul>
-                <a href="#register" class="btn btn-outline" style="color: var(--gray-900); border-color: var(--gray-300); width: 100%; justify-content: center;">Choisir Premium</a>
+                <a href="#register" class="btn btn-outline" style="color: var(--gray-900); border-color: var(--gray-300); width: 100%; justify-content: center;" onclick="document.getElementById('plan').value='premium';"><i class="fa-solid fa-arrow-right"></i> Choisir Premium</a>
             </div>
         </div>
     </div>
@@ -908,12 +934,12 @@
             <div class="form-row">
                 <div class="form-group">
                     <label for="phone">Numero WhatsApp *</label>
-                    <input type="tel" id="phone" name="phone" required pattern="[0-9+\s\-]{8,20}" placeholder="+229 60 XX XX XX" autocomplete="tel">
+                    <input type="tel" id="phone" name="phone" required pattern="[0-9+\s\-]{8,20}" placeholder="+229 XX XX XX XX" autocomplete="tel">
                     <div class="form-error" id="err-phone"></div>
                 </div>
                 <div class="form-group">
-                    <label for="email">Email</label>
-                    <input type="email" id="email" name="email" placeholder="jean@entreprise.bj" autocomplete="email">
+                    <label for="email">Email *</label>
+                    <input type="email" id="email" name="email" required placeholder="jean@entreprise.bj" autocomplete="email">
                     <div class="form-error" id="err-email"></div>
                 </div>
             </div>
@@ -925,21 +951,20 @@
             </div>
 
             <div class="form-row">
-                <div class="form-group">
-                    <label for="sector">Secteur principal *</label>
-                    <select id="sector" name="sector" required>
-                        <option value="">Choisir...</option>
-                        <option value="BTP">BTP / Construction</option>
-                        <option value="Fournitures">Fournitures / Equipements</option>
-                        <option value="Services">Services / Conseil</option>
-                        <option value="TIC">TIC / Informatique</option>
-                        <option value="Sante">Sante / Medical</option>
-                        <option value="Education">Education / Formation</option>
-                        <option value="Agriculture">Agriculture / Rural</option>
-                        <option value="Energie">Energie / Solaire</option>
-                        <option value="Transport">Transport / Logistique</option>
-                        <option value="Environnement">Environnement / Eau</option>
-                    </select>
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label>Secteurs d'activite * <small style="color:var(--gray-500);font-weight:400;">(plusieurs choix possibles)</small></label>
+                    <div class="sector-checkboxes" id="sectorGroup" style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-top:0.5rem;">
+                        <label class="checkbox-label"><input type="checkbox" name="sectors" value="BTP"> <span>BTP / Construction</span></label>
+                        <label class="checkbox-label"><input type="checkbox" name="sectors" value="Fournitures"> <span>Fournitures / Equipements</span></label>
+                        <label class="checkbox-label"><input type="checkbox" name="sectors" value="Services"> <span>Services / Conseil</span></label>
+                        <label class="checkbox-label"><input type="checkbox" name="sectors" value="TIC"> <span>TIC / Informatique</span></label>
+                        <label class="checkbox-label"><input type="checkbox" name="sectors" value="Sante"> <span>Sante / Medical</span></label>
+                        <label class="checkbox-label"><input type="checkbox" name="sectors" value="Education"> <span>Education / Formation</span></label>
+                        <label class="checkbox-label"><input type="checkbox" name="sectors" value="Agriculture"> <span>Agriculture / Rural</span></label>
+                        <label class="checkbox-label"><input type="checkbox" name="sectors" value="Energie"> <span>Energie / Solaire</span></label>
+                        <label class="checkbox-label"><input type="checkbox" name="sectors" value="Transport"> <span>Transport / Logistique</span></label>
+                        <label class="checkbox-label"><input type="checkbox" name="sectors" value="Environnement"> <span>Environnement / Eau</span></label>
+                    </div>
                     <div class="form-error" id="err-sector"></div>
                 </div>
                 <div class="form-group">
@@ -968,7 +993,7 @@
             </div>
 
             <button type="submit" class="btn btn-primary form-submit" id="submitBtn">
-                Creer mon compte Tendo
+                <i class="fa-solid fa-user-plus"></i> Creer mon compte Tendo
             </button>
             <p class="form-note">En vous inscrivant, vous acceptez nos <a href="/terms" style="color: var(--primary);">Conditions d'utilisation</a> et notre <a href="/privacy" style="color: var(--primary);">Politique de confidentialite</a>.</p>
         </form>
@@ -984,17 +1009,17 @@
         <div style="margin-bottom:2rem;"><img src="/static/images/banner.png" alt="Tendo by SHIFT UP" style="max-width:500px;width:100%;border-radius:16px;box-shadow:0 8px 30px rgba(108,60,225,0.15);"></div>
         <div class="trust-grid">
             <div class="trust-item">
-                <div class="trust-icon">&#128274;</div>
+                <div class="trust-icon"><i class="fa-solid fa-shield-halved"></i></div>
                 <h3>Securise</h3>
                 <p>Vos donnees sont chiffrees et protegees. Aucune information n'est partagee avec des tiers.</p>
             </div>
             <div class="trust-item">
-                <div class="trust-icon">&#9889;</div>
+                <div class="trust-icon"><i class="fa-solid fa-bolt-lightning"></i></div>
                 <h3>Instantane</h3>
                 <p>Les alertes sont envoyees des la publication de l'AO. Pas de retard, pas d'oubli.</p>
             </div>
             <div class="trust-item">
-                <div class="trust-icon">&#129302;</div>
+                <div class="trust-icon"><i class="fa-solid fa-brain"></i></div>
                 <h3>Intelligence Artificielle</h3>
                 <p>Nos algorithmes analysent chaque DAO et extraient les informations cles en quelques secondes.</p>
             </div>
@@ -1008,15 +1033,15 @@
         <div class="footer-brand">
             <h3>Tend<span>o</span></h3>
             <p>Assistant IA pour les marches publics au Benin et en Afrique de l'Ouest. Developpe par SHIFT UP.</p>
-            <p style="margin-top: 0.5rem;">&#128222; +229 60 41 29 29</p>
-            <p>&#9993; contact@shiftup.bj</p>
+            <p style="margin-top: 0.5rem;"><i class="fa-solid fa-phone"></i> +229 41 88 99 21</p>
+            <p><i class="fa-solid fa-envelope"></i> contact@shiftup.bj</p>
         </div>
         <div class="footer-col">
             <h4>Liens utiles</h4>
             <a href="#services">Services</a>
             <a href="#pricing">Tarifs</a>
             <a href="#register">S'inscrire</a>
-            <a href="https://wa.me/22960412929">WhatsApp</a>
+            <a href="https://wa.me/22941889921"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>
         </div>
         <div class="footer-col">
             <h4>Legal</h4>
@@ -1070,7 +1095,7 @@ function validatePhone(phone) {
 }
 
 function validateEmail(email) {
-    if (!email) return true; // Optional
+    if (!email) return false; // Obligatoire
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
@@ -1082,7 +1107,7 @@ function handleSubmit(e) {
     if (document.getElementById('honeypot').value) return false;
 
     // Timing check (bot fills in < 3s)
-    var formLoadTime = parseInt(document.getElementById('formToken').value.split('').reverse().join(''), 36);
+    var tokenVal = document.getElementById('formToken').value; var formLoadTime = parseInt(tokenVal.substring(0, tokenVal.length - 8), 36);
     if (Date.now() - formLoadTime < 3000) return false;
 
     var form = document.getElementById('registerForm');
@@ -1103,13 +1128,16 @@ function handleSubmit(e) {
     // Validate phone
     var phone = document.getElementById('phone').value.trim();
     if (!validatePhone(phone)) {
-        showError('phone', 'Numero invalide. Format: +229 60 XX XX XX');
+        showError('phone', 'Numero invalide. Format: +229 XX XX XX XX');
         valid = false;
     }
 
-    // Validate email
+    // Validate email (obligatoire)
     var email = document.getElementById('email').value.trim();
-    if (email && !validateEmail(email)) {
+    if (!email) {
+        showError('email', 'L\'adresse email est obligatoire');
+        valid = false;
+    } else if (!validateEmail(email)) {
         showError('email', 'Adresse email invalide');
         valid = false;
     }
@@ -1121,9 +1149,10 @@ function handleSubmit(e) {
         valid = false;
     }
 
-    // Validate sector
-    if (!document.getElementById('sector').value) {
-        showError('sector', 'Veuillez choisir un secteur');
+    // Validate sectors (au moins 1 checkbox cochee)
+    var checkedSectors = document.querySelectorAll('input[name="sectors"]:checked');
+    if (checkedSectors.length === 0) {
+        showError('sector', 'Veuillez choisir au moins un secteur');
         valid = false;
     }
 
@@ -1137,14 +1166,14 @@ function handleSubmit(e) {
 
     // Submit
     btn.disabled = true;
-    btn.textContent = 'Envoi en cours...';
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Envoi en cours...';
 
     var data = {
         fullname: fullname,
         phone: phone.replace(/[\s\-]/g, ''),
         email: email,
         company: company,
-        sector: document.getElementById('sector').value,
+        sectors: Array.from(document.querySelectorAll('input[name="sectors"]:checked')).map(function(cb) { return cb.value; }),
         region: document.getElementById('region').value,
         plan: document.getElementById('plan').value,
         device_fp: document.getElementById('deviceFp').value,
@@ -1159,26 +1188,32 @@ function handleSubmit(e) {
     .then(function(res) { return res.json(); })
     .then(function(result) {
         if (result.success || result.user_id) {
-            // Redirect to WhatsApp or payment
-            if (data.plan !== 'trial' && result.payment_url) {
-                window.location.href = result.payment_url;
-            } else {
+            if (result.payment_url) {
+                // Rediriger vers FedaPay avec les infos pre-remplies
                 form.innerHTML = '<div style="text-align:center;padding:2rem;">' +
-                    '<div style="font-size:3rem;margin-bottom:1rem;">&#10004;&#65039;</div>' +
+                    '<div style="font-size:3rem;margin-bottom:1rem;"><i class="fa-solid fa-spinner fa-spin" style="color:var(--primary);"></i></div>' +
+                    '<h3 style="margin-bottom:0.5rem;">Redirection vers le paiement...</h3>' +
+                    '<p style="color:#6B7280;">Vous allez etre redirige vers FedaPay pour finaliser votre inscription.</p>' +
+                    '</div>';
+                setTimeout(function() { window.location.href = result.payment_url; }, 1500);
+            } else {
+                // Plan gratuit : afficher succes + WhatsApp
+                form.innerHTML = '<div style="text-align:center;padding:2rem;">' +
+                    '<div style="font-size:3rem;margin-bottom:1rem;"><i class="fa-solid fa-circle-check" style="color:var(--success);"></i></div>' +
                     '<h3 style="margin-bottom:0.5rem;">Inscription reussie !</h3>' +
                     '<p style="color:#6B7280;">Votre essai gratuit de 7 jours est active.</p>' +
-                    '<a href="https://wa.me/22960412929?text=Bonjour%20Tendo%20!%20Je%20viens%20de%20m\'inscrire." class="btn btn-whatsapp" style="margin-top:1.5rem;">Ouvrir WhatsApp</a>' +
+                    '<a href="https://wa.me/22941889921?text=Bonjour%20Tendo%20!%20Je%20viens%20de%20m\'inscrire." class="btn btn-whatsapp" style="margin-top:1.5rem;"><i class="fa-brands fa-whatsapp"></i> Ouvrir WhatsApp</a>' +
                     '</div>';
             }
         } else {
             btn.disabled = false;
-            btn.textContent = 'Creer mon compte Tendo';
+            btn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Creer mon compte Tendo';
             alert(result.detail || result.message || 'Une erreur est survenue. Veuillez reessayer.');
         }
     })
     .catch(function() {
         btn.disabled = false;
-        btn.textContent = 'Creer mon compte Tendo';
+        btn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Creer mon compte Tendo';
         alert('Erreur de connexion. Verifiez votre internet et reessayez.');
     });
 
