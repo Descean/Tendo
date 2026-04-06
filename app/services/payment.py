@@ -21,14 +21,14 @@ FEDAPAY_BASE_URL = (
 PLANS = {
     "essentiel": {
         "name": "Plan Essentiel",
-        "amount": 5000,
+        "amount": 2990,
         "currency": "XOF",
         "description": "Alertes quotidiennes + Résumés IA + Recherche",
         "duration_days": 30,
     },
     "premium": {
         "name": "Plan Premium",
-        "amount": 15000,
+        "amount": 9990,
         "currency": "XOF",
         "description": "Tout Essentiel + Demande dossiers + Surveillance email + Support prioritaire",
         "duration_days": 30,
