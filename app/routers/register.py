@@ -94,12 +94,30 @@ async def register_user(data: RegisterRequest):
             await db.commit()
 
             logger.info(f"[Register] Profil mis a jour: {phone}")
-            return {
+            response = {
                 "success": True,
                 "user_id": user.id,
                 "message": "Profil mis a jour. Ouvrez WhatsApp pour commencer.",
                 "is_existing": True,
             }
+
+            # Generer un lien de paiement si plan payant demande
+            plan = data.plan if data.plan in ("essentiel", "premium") else None
+            if plan:
+                try:
+                    from app.services.payment import create_payment_link
+                    payment = await create_payment_link(
+                        user_phone=phone,
+                        plan=plan,
+                        user_name=user.name or fullname,
+                        user_email=email or user.email_address or f"{phone}@tendo.shiftup.bj",
+                    )
+                    if payment and payment.get("payment_link"):
+                        response["payment_url"] = payment["payment_link"]
+                except Exception as e:
+                    logger.error(f"[Register] Erreur paiement (existing): {e}")
+
+            return response
 
         # Create new user
         plan = data.plan if data.plan in ("trial", "essentiel", "premium") else "trial"
