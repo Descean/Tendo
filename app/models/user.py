@@ -44,6 +44,11 @@ class User(Base):
     email_monitoring_consent: Mapped[bool] = mapped_column(Boolean, default=False)
     email_address: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
+    # Anti-fraude : empêcher double essai gratuit
+    registration_ip: Mapped[Optional[str]] = mapped_column(String(45), nullable=True)
+    device_fingerprint: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    has_used_trial: Mapped[bool] = mapped_column(Boolean, default=True)
+
     # Conversation state for registration flow
     conversation_state: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     conversation_data: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)

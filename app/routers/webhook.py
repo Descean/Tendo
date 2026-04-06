@@ -177,10 +177,21 @@ async def _process_message(from_number: str, body: str, db: AsyncSession):
     user = result.scalar_one_or_none()
 
     if not user:
+        # Anti-fraude : vérifier si ce numéro est un ancien utilisateur qui revient
+        # (changement de numéro impossible sur WhatsApp, mais vérifions quand même)
+        existing_expired = await db.execute(
+            select(User).where(
+                User.phone_number == from_number,
+                User.has_used_trial == True,
+            )
+        )
+        was_trial = existing_expired.scalar_one_or_none()
+
         user = User(
             phone_number=from_number,
             subscription_status=SubscriptionStatus.TRIAL.value,
             trial_end=datetime.now(timezone.utc) + timedelta(days=7),
+            has_used_trial=True,
         )
         db.add(user)
         await db.flush()

@@ -450,18 +450,79 @@ tbody tr:hover{background:#1E293B30}
       <select x-model="pubTypeF" class="input"><option value="">Tous types</option><template x-for="t in pubTypeOpts"><option :value="t" x-text="t"></option></template></select>
       <span class="text-slate-600 text-[11px] ml-1" x-text="fPubs.length+' resultats'"></span>
     </div>
-    <div class="max-h-96 overflow-y-auto">
-      <table><thead class="sticky top-0 bg-[#0F172A]"><tr><th class="w-10">ID</th><th class="w-24">Source</th><th class="w-20">Type</th><th>Titre</th><th class="w-24">Budget</th><th class="w-20">Deadline</th><th class="w-8"></th></tr></thead>
+    <div class="max-h-[500px] overflow-y-auto">
+      <table><thead class="sticky top-0 bg-[#0F172A]"><tr><th class="w-10">ID</th><th class="w-24">Source</th><th class="w-20">Type</th><th>Titre</th><th class="w-24">Budget</th><th class="w-20">Deadline</th><th class="w-28">Actions</th></tr></thead>
         <tbody><template x-for="p in fPubs.slice(0,200)" :key="p.id"><tr>
           <td class="font-mono text-slate-600" x-text="p.id"></td>
           <td><span class="src-pill" x-text="p.source"></span></td>
-          <td class="text-sky-400 text-[11px]" x-text="p.document_type||'-'"></td>
-          <td class="text-slate-200 max-w-md truncate" x-text="p.title"></td>
+          <td>
+            <span x-show="!p._editing" class="text-sky-400 text-[11px] cursor-pointer hover:underline" @click="p._editing=true;p._newType=p.document_type||''" x-text="p.document_type||'Non classé'"></span>
+            <div x-show="p._editing" class="flex gap-1">
+              <select x-model="p._newType" class="input text-[10px] py-0.5 w-28">
+                <option value="">Non classé</option>
+                <option value="AAO">AAO</option><option value="DAO">DAO</option>
+                <option value="AMI">AMI</option><option value="RFQ">RFQ</option><option value="RFP">RFP</option>
+                <option value="PV_ATTRIBUTION">PV Attribution</option><option value="PV_OUVERTURE">PV Ouverture</option>
+                <option value="AVIS_ATTRIBUTION">Avis Attribution</option>
+                <option value="DECISION_ARMP">Decision ARMP</option>
+                <option value="PPM">PPM</option><option value="ADDITIF">Additif</option>
+                <option value="LISTE_RESTREINTE">Liste Restreinte</option>
+              </select>
+              <button @click="classifyPub(p)" class="text-emerald-400 hover:text-emerald-300"><i class="fa-solid fa-check text-[10px]"></i></button>
+              <button @click="p._editing=false" class="text-slate-500 hover:text-slate-300"><i class="fa-solid fa-xmark text-[10px]"></i></button>
+            </div>
+          </td>
+          <td class="text-slate-200 max-w-sm truncate cursor-pointer hover:text-sky-400" @click="openPubDetail(p)" x-text="p.title"></td>
           <td class="font-mono text-amber-400" x-text="p.budget?xof(p.budget):'-'"></td>
           <td class="text-slate-500 text-[11px]" x-text="fdate(p.deadline)"></td>
-          <td><button @click="delPub(p)" class="text-slate-600 hover:text-red-400 transition"><i class="fa-solid fa-trash-can text-[10px]"></i></button></td>
+          <td class="flex gap-1 items-center">
+            <button @click="openPubDetail(p)" class="text-sky-500 hover:text-sky-300 transition" title="Voir details"><i class="fa-solid fa-eye text-[10px]"></i></button>
+            <a x-show="p.pdf_url" :href="p.pdf_url" target="_blank" class="text-violet-400 hover:text-violet-300 transition" title="Ouvrir PDF"><i class="fa-solid fa-file-pdf text-[10px]"></i></a>
+            <button @click="delPub(p)" class="text-slate-600 hover:text-red-400 transition" title="Supprimer"><i class="fa-solid fa-trash-can text-[10px]"></i></button>
+          </td>
         </tr></template></tbody>
       </table>
+    </div>
+  </div>
+
+  <!-- Modal détail publication -->
+  <div x-show="pubDetail" x-cloak class="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" @click.self="pubDetail=null">
+    <div class="bg-[#1E293B] rounded-xl border border-slate-700 w-full max-w-3xl max-h-[85vh] overflow-y-auto shadow-2xl" x-show="pubDetail">
+      <div class="sticky top-0 bg-[#1E293B] border-b border-slate-700 px-5 py-3 flex justify-between items-center z-10">
+        <h3 class="text-white font-semibold text-sm" x-text="pubDetail?.title"></h3>
+        <button @click="pubDetail=null" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="p-5 space-y-4">
+        <div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
+          <div><span class="text-[10px] text-slate-500 uppercase">Source</span><p class="text-white text-sm" x-text="pubDetail?.source"></p></div>
+          <div><span class="text-[10px] text-slate-500 uppercase">Référence</span><p class="text-white text-sm font-mono" x-text="pubDetail?.reference"></p></div>
+          <div><span class="text-[10px] text-slate-500 uppercase">Type document</span><p class="text-sky-400 text-sm" x-text="pubDetail?.document_type||'Non classé'"></p></div>
+          <div><span class="text-[10px] text-slate-500 uppercase">Budget</span><p class="text-amber-400 text-sm font-mono" x-text="pubDetail?.budget?xof(pubDetail.budget):'Non spécifié'"></p></div>
+          <div><span class="text-[10px] text-slate-500 uppercase">Deadline</span><p class="text-sm" :class="pubDetail?.deadline?'text-red-400':'text-slate-600'" x-text="pubDetail?.deadline?fdate(pubDetail.deadline):'Non spécifiée'"></p></div>
+          <div><span class="text-[10px] text-slate-500 uppercase">Autorité</span><p class="text-white text-sm" x-text="pubDetail?.authority_name||'Non renseignée'"></p></div>
+          <div><span class="text-[10px] text-slate-500 uppercase">Financement</span><p class="text-white text-sm" x-text="pubDetail?.financing_source||'-'"></p></div>
+          <div><span class="text-[10px] text-slate-500 uppercase">Pays</span><p class="text-white text-sm" x-text="pubDetail?.country||'Bénin'"></p></div>
+          <div><span class="text-[10px] text-slate-500 uppercase">Secteurs</span><p class="text-white text-sm" x-text="(pubDetail?.sectors||[]).join(', ')||'-'"></p></div>
+        </div>
+        <template x-if="pubDetail?.pdf_url">
+          <div><span class="text-[10px] text-slate-500 uppercase">Document PDF</span><a :href="pubDetail.pdf_url" target="_blank" class="block text-violet-400 text-sm hover:underline break-all"><i class="fa-solid fa-file-pdf mr-1"></i><span x-text="pubDetail.pdf_url"></span></a></div>
+        </template>
+        <template x-if="pubDetail?.technical_summary">
+          <div class="bg-slate-800/50 rounded-lg p-4 border border-slate-700/30"><span class="text-[10px] text-slate-500 uppercase block mb-2">Résumé IA</span><p class="text-slate-300 text-[12px] leading-relaxed whitespace-pre-wrap" x-text="pubDetail.technical_summary"></p></div>
+        </template>
+        <template x-if="pubDetail?.required_documents?.length">
+          <div><span class="text-[10px] text-slate-500 uppercase block mb-1">Documents requis</span><ul class="list-disc ml-4 text-[12px] text-slate-400"><template x-for="d in pubDetail.required_documents"><li x-text="d"></li></template></ul></div>
+        </template>
+        <template x-if="pubDetail?.qualification_criteria?.length">
+          <div><span class="text-[10px] text-slate-500 uppercase block mb-1">Critères de qualification</span><ul class="list-disc ml-4 text-[12px] text-slate-400"><template x-for="c in pubDetail.qualification_criteria"><li x-text="c"></li></template></ul></div>
+        </template>
+        <template x-if="pubDetail?.guarantee_amount">
+          <div><span class="text-[10px] text-slate-500 uppercase">Garantie de soumission</span><p class="text-emerald-400 text-sm font-mono" x-text="xof(pubDetail.guarantee_amount)"></p></div>
+        </template>
+        <template x-if="pubDetail?.html_content">
+          <div class="bg-slate-800/50 rounded-lg p-4 border border-slate-700/30 max-h-60 overflow-y-auto"><span class="text-[10px] text-slate-500 uppercase block mb-2">Contenu extrait</span><div class="text-slate-300 text-[11px] leading-relaxed whitespace-pre-wrap" x-text="pubDetail.html_content?.substring(0,3000)"></div></div>
+        </template>
+      </div>
     </div>
   </div>
 </section>
@@ -475,7 +536,7 @@ tbody tr:hover{background:#1E293B30}
   </div>
   <div class="card overflow-x-auto">
     <table>
-      <thead><tr><th>ID</th><th>Telephone</th><th>Nom</th><th>Entreprise</th><th>Email</th><th>Statut</th><th>Plan</th><th>Secteurs</th><th>Inscription</th><th>Fin essai</th><th>Actions</th></tr></thead>
+      <thead><tr><th>ID</th><th>Telephone</th><th>Nom</th><th>Entreprise</th><th>Email</th><th>Statut</th><th>Plan</th><th>Trial</th><th>Secteurs</th><th>Inscription</th><th>Fin essai</th><th>Actions</th></tr></thead>
       <tbody>
         <template x-for="u in fUsers" :key="u.id">
           <tr>
@@ -486,6 +547,7 @@ tbody tr:hover{background:#1E293B30}
             <td class="text-slate-500 text-[11px]" x-text="u.email_address||'-'"></td>
             <td><span class="badge" :class="bc(u.subscription_status)" x-text="u.subscription_status"></span></td>
             <td><span x-show="u.subscription_plan" class="badge" :class="u.subscription_plan==='premium'?'b-prem':'b-ess'" x-text="u.subscription_plan"></span></td>
+            <td><span class="badge text-[9px]" :class="u.has_used_trial?'bg-amber-500/20 text-amber-400':'bg-emerald-500/20 text-emerald-400'" x-text="u.has_used_trial?'Utilisé':'Disponible'"></span></td>
             <td class="text-slate-500 text-[11px] max-w-[100px] truncate" x-text="(u.sectors||[]).join(', ')||'-'"></td>
             <td class="text-slate-500 text-[11px]" x-text="fdate(u.created_at)"></td>
             <td class="text-slate-500 text-[11px]" x-text="fdate(u.trial_end)"></td>
@@ -868,7 +930,7 @@ function dashboard(){return{
   codePrompt:'',codeChat:[],codeGenBusy:false,codeSaveBusy:false,codeMsg:'',
   codeCmdInput:'',codeCmdOutput:'',codeCmdBusy:false,codeShowDiff:false,
   gitShowPanel:false,gitStatus:{},gitCommitMsg:'',gitBusy:false,gitMsg:'',gitMsgOk:true,
-  usrQ:'',usrF:'',pubQ:'',pubSrcF:'',pubTypeF:'',
+  usrQ:'',usrF:'',pubQ:'',pubSrcF:'',pubTypeF:'',pubDetail:null,
   trigging:{},trigMsg:'',autoLog:false,_logI:null,
 
   async boot(){if(this.apiKey)await this.login(true)},
@@ -1066,6 +1128,8 @@ function dashboard(){return{
 
   async toggleUsr(u){try{const r=await fetch('/admin/api/users/'+u.id+'/toggle?key='+encodeURIComponent(this.apiKey),{method:'PATCH'});if(r.ok){const d=await r.json();u.is_active=d.is_active}}catch(e){alert(e.message)}},
   async delPub(p){if(!confirm('Supprimer "'+p.title.slice(0,50)+'…" ?'))return;try{const r=await fetch('/admin/api/publications/'+p.id+'?key='+encodeURIComponent(this.apiKey),{method:'DELETE'});if(r.ok)this.pubs=this.pubs.filter(x=>x.id!==p.id)}catch(e){alert(e.message)}},
+  async openPubDetail(p){try{const r=await fetch('/admin/api/publications/'+p.id+'/detail?key='+encodeURIComponent(this.apiKey));if(r.ok){this.pubDetail=await r.json()}else{this.pubDetail=p}}catch(e){this.pubDetail=p}},
+  async classifyPub(p){try{const r=await fetch('/admin/api/publications/'+p.id+'/classify?key='+encodeURIComponent(this.apiKey),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({document_type:p._newType})});if(r.ok){p.document_type=p._newType;p._editing=false}}catch(e){alert(e.message)}},
   async trig(action){this.trigging={...this.trigging,[action]:true};try{const r=await fetch('/admin/trigger/'+action+'?key='+encodeURIComponent(this.apiKey),{method:'POST'});const d=await r.json();this.trigMsg=d.message||'Lance';setTimeout(()=>this.trigMsg='',5000)}catch(e){this.trigMsg='Erreur: '+e.message}finally{this.trigging={...this.trigging,[action]:false}}},
 
   _charts:{},
@@ -1232,7 +1296,8 @@ async def api_users(limit: int = Query(1000, le=5000), key: str = "", db: AsyncS
          "company": u.company, "email_address": u.email_address,
          "subscription_status": u.subscription_status,
          "subscription_plan": u.subscription_plan,
-         "is_active": u.is_active,
+         "is_active": u.is_active, "has_used_trial": getattr(u, 'has_used_trial', True),
+         "registration_ip": getattr(u, 'registration_ip', None),
          "sectors": u.sectors, "regions": u.regions,
          "created_at": u.created_at.isoformat() if u.created_at else None,
          "trial_end": u.trial_end.isoformat() if u.trial_end else None}
@@ -1248,12 +1313,53 @@ async def api_publications(limit: int = Query(2000, le=10000), key: str = "", db
         {"id": p.id, "source": p.source, "reference": p.reference,
          "title": p.title, "document_type": p.document_type,
          "budget": p.budget, "sectors": p.sectors, "regions": p.regions,
-         "authority_name": p.authority_name,
+         "authority_name": p.authority_name, "financing_source": p.financing_source,
+         "country": p.country,
          "deadline": p.deadline.isoformat() if p.deadline else None,
          "created_at": p.created_at.isoformat() if p.created_at else None,
          "pdf_url": p.pdf_url, "is_processed": p.is_processed}
         for p in res.scalars().all()
     ]}
+
+
+@router.get("/api/publications/{pub_id}/detail")
+async def api_publication_detail(pub_id: int, key: str = "", db: AsyncSession = Depends(get_db)):
+    _ck(key)
+    res = await db.execute(select(Publication).where(Publication.id == pub_id))
+    pub = res.scalar_one_or_none()
+    if not pub:
+        raise HTTPException(status_code=404, detail="Publication non trouvée")
+    return {
+        "id": pub.id, "source": pub.source, "reference": pub.reference,
+        "title": pub.title, "document_type": pub.document_type,
+        "budget": pub.budget, "sectors": pub.sectors, "regions": pub.regions,
+        "authority_name": pub.authority_name, "authority_email": pub.authority_email,
+        "financing_source": pub.financing_source, "country": pub.country,
+        "deadline": pub.deadline.isoformat() if pub.deadline else None,
+        "created_at": pub.created_at.isoformat() if pub.created_at else None,
+        "pdf_url": pub.pdf_url, "is_processed": pub.is_processed,
+        "technical_summary": pub.technical_summary,
+        "required_documents": pub.required_documents,
+        "qualification_criteria": pub.qualification_criteria,
+        "guarantee_amount": pub.guarantee_amount,
+        "html_content": pub.html_content[:5000] if pub.html_content else None,
+    }
+
+
+class ClassifyRequest(BaseModel):
+    document_type: str = ""
+
+
+@router.patch("/api/publications/{pub_id}/classify")
+async def api_classify_publication(pub_id: int, body: ClassifyRequest, key: str = "", db: AsyncSession = Depends(get_db)):
+    _ck(key)
+    res = await db.execute(select(Publication).where(Publication.id == pub_id))
+    pub = res.scalar_one_or_none()
+    if not pub:
+        raise HTTPException(status_code=404, detail="Publication non trouvée")
+    pub.document_type = body.document_type or None
+    await db.commit()
+    return {"id": pub.id, "document_type": pub.document_type}
 
 
 @router.get("/api/system")
@@ -1347,16 +1453,14 @@ async def trigger_jnmp(key: str = ""):
 async def trigger_pdf(key: str = ""):
     _ck(key)
     async def _run():
-        from app.utils.db import AsyncSessionLocal
         try:
-            from app.services.pdf_pipeline import process_publication_pdfs
-            async with AsyncSessionLocal() as db:
-                count = await process_publication_pdfs(db)
-                logger.info(f"[Admin] Pipeline PDF terminé: {count} traitées")
+            from app.scheduler import job_enrich_publications
+            await job_enrich_publications()
+            logger.info("[Admin] Pipeline PDF/IA terminé")
         except Exception as e:
             logger.error(f"[Admin] Erreur pipeline PDF: {e}")
     asyncio.create_task(_run())
-    return {"status": "started", "message": "Pipeline PDF lancé en arrière-plan"}
+    return {"status": "started", "message": "Pipeline PDF/IA lancé (enrichissement DeepSeek)"}
 
 
 @router.post("/trigger/cleanup-expired")
