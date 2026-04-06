@@ -21,7 +21,7 @@ from app.models.base import Base
 from app.scheduler import setup_scheduler, shutdown_scheduler
 
 # Import des routers
-from app.routers import webhook, users, subscriptions, publications, payments, admin
+from app.routers import webhook, users, subscriptions, publications, payments, admin, register
 
 
 # ── Rate Limiting ──
@@ -105,6 +105,7 @@ app.include_router(subscriptions.router)
 app.include_router(publications.router)
 app.include_router(payments.router)
 app.include_router(admin.router)
+app.include_router(register.router)
 
 # ── Admin Panel (sqladmin) ──
 try:
