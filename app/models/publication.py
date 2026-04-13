@@ -13,15 +13,15 @@ class Publication(Base):
     __tablename__ = "publications"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    source: Mapped[str] = mapped_column(String(255), nullable=False)
-    reference: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
-    title: Mapped[str] = mapped_column(String(500), nullable=False)
+    source: Mapped[str] = mapped_column(Text, nullable=False)
+    reference: Mapped[str] = mapped_column(Text, unique=True, nullable=False, index=True)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
     summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     budget: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     deadline: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    pdf_url: Mapped[Optional[str]] = mapped_column(String(1000), nullable=True)
+    pdf_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     html_content: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    category: Mapped[str] = mapped_column(String(100), default="marché")
+    category: Mapped[str] = mapped_column(Text, default="marché")
     sectors: Mapped[Optional[List]] = mapped_column(JSON, default=list)
     regions: Mapped[Optional[List]] = mapped_column(JSON, default=list)
     published_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -30,22 +30,22 @@ class Publication(Base):
 
     # Classification fine du document
     document_type: Mapped[Optional[str]] = mapped_column(
-        String(100), nullable=True, index=True
+        Text, nullable=True, index=True
     )  # AAO, DAO, PV_ATTRIBUTION, PV_OUVERTURE, DECISION_ARMP, AMI, RFQ, RFP, PPM, ADDITIF
 
     # Source de financement
     financing_source: Mapped[Optional[str]] = mapped_column(
-        String(100), nullable=True
+        Text, nullable=True
     )  # BN, BM, BAD, UE, AFD, GIZ, UNGM, etc.
 
     # Pays (pour l'expansion regionale)
     country: Mapped[Optional[str]] = mapped_column(
-        String(100), nullable=True, default="Bénin"
+        Text, nullable=True, default="Bénin"
     )
 
     # Adresse email de l'autorité contractante (pour demande de dossier)
-    authority_email: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    authority_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    authority_email: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    authority_name: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # Contenu PDF extrait (texte brut) + analyse IA
     pdf_content: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

@@ -60,11 +60,9 @@ async def extract_pdf_text(
         logger.info(f"[DocAnalyzer] pypdf OK: {page_count} pages, {len(text)} chars")
         return text, "pypdf", page_count
 
-    # 3. Essayer OCR Tesseract
-    text_ocr, page_count_ocr = await _extract_with_ocr(pdf_bytes, max_pages)
-    if text_ocr and len(text_ocr.strip()) > 100:
-        logger.info(f"[DocAnalyzer] OCR OK: {page_count_ocr} pages, {len(text_ocr)} chars")
-        return text_ocr, "ocr_tesseract", page_count_ocr
+    # 3. Skip OCR Tesseract (non fonctionnel dans Docker — timeout)
+    # Passer directement a Gemini Vision pour les PDF scannes
+    logger.info("[DocAnalyzer] pypdf insuffisant, passage a Gemini Vision")
 
     # 4. Fallback Gemini Vision
     text_vision = await _extract_with_gemini_vision(pdf_bytes, max_pages)

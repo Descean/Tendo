@@ -6,7 +6,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.responses import JSONResponse, HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
@@ -106,6 +106,22 @@ app.include_router(publications.router)
 app.include_router(payments.router)
 app.include_router(admin.router)
 app.include_router(register.router)
+
+
+# ── Route pour servir les sous-PDFs extraits des journaux JNMP ──
+@app.get("/api/v1/pdf-extracts/{filename}")
+async def serve_pdf_extract(filename: str):
+    """Sert un sous-PDF extrait d'un journal JNMP."""
+    import re as _re
+    # Securite : n'accepter que des noms de fichiers surs
+    if not _re.match(r'^[\w\-]+\.pdf$', filename):
+        return JSONResponse(status_code=400, content={"error": "Nom de fichier invalide"})
+    pdf_dir = Path(__file__).parent / "data" / "pdf_extracts"
+    filepath = pdf_dir / filename
+    if not filepath.exists():
+        return JSONResponse(status_code=404, content={"error": "PDF non trouvé"})
+    return FileResponse(filepath, media_type="application/pdf", filename=filename)
+
 
 # ── Admin Panel (sqladmin) ──
 try:

@@ -281,11 +281,17 @@ async def _process_message(from_number: str, body: str, db: AsyncSession):
     if body.startswith("voir_"):
         await _handle_button_voir(body, from_number, db)
         return
-    if body.startswith("savoir_"):
+    if body.startswith("savoir_") or body.startswith("resume_"):
         await _handle_button_savoir(body, from_number, user, db)
         return
     if body.startswith("demander_"):
         await _handle_button_demander(body, from_number, user, db)
+        return
+    if body.startswith("upsell_"):
+        await _handle_button_upsell(body, from_number, user, db)
+        return
+    if body.startswith("suivre_"):
+        await _handle_button_suivre(body, from_number, user, db)
         return
 
     # Commandes speciales
@@ -1068,6 +1074,9 @@ async def _handle_payment(user: User, plan: str = "essentiel") -> str:
 
 async def _handle_button_voir(body: str, from_number: str, db: AsyncSession):
     """Bouton 'Voir le dossier' — envoie le PDF ou le lien de l'avis."""
+    import os
+    from pathlib import Path
+
     pub_id = body.replace("voir_", "").strip()
     result = await db.execute(
         select(Publication).where(Publication.id == int(pub_id))
@@ -1078,27 +1087,63 @@ async def _handle_button_voir(body: str, from_number: str, db: AsyncSession):
         await whatsapp.send_message(from_number, "Publication introuvable.")
         return
 
+    MAX_PDF_SIZE = 10 * 1024 * 1024  # 10 Mo max pour envoi WhatsApp
+
     if pub.pdf_url:
-        await whatsapp.send_document(
-            from_number,
-            document_url=pub.pdf_url,
-            caption=f"{pub.title}\nRef: {pub.reference}",
-            filename=f"{pub.reference}.pdf",
-        )
+        # Verifier si c'est un sous-PDF local et sa taille
+        send_pdf = True
+        if "/pdf-extracts/" in pub.pdf_url:
+            filename = pub.pdf_url.split("/pdf-extracts/")[-1]
+            local_path = Path("app/data/pdf_extracts") / filename
+            if local_path.exists() and local_path.stat().st_size > MAX_PDF_SIZE:
+                send_pdf = False
+                logger.info(f"[Webhook] PDF trop volumineux ({local_path.stat().st_size // 1024 // 1024} Mo), envoi du contenu texte")
+
+        if send_pdf:
+            await whatsapp.send_document(
+                from_number,
+                document_url=pub.pdf_url,
+                caption=f"{pub.title}",
+                filename=f"{pub.reference}.pdf",
+            )
+        else:
+            # PDF trop gros : envoyer le resume textuel + lien
+            parts = [f"*{pub.title}*"]
+            if pub.authority_name and "@" not in (pub.authority_name or ""):
+                parts.append(f"Autorite : {pub.authority_name}")
+            if pub.summary and len(pub.summary.strip()) > 30:
+                parts.append(f"\n{pub.summary[:800]}")
+            elif pub.pdf_content:
+                parts.append(f"\n{pub.pdf_content[:800]}")
+            parts.append(f"\nLe document complet est disponible dans le JNMP.")
+            parts.append(f"Consultez : {pub.pdf_url}")
+            await whatsapp.send_message(from_number, "\n".join(parts))
     else:
-        await whatsapp.send_message(
-            from_number,
-            f"Aucun document PDF disponible pour cet avis.\n\n"
-            f"*{pub.title}*\nRef: {pub.reference}\n\n"
-            f"Tapez */analyser {pub.reference}* pour voir les details disponibles.",
-        )
+        # Pas de PDF : envoyer le contenu textuel disponible
+        parts = [pub.title]
+        if pub.authority_name:
+            parts.append(f"Autorite : {pub.authority_name}")
+        if pub.summary and len(pub.summary.strip()) > 30:
+            parts.append(f"\n{pub.summary[:600]}")
+        if pub.technical_summary:
+            parts.append(f"\nResume technique :\n{pub.technical_summary[:600]}")
+        if not pub.summary and not pub.technical_summary:
+            parts.append("\nAucun document PDF disponible pour cet avis.")
+        await whatsapp.send_message(from_number, "\n".join(parts))
 
 
 async def _handle_button_savoir(body: str, from_number: str, user: User, db: AsyncSession):
-    """Bouton 'En savoir plus' — analyse IA de la publication."""
-    pub_id = body.replace("savoir_", "").strip()
+    """Bouton 'Resume technique' / 'En savoir plus' — analyse IA de la publication."""
+    # Accepter les deux prefixes: savoir_ et resume_
+    pub_id = body.replace("savoir_", "").replace("resume_", "").strip()
+    try:
+        pub_id_int = int(pub_id)
+    except ValueError:
+        await whatsapp.send_message(from_number, "Reference invalide.")
+        return
+
     result = await db.execute(
-        select(Publication).where(Publication.id == int(pub_id))
+        select(Publication).where(Publication.id == pub_id_int)
     )
     pub = result.scalar_one_or_none()
 
@@ -1127,6 +1172,65 @@ async def _handle_button_demander(body: str, from_number: str, user: User, db: A
         f"/demander_dossier {pub.reference}", user, db
     )
     await whatsapp.send_message(from_number, reply)
+
+
+async def _handle_button_upsell(body: str, from_number: str, user: User, db: AsyncSession):
+    """Boutons upsell (actions reservees aux abonnes)."""
+    # Extraire le type d'action et l'ID
+    action_part = body.replace("upsell_", "")  # "resume_123" ou "dossier_123"
+
+    if action_part.startswith("resume_"):
+        feature = "Resume technique"
+        plan_needed = "Essentiel"
+    elif action_part.startswith("dossier_"):
+        feature = "Demande automatique de dossier"
+        plan_needed = "Premium"
+    else:
+        feature = "Cette fonctionnalite"
+        plan_needed = "un abonnement"
+
+    await whatsapp.send_interactive_buttons(
+        from_number,
+        f"{feature} est reserve aux abonnes {plan_needed}.\n\n"
+        "L abonnement Tendo vous donne acces a :\n"
+        "- Resumes techniques IA\n"
+        "- Demandes automatiques de dossier\n"
+        "- Suivi des attributions\n"
+        "- Alertes prioritaires\n\n"
+        "Choisissez votre plan :",
+        [
+            {"id": "pay_essentiel", "title": "Essentiel"},
+            {"id": "pay_premium", "title": "Premium"},
+        ],
+        header="[ABONNEMENT REQUIS]",
+        footer="tendo.shiftup.bj",
+    )
+
+
+async def _handle_button_suivre(body: str, from_number: str, user: User, db: AsyncSession):
+    """Bouton 'Suivre attribution' — programme une alerte pour le PV d'attribution."""
+    pub_id = body.replace("suivre_", "").strip()
+    try:
+        pub_id_int = int(pub_id)
+    except ValueError:
+        await whatsapp.send_message(from_number, "Reference invalide.")
+        return
+
+    result = await db.execute(
+        select(Publication).where(Publication.id == pub_id_int)
+    )
+    pub = result.scalar_one_or_none()
+
+    if not pub:
+        await whatsapp.send_message(from_number, "Publication introuvable.")
+        return
+
+    # Pour l'instant, confirmer la prise en compte (le suivi se fera via les notifs regulieres)
+    await whatsapp.send_message(
+        from_number,
+        f"Suivi active pour :\n{pub.title}\n\n"
+        "Vous serez notifie des que le resultat d attribution sera publie.",
+    )
 
 
 async def _handle_dossier_request(body: str, user: User, db: AsyncSession) -> str:

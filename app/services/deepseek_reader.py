@@ -49,8 +49,8 @@ async def extract_document_info(text_content: str) -> Optional[dict]:
     if not text_content or len(text_content.strip()) < 50:
         return None
 
-    # Tronquer a 8000 chars pour eviter les limites de tokens
-    content = text_content[:8000]
+    # DeepSeek supporte 64K tokens (~200K chars). On envoie jusqu'a 30000 chars
+    content = text_content[:30000]
     prompt = EXTRACTION_PROMPT.format(content=content)
 
     # Essayer DeepSeek

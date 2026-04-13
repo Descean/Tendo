@@ -205,6 +205,65 @@ def _format_for_whatsapp(text: str) -> str:
     return text.strip()
 
 
+async def _search_relevant_publications(db_session, user_message: str, limit: int = 5) -> str:
+    """Recherche des publications pertinentes par mots-cles dans la question.
+
+    Retourne un contexte textuel avec les syntheses des publications trouvees.
+    """
+    from sqlalchemy import select, or_, func
+    from app.models.publication import Publication
+
+    # Extraire les mots-cles significatifs (> 3 chars, pas les mots courants)
+    stop_words = {
+        "pour", "dans", "avec", "cette", "quel", "quels", "quelle", "quelles",
+        "comment", "quoi", "fait", "sont", "être", "avoir", "plus", "moins",
+        "tout", "tous", "toute", "toutes", "tres", "bien", "peut", "comme",
+        "mais", "encore", "aussi", "sera", "nous", "vous", "leur", "votre",
+        "notre", "cette", "cela", "ceci", "etes", "faire", "dire", "donne",
+        "donner", "aide", "aider", "cherche", "besoin", "information",
+    }
+    words = [w for w in user_message.lower().split() if len(w) > 3 and w not in stop_words]
+
+    if not words:
+        return ""
+
+    # Rechercher dans title, summary, technical_summary, authority_name, reference
+    conditions = []
+    for word in words[:5]:  # Max 5 mots-cles
+        pattern = f"%{word}%"
+        conditions.append(Publication.title.ilike(pattern))
+        conditions.append(Publication.summary.ilike(pattern))
+        conditions.append(Publication.technical_summary.ilike(pattern))
+        conditions.append(Publication.authority_name.ilike(pattern))
+        conditions.append(Publication.reference.ilike(pattern))
+
+    result = await db_session.execute(
+        select(Publication)
+        .where(or_(*conditions))
+        .order_by(Publication.created_at.desc())
+        .limit(limit)
+    )
+    pubs = result.scalars().all()
+
+    if not pubs:
+        return ""
+
+    parts = []
+    for pub in pubs:
+        entry = f"- *{pub.title}* (ref: {pub.reference}, source: {pub.source})"
+        if pub.authority_name:
+            entry += f"\n  Autorite: {pub.authority_name}"
+        if pub.deadline:
+            entry += f"\n  Date limite: {pub.deadline.strftime('%d/%m/%Y')}"
+        if pub.technical_summary:
+            entry += f"\n  Synthese: {pub.technical_summary[:300]}"
+        elif pub.summary:
+            entry += f"\n  Resume: {pub.summary[:300]}"
+        parts.append(entry)
+
+    return "\n\n".join(parts)
+
+
 # ================================================
 #  FONCTIONS PRINCIPALES
 # ================================================
@@ -235,6 +294,14 @@ async def chat(
                 system_prompt += f"\n\nBASE DE CONNAISSANCES TENDO :\n{knowledge_ctx}"
         except Exception as e:
             logger.error(f"[IA] Erreur chargement knowledge: {e}")
+
+        # Rechercher des publications pertinentes pour enrichir la reponse
+        try:
+            pub_ctx = await _search_relevant_publications(db_session, user_message)
+            if pub_ctx:
+                system_prompt += f"\n\nPUBLICATIONS PERTINENTES DANS LA BASE TENDO :\n{pub_ctx}"
+        except Exception as e:
+            logger.error(f"[IA] Erreur recherche publications: {e}")
 
     # Premium : essayer Claude d'abord
     if is_premium:

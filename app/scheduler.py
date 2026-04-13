@@ -481,8 +481,8 @@ async def job_enrich_publications():
                         pub.pdf_content = "[extraction_failed]"
                         continue
 
-                    # Sauvegarder le texte brut
-                    pub.pdf_content = text[:10000]
+                    # Sauvegarder le texte brut (sans limite)
+                    pub.pdf_content = text
 
                     # Extraire les infos structurees via IA
                     info = await extract_document_info(text)
@@ -582,7 +582,7 @@ async def job_enrich_publications():
                             docs = info["required_documents"]
                             pub.required_documents = [d.strip() for d in docs.split(",")] if isinstance(docs, str) else docs
 
-                        pub.technical_summary = info.get("summary", "")[:500]
+                        pub.technical_summary = info.get("summary", "")
                         enriched += 1
 
                     await asyncio.sleep(2)

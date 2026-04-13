@@ -401,18 +401,19 @@ MENU_MESSAGE = """MENU TENDO
 
 Vous pouvez aussi me poser directement votre question sur les marches publics."""
 
-PLANS_MESSAGE = """PLANS D'ABONNEMENT TENDO
+PLANS_MESSAGE = """PLANS D ABONNEMENT TENDO
 
---- Plan Essentiel -- 5 000 FCFA/mois ---
+--- Plan Essentiel -- 2 990 FCFA/mois ---
 - Alertes quotidiennes personnalisees
-- Resumes IA des appels d'offres
+- Resumes techniques IA (3 par mois)
 - Recherche dans la base de donnees
+- Acces PV et decisions (3 par mois)
 
---- Plan Premium -- 15 000 FCFA/mois ---
-- Tout le Plan Essentiel +
-- Assistant IA expert (reponses detaillees)
-- Demande automatique de dossiers d'AO
-- Surveillance de boite email
+--- Plan Premium -- 9 990 FCFA/mois ---
+- Tout le Plan Essentiel, sans limite +
+- Demande automatique de dossiers d AO
+- Suivi des attributions
+- Assistant IA expert (analyses detaillees)
 - Support prioritaire
 
 Tapez *Essentiel* ou *Premium* pour souscrire."""
