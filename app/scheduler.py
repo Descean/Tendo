@@ -87,6 +87,7 @@ async def job_run_scrapers():
     logger.info(f"[Scheduler] Scraping termine: {total_new} nouvelles publications")
 
     # --- Pipeline chainé : JNMP segmentation + DeepSeek enrichissement ---
+    # Toujours lancer l'enrichissement (des pubs récentes peuvent attendre)
     if total_new > 0:
         logger.info("[Scheduler] Pipeline: lancement segmentation JNMP...")
         try:
@@ -94,11 +95,11 @@ async def job_run_scrapers():
         except Exception as e:
             logger.error(f"[Scheduler] Pipeline JNMP: {e}")
 
-        logger.info("[Scheduler] Pipeline: lancement enrichissement DeepSeek...")
-        try:
-            await job_enrich_publications()
-        except Exception as e:
-            logger.error(f"[Scheduler] Pipeline enrichissement: {e}")
+    logger.info("[Scheduler] Pipeline: lancement enrichissement DeepSeek...")
+    try:
+        await job_enrich_publications()
+    except Exception as e:
+        logger.error(f"[Scheduler] Pipeline enrichissement: {e}")
 
     return total_new
 
@@ -485,7 +486,9 @@ async def job_enrich_publications():
                     pub.pdf_content = text
 
                     # Extraire les infos structurees via IA
-                    info = await extract_document_info(text)
+                    # Prefixer le titre pour aider la classification (ex: "ARMP – Avis N2026")
+                    text_with_title = f"{pub.title or ''}\n\n{text}"
+                    info = await extract_document_info(text_with_title)
                     if info:
                         # Mettre a jour les champs manquants
                         if not pub.authority_name and info.get("authority_name"):
@@ -494,7 +497,8 @@ async def job_enrich_publications():
                             pub.authority_email = info["authority_email"]
                         if not pub.budget and info.get("budget"):
                             pub.budget = info["budget"]
-                        if not pub.document_type and info.get("document_type"):
+                        # Toujours mettre a jour le document_type (le classifieur regex est fiable)
+                        if info.get("document_type"):
                             pub.document_type = info["document_type"]
                         if not pub.financing_source and info.get("financing_source"):
                             pub.financing_source = info["financing_source"]
@@ -515,6 +519,14 @@ async def job_enrich_publications():
                         # Garantie de soumission
                         if info.get("guarantee_amount") and not pub.guarantee_amount:
                             pub.guarantee_amount = info["guarantee_amount"]
+
+                        # Lots et delai de livraison (nouveaux champs)
+                        if info.get("lots_detail") and not pub.lots_detail:
+                            pub.lots_detail = info["lots_detail"]
+                        if info.get("lots_count") and not pub.lots_count:
+                            pub.lots_count = info["lots_count"]
+                        if info.get("delivery_delay") and not pub.delivery_delay:
+                            pub.delivery_delay = info["delivery_delay"]
 
                         # Documents requis et criteres (colonnes JSONB → stocker en liste)
                         if info.get("required_documents") and not pub.required_documents:
@@ -572,12 +584,18 @@ async def job_enrich_publications():
                             pub.authority_name = info["authority_name"]
                         if not pub.budget and info.get("budget"):
                             pub.budget = info["budget"]
-                        if not pub.document_type and info.get("document_type"):
+                        if info.get("document_type"):
                             pub.document_type = info["document_type"]
                         if not pub.financing_source and info.get("financing_source"):
                             pub.financing_source = info["financing_source"]
                         if info.get("guarantee_amount") and not pub.guarantee_amount:
                             pub.guarantee_amount = info["guarantee_amount"]
+                        if info.get("lots_detail") and not pub.lots_detail:
+                            pub.lots_detail = info["lots_detail"]
+                        if info.get("lots_count") and not pub.lots_count:
+                            pub.lots_count = info["lots_count"]
+                        if info.get("delivery_delay") and not pub.delivery_delay:
+                            pub.delivery_delay = info["delivery_delay"]
                         if info.get("required_documents") and not pub.required_documents:
                             docs = info["required_documents"]
                             pub.required_documents = [d.strip() for d in docs.split(",")] if isinstance(docs, str) else docs

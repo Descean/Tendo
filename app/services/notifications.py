@@ -41,7 +41,48 @@ TEST_PHONE_NUMBERS = {
 KNOWLEDGE_DOCUMENT_TYPES = {"PV_ATTRIBUTION", "PV_OUVERTURE", "DECISION_ARMP", "AVIS_ATTRIBUTION"}
 
 # Types qui ont un delai de soumission
-DEADLINE_TYPES = {"AAO", "DAO", "AMI", "RFQ", "RFP", "LISTE_RESTREINTE", None}
+DEADLINE_TYPES = {"AAO", "DAO", "AMI", "RFQ", "RFP", "DRP", "AON", "AOI", "AOR", "LISTE_RESTREINTE", None}
+
+# Labels lisibles par type de document (pour le header et le champ Type)
+_DOC_TYPE_LABELS = {
+    "DRP": "Demande de renseignements et prix (DRP)",
+    "RFQ": "Demande de devis (RFQ)",
+    "RFP": "Demande de propositions (RFP)",
+    "AOI": "Appel d offres international (AOI)",
+    "AOR": "Appel d offres restreint (AOR)",
+    "AON": "Appel d offres national (AON)",
+    "AMI": "Appel a manifestation d interet (AMI)",
+    "AAO": "Avis d appel a concurrence",
+    "DAO": "Dossier d appel d offres",
+    "PV_OUVERTURE": "PV d ouverture des plis",
+    "PV_ATTRIBUTION": "PV d attribution provisoire",
+    "AVIS_ATTRIBUTION": "Avis d attribution definitive",
+    "DECISION_ARMP": "Decision ARMP",
+    "ADDITIF": "Addendum / Additif",
+    "PPM": "Plan de passation des marches",
+    "Services": "Avis d appel d offres",
+    "Travaux": "Avis d appel d offres - Travaux",
+    "Fournitures": "Avis d appel d offres - Fournitures",
+    "Prestations intellectuelles": "Avis d appel d offres",
+}
+
+# Headers courts pour le tag du message (max ~40 chars pour WhatsApp)
+_DOC_TYPE_HEADERS = {
+    "DRP": "AVIS DE DEMANDE DE RENSEIGNEMENTS ET DE PRIX",
+    "RFQ": "DEMANDE DE DEVIS (RFQ)",
+    "RFP": "DEMANDE DE PROPOSITIONS (RFP)",
+    "AOI": "APPEL D OFFRES INTERNATIONAL",
+    "AOR": "APPEL D OFFRES RESTREINT",
+    "AON": "APPEL D OFFRES NATIONAL",
+    "AMI": "APPEL A MANIFESTATION D INTERET",
+    "AAO": "AVIS D APPEL D OFFRES",
+    "DAO": "DOSSIER D APPEL D OFFRES",
+    "Services": "AVIS D APPEL D OFFRES",
+    "Travaux": "AVIS D APPEL D OFFRES - TRAVAUX",
+    "Fournitures": "AVIS D APPEL D OFFRES - FOURNITURES",
+    "Prestations intellectuelles": "AVIS D APPEL D OFFRES",
+    "Services / Prestations intellectuelles": "AVIS D APPEL D OFFRES",
+}
 
 
 def matches_user_preferences(user: User, publication: Publication) -> bool:
@@ -190,51 +231,71 @@ def _extract_reference(pub: Publication) -> str | None:
 #  TEMPLATES DE MESSAGES PAR TYPE DE DOCUMENT
 # ═══════════════════════════════════════════════════════════════════
 
+def _format_deadline_date(deadline) -> str:
+    """Formate la deadline en date lisible: '28 mai 2026'."""
+    MOIS = [
+        "", "janvier", "fevrier", "mars", "avril", "mai", "juin",
+        "juillet", "aout", "septembre", "octobre", "novembre", "decembre",
+    ]
+    if not deadline:
+        return ""
+    return f"{deadline.day} {MOIS[deadline.month]} {deadline.year}"
+
+
 def _build_aao_message(pub: Publication, user: User) -> tuple:
-    """Avis d'Appel d'Offres / AON / AOI / DAO / RFQ / RFP."""
+    """Avis d'Appel d'Offres / AON / AOI / DAO / RFQ / RFP / DRP.
+
+    Format cible (Annonce 1.txt) :
+      Autorite / Objet / Reference / Type / Lots / Date limite / Delai / Delai livraison
+    """
     days = _days_remaining(pub.deadline)
     tag = _deadline_tag(days)
     plan = _user_plan(user)
 
-    # Header — detecter le type reel a partir du document_type et du titre
-    type_labels = {
-        "AAO": "AVIS D APPEL D OFFRES",
-        "AOR": "APPEL D OFFRES RESTREINT",
-        "DAO": "DOSSIER D APPEL D OFFRES",
-        "RFQ": "DEMANDE DE DEVIS (RFQ)",
-        "RFP": "DEMANDE DE PROPOSITIONS (RFP)",
-        "Services": "AVIS D APPEL D OFFRES",
-        "Travaux": "AVIS D APPEL D OFFRES - TRAVAUX",
-        "Fournitures": "AVIS D APPEL D OFFRES - FOURNITURES",
-        "Prestations intellectuelles": "AVIS D APPEL D OFFRES",
-        "Services / Prestations intellectuelles": "AVIS D APPEL D OFFRES",
-    }
     doc_type = pub.document_type or "AAO"
+
     # Detecter AMI dans le titre meme si le type est AAO
     title_lower = (pub.title or "").lower()
     if "manifestation" in title_lower or "ami" in title_lower:
-        type_label = "APPEL A MANIFESTATION D INTERET"
+        header_label = "APPEL A MANIFESTATION D INTERET"
     else:
-        type_label = type_labels.get(doc_type, "AVIS D APPEL D OFFRES")
-    header = f"{tag} {type_label}"
+        header_label = _DOC_TYPE_HEADERS.get(doc_type, "AVIS D APPEL D OFFRES")
+    header = f"{tag} {header_label}"
 
     # Extraire les vraies donnees d'affichage
     real_authority = _extract_real_authority(pub)
     real_object = _extract_real_object(pub)
     real_ref = _extract_reference(pub)
 
+    # Label lisible du type
+    type_label = _DOC_TYPE_LABELS.get(doc_type, doc_type)
+
     parts = []
     if real_authority:
         parts.append(f"Autorite : {real_authority}")
     parts.append(f"Objet : {real_object}")
     if real_ref:
-        parts.append(f"Ref : {real_ref}")
+        parts.append(f"Reference : {real_ref}")
+    # Type de document
+    parts.append(f"Type : {type_label}")
+    # Lots
+    if pub.lots_detail:
+        parts.append(f"Lots : {pub.lots_detail}")
     if pub.budget:
         parts.append(f"Budget : {pub.budget:,.0f} FCFA")
+    # Date limite en format lisible
     if pub.deadline:
-        parts.append(f"Date limite : {pub.deadline.strftime('%d/%m/%Y a %Hh%M')}")
+        parts.append(f"Date limite : {_format_deadline_date(pub.deadline)}")
+    # Delai restant
     if days is not None and days >= 0:
-        parts.append(f"Delai : {days} jour{'s' if days != 1 else ''} restant{'s' if days != 1 else ''}")
+        today_str = datetime.now(timezone.utc).strftime("%d/%m/%Y")
+        parts.append(
+            f"Delai : {days} jour{'s' if days != 1 else ''} restant{'s' if days != 1 else ''}"
+            f" (base : {today_str})"
+        )
+    # Delai de livraison
+    if pub.delivery_delay:
+        parts.append(f"Delai de livraison : {pub.delivery_delay}")
     if pub.financing_source:
         parts.append(f"Financement : {pub.financing_source}")
 
@@ -248,10 +309,7 @@ def _build_aao_message(pub: Publication, user: User) -> tuple:
     else:
         buttons.append({"id": f"upsell_resume_{pub.id}", "title": "Resume (abonnez)"})
 
-    if plan == "premium":
-        buttons.append({"id": f"demander_{pub.id}", "title": "Demander dossier"})
-    else:
-        buttons.append({"id": f"upsell_dossier_{pub.id}", "title": "Dossier (abonnez)"})
+    buttons.append({"id": f"ignorer_{pub.id}", "title": "Ignorer"})
 
     return body, buttons, header
 
@@ -266,15 +324,27 @@ def _build_ami_message(pub: Publication, user: User) -> tuple:
 
     real_authority = _extract_real_authority(pub)
     real_object = _extract_real_object(pub)
+    real_ref = _extract_reference(pub)
 
     parts = []
     if real_authority:
         parts.append(f"Autorite : {real_authority}")
     parts.append(f"Objet : {real_object}")
+    if real_ref:
+        parts.append(f"Reference : {real_ref}")
+    parts.append(f"Type : Appel a manifestation d interet (AMI)")
+    if pub.lots_detail:
+        parts.append(f"Lots : {pub.lots_detail}")
     if pub.deadline:
-        parts.append(f"Date limite : {pub.deadline.strftime('%d/%m/%Y a %Hh%M')}")
+        parts.append(f"Date limite : {_format_deadline_date(pub.deadline)}")
     if days is not None and days >= 0:
-        parts.append(f"Delai : {days} jour{'s' if days != 1 else ''} restant{'s' if days != 1 else ''}")
+        today_str = datetime.now(timezone.utc).strftime("%d/%m/%Y")
+        parts.append(
+            f"Delai : {days} jour{'s' if days != 1 else ''} restant{'s' if days != 1 else ''}"
+            f" (base : {today_str})"
+        )
+    if pub.delivery_delay:
+        parts.append(f"Delai de livraison : {pub.delivery_delay}")
 
     body = "\n".join(parts)
 
@@ -283,6 +353,7 @@ def _build_ami_message(pub: Publication, user: User) -> tuple:
         buttons.append({"id": f"resume_{pub.id}", "title": "Criteres selection"})
     else:
         buttons.append({"id": f"upsell_resume_{pub.id}", "title": "Criteres (abonnez)"})
+    buttons.append({"id": f"ignorer_{pub.id}", "title": "Ignorer"})
 
     return body, buttons, header
 
@@ -452,6 +523,9 @@ def _build_generic_message(pub: Publication, user: User) -> tuple:
 _MESSAGE_BUILDERS = {
     "AAO": _build_aao_message,
     "AOR": _build_aao_message,
+    "AON": _build_aao_message,
+    "AOI": _build_aao_message,
+    "DRP": _build_aao_message,
     "DAO": _build_aao_message,
     "RFQ": _build_aao_message,
     "RFP": _build_aao_message,

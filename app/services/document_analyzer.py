@@ -1,12 +1,13 @@
 """Service d'analyse IA de documents d'appels d'offres -- Tendo.
 
-Supporte :
-- Extraction de texte PDF natif (pypdf)
-- OCR pour PDF scannes (pytesseract + pdf2image)
-- Fallback Gemini Vision pour les documents complexes
-- Classification automatique du type de document
-- Analyse IA structuree pour WhatsApp
+Pipeline d'extraction PDF :
+  1. pypdf  (texte natif – rapide, gratuit)
+  2. Groq Vision  (PDF scannes – llama-3.2-90b-vision, gratuit 1000 req/jour)
+  3. DeepSeek  (extraction metadonnees structurees a partir du texte)
+
+Supporte aussi :
 - Telechargement de medias WhatsApp (images, documents)
+- Analyse IA structuree pour WhatsApp
 """
 
 import asyncio
@@ -60,17 +61,15 @@ async def extract_pdf_text(
         logger.info(f"[DocAnalyzer] pypdf OK: {page_count} pages, {len(text)} chars")
         return text, "pypdf", page_count
 
-    # 3. Skip OCR Tesseract (non fonctionnel dans Docker — timeout)
-    # Passer directement a Gemini Vision pour les PDF scannes
-    logger.info("[DocAnalyzer] pypdf insuffisant, passage a Gemini Vision")
+    # 3. Groq Vision pour les PDF scannes (remplace Tesseract + Gemini)
+    logger.info("[DocAnalyzer] pypdf insuffisant, passage a Groq Vision OCR")
 
-    # 4. Fallback Gemini Vision
-    text_vision = await _extract_with_gemini_vision(pdf_bytes, max_pages)
+    text_vision = await _extract_with_groq_vision(pdf_bytes, max_pages)
     if text_vision and len(text_vision.strip()) > 50:
-        logger.info(f"[DocAnalyzer] Gemini Vision OK: {len(text_vision)} chars")
-        return text_vision, "gemini_vision", page_count or page_count_ocr or 1
+        logger.info(f"[DocAnalyzer] Groq Vision OK: {len(text_vision)} chars")
+        return text_vision, "groq_vision", page_count or 1
 
-    # 5. Retourner le texte partiel de pypdf si on a au moins quelque chose
+    # 4. Retourner le texte partiel de pypdf si on a au moins quelque chose
     if text and len(text.strip()) > 10:
         return text, "pypdf_partial", page_count
 
@@ -81,14 +80,14 @@ async def extract_pdf_text(
 async def extract_image_text(image_bytes: bytes, mime_type: str = "image/jpeg") -> Optional[str]:
     """Extrait le texte d'une image (photo d'un document).
 
-    Utilise Gemini Vision (gratuit) ou Tesseract OCR.
+    Utilise Groq Vision (gratuit) avec fallback Tesseract OCR.
     """
-    # Essayer Gemini Vision d'abord
-    text = await _extract_image_with_gemini(image_bytes, mime_type)
+    # Essayer Groq Vision d'abord
+    text = await _extract_image_with_groq_vision(image_bytes, mime_type)
     if text:
         return text
 
-    # Fallback Tesseract
+    # Fallback Tesseract (fonctionne en local, pas en Docker)
     text = await _extract_image_with_tesseract(image_bytes)
     return text
 
@@ -391,92 +390,148 @@ async def _extract_with_ocr(pdf_bytes: bytes, max_pages: int) -> Tuple[Optional[
         return None, 0
 
 
-async def _extract_with_gemini_vision(pdf_bytes: bytes, max_pages: int = 5) -> Optional[str]:
-    """Extraction de texte avec Gemini Vision (gratuit, 15 req/min)."""
-    if not settings.gemini_api_key:
+async def _extract_with_groq_vision(pdf_bytes: bytes, max_pages: int = 5) -> Optional[str]:
+    """Extraction de texte de PDF scannes via Groq Vision (llama-3.2-90b-vision).
+
+    Gratuit : 1000 req/jour, 7000 tokens/min.
+    Convertit chaque page PDF en image JPEG puis envoie a l'API Groq.
+    """
+    if not settings.groq_api_key:
+        logger.warning("[DocAnalyzer] GROQ_API_KEY manquante — Vision OCR indisponible")
         return None
 
     try:
-        from google import genai
-        client = genai.Client(api_key=settings.gemini_api_key)
+        from pdf2image import convert_from_bytes
+    except ImportError:
+        logger.warning("[DocAnalyzer] pdf2image non installe — Vision OCR indisponible")
+        return None
 
-        # Convertir les premieres pages en images
+    try:
+        # Convertir PDF en images (en thread pour ne pas bloquer l'event loop)
+        images = await asyncio.to_thread(
+            convert_from_bytes,
+            pdf_bytes,
+            first_page=1,
+            last_page=min(max_pages, 5),
+            dpi=150,
+            fmt="jpeg",
+        )
+    except Exception as e:
+        logger.error(f"[DocAnalyzer] Erreur pdf2image: {e}")
+        return None
+
+    text_parts = []
+    for i, img in enumerate(images[:5]):
         try:
-            from pdf2image import convert_from_bytes
-            images = await asyncio.to_thread(
-                convert_from_bytes,
-                pdf_bytes,
-                first_page=1,
-                last_page=min(max_pages, 5),
-                dpi=150,
-                fmt="jpeg",
-            )
-        except ImportError:
-            # Si pdf2image n'est pas dispo, envoyer le PDF directement
-            logger.warning("[DocAnalyzer] pdf2image non dispo pour Gemini Vision")
-            return None
+            # Redimensionner si trop large (Groq limite a ~4MB par image)
+            width, height = img.size
+            if width > 2048:
+                ratio = 2048 / width
+                img = img.resize((2048, int(height * ratio)))
 
-        text_parts = []
-        for i, img in enumerate(images[:5]):  # Max 5 pages pour Gemini gratuit
-            # Convertir en bytes
+            # Convertir en JPEG base64
             img_buffer = io.BytesIO()
-            img.save(img_buffer, format="JPEG", quality=85)
-            img_bytes = img_buffer.getvalue()
-            img_b64 = base64.b64encode(img_bytes).decode()
+            img.save(img_buffer, format="JPEG", quality=80)
+            img_b64 = base64.b64encode(img_buffer.getvalue()).decode()
 
-            def _call_gemini(b64_data, page_num):
-                response = client.models.generate_content(
-                    model="gemini-2.0-flash",
-                    contents=[
-                        {
-                            "parts": [
-                                {"text": f"Extrais tout le texte de cette page {page_num} d'un document administratif. Retourne uniquement le texte brut, sans commentaire."},
-                                {"inline_data": {"mime_type": "image/jpeg", "data": b64_data}},
-                            ]
-                        }
-                    ],
-                )
-                return response.text if response.text else ""
+            # Appel API Groq Vision
+            page_text = await _call_groq_vision(
+                img_b64,
+                f"Extrais tout le texte de cette page {i + 1} d'un document administratif "
+                f"de marche public. Retourne uniquement le texte brut extrait, "
+                f"sans commentaire ni mise en forme.",
+            )
 
-            page_text = await asyncio.to_thread(_call_gemini, img_b64, i + 1)
-            if page_text.strip():
+            if page_text and page_text.strip():
                 text_parts.append(f"--- Page {i + 1} (Vision) ---\n{page_text}")
 
-            await asyncio.sleep(1)  # Rate limit Gemini gratuit
+            await asyncio.sleep(4)  # Rate limit Groq (30K tokens/min)
 
-        return "\n\n".join(text_parts) if text_parts else None
+        except Exception as e:
+            logger.warning(f"[DocAnalyzer] Groq Vision page {i + 1}: {e}")
 
-    except Exception as e:
-        logger.error(f"[DocAnalyzer] Erreur Gemini Vision: {e}")
-        return None
+    return "\n\n".join(text_parts) if text_parts else None
 
 
-async def _extract_image_with_gemini(image_bytes: bytes, mime_type: str) -> Optional[str]:
-    """Extrait le texte d'une image avec Gemini Vision."""
-    if not settings.gemini_api_key:
+async def _extract_image_with_groq_vision(
+    image_bytes: bytes, mime_type: str = "image/jpeg"
+) -> Optional[str]:
+    """Extrait le texte d'une image unique via Groq Vision."""
+    if not settings.groq_api_key:
         return None
 
     try:
-        from google import genai
-        client = genai.Client(api_key=settings.gemini_api_key)
         img_b64 = base64.b64encode(image_bytes).decode()
+        text = await _call_groq_vision(
+            img_b64,
+            "Extrais tout le texte de cette image d'un document. "
+            "Retourne uniquement le texte brut, sans commentaire.",
+            mime_type=mime_type,
+        )
+        return text if text and text.strip() else None
+    except Exception as e:
+        logger.error(f"[DocAnalyzer] Erreur Groq Vision image: {e}")
+        return None
 
-        def _call():
-            response = client.models.generate_content(
-                model="gemini-2.0-flash",
-                contents=[{
-                    "parts": [
-                        {"text": "Extrais tout le texte de cette image d'un document. Retourne uniquement le texte brut."},
-                        {"inline_data": {"mime_type": mime_type, "data": img_b64}},
-                    ]
-                }],
+
+async def _call_groq_vision(
+    img_b64: str,
+    prompt: str,
+    mime_type: str = "image/jpeg",
+    _retry: int = 0,
+) -> Optional[str]:
+    """Appel bas-niveau a l'API Groq Vision (format OpenAI compatible).
+
+    Modele : meta-llama/llama-4-scout-17b-16e-instruct
+    Max 2 retries sur rate limit (429).
+    """
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            response = await client.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {settings.groq_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": prompt},
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": f"data:{mime_type};base64,{img_b64}",
+                                    },
+                                },
+                            ],
+                        }
+                    ],
+                    "max_tokens": 4000,
+                    "temperature": 0.1,
+                },
             )
-            return response.text if response.text else ""
 
-        return await asyncio.to_thread(_call)
+        if response.status_code == 200:
+            data = response.json()
+            text = data["choices"][0]["message"]["content"].strip()
+            logger.info(f"[Groq Vision] OCR: {len(text)} chars extraits")
+            return text
+
+        # Retry sur rate limit (429) — max 2 tentatives
+        if response.status_code == 429 and _retry < 2:
+            wait = 8 * (_retry + 1)  # 8s, 16s
+            logger.warning(f"[Groq Vision] Rate limit, retry {_retry + 1}/2 dans {wait}s...")
+            await asyncio.sleep(wait)
+            return await _call_groq_vision(img_b64, prompt, mime_type, _retry + 1)
+
+        logger.error(f"[Groq Vision] Erreur {response.status_code}: {response.text[:300]}")
+        return None
 
     except Exception as e:
-        logger.error(f"[DocAnalyzer] Erreur Gemini Vision image: {e}")
+        logger.error(f"[Groq Vision] Erreur appel: {e}")
         return None
 
 

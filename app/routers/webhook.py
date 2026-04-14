@@ -293,6 +293,9 @@ async def _process_message(from_number: str, body: str, db: AsyncSession):
     if body.startswith("suivre_"):
         await _handle_button_suivre(body, from_number, user, db)
         return
+    if body.startswith("ignorer_"):
+        # Bouton ignorer : marquer comme notifie sans action
+        return
 
     # Commandes speciales
     msg_lower = body.lower().strip()
@@ -1301,16 +1304,28 @@ async def _handle_document_analysis(body: str, user: User, db: AsyncSession) -> 
     from app.services.document_analyzer import analyze_publication, build_publication_context
 
     # Extraire la reference du message
-    # Supporte: /analyser AO-MARC-12345, analyse AO-MARC-12345, "detail de AO-MARC-12345"
-    ref_match = re.search(r"(AO-[A-Z]+-[a-fA-F0-9]+)", body, re.IGNORECASE)
+    # Supporte: /analyser AO-MARC-12345, MPBJ-xxx, JNMP-xxx, etc.
     ref_text = body.replace("/analyser", "").strip()
 
     pub = None
+
+    # Patterns de references connus: AO-*, MPBJ-*, JNMP-*, F_SAAE_*
+    ref_match = re.search(
+        r"(AO-[A-Z]+-[a-fA-F0-9]+|MPBJ-[\w\-]+|JNMP-[\w\-]+|[A-Z]{1,4}[\s_][A-Z]{2,8}[\s_]\d{4,8})",
+        body, re.IGNORECASE,
+    )
 
     if ref_match:
         ref = ref_match.group(1)
         result = await db.execute(
             select(Publication).where(Publication.reference == ref)
+        )
+        pub = result.scalar_one_or_none()
+
+    # Recherche exacte par reference complete (tout ce qui suit /analyser)
+    if not pub and ref_text:
+        result = await db.execute(
+            select(Publication).where(Publication.reference == ref_text)
         )
         pub = result.scalar_one_or_none()
 

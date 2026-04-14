@@ -54,6 +54,11 @@ class Publication(Base):
     qualification_criteria: Mapped[Optional[List]] = mapped_column(JSON, nullable=True)
     guarantee_amount: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
 
+    # Lots et delais (extraits par deepseek_reader)
+    lots_detail: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    lots_count: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    delivery_delay: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
     # Relations
     notifications = relationship("Notification", back_populates="publication", lazy="selectin")
     email_trackings = relationship("EmailTracking", back_populates="publication", lazy="selectin")

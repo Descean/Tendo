@@ -29,7 +29,7 @@ from app.services.scraping.generic import GenericScraper
 
 ALL_SCRAPERS = {
     # Benin — quotidien
-    # "marches-publics.bj": MarchesPublicsBJScraper,  # DESACTIVE : site Angular SPA, scrape les menus de navigation
+    "marches-publics.bj": MarchesPublicsBJScraper,  # REACTIVED: utilise l'API JSON backend
     "ARMP": ARMPScraper,
     "gouv.bj": GouvBJScraper,
     "ADPME": ADPMEScraper,
