@@ -20,6 +20,7 @@ from app.models.user import User, SubscriptionStatus
 from app.models.publication import Publication
 from app.models.notification import Notification
 from app.services import whatsapp
+from app.config import settings
 from app.utils.logger import logger
 
 # ── Configuration ──
@@ -28,14 +29,12 @@ MAX_PUBLICATIONS_PER_CYCLE = 50
 MAX_PER_USER = 3
 PUBLICATION_AGE_DAYS = 7
 
-# Mode test : limiter les envois a ces numeros uniquement (vide = tous)
-TEST_PHONE_NUMBERS = {
-    "+22940809108",
-    "+2290140809108",
-    "+22997714320",
-    "+2290197714320",
-    "+22870219235",
-}
+# Verrou pour empecher l'execution parallele des cycles de notifications
+_notification_lock = asyncio.Lock()
+
+# Mode test : charge depuis .env (TEST_PHONE_NUMBERS=+22940809108,+22997714320)
+# Liste vide = envoi a TOUS les utilisateurs actifs (mode production)
+TEST_PHONE_NUMBERS = set(settings.test_phone_numbers)
 
 # Types de docs "connaissance" : envoyees uniquement aux abonnes
 KNOWLEDGE_DOCUMENT_TYPES = {"PV_ATTRIBUTION", "PV_OUVERTURE", "DECISION_ARMP", "AVIS_ATTRIBUTION"}
@@ -622,6 +621,15 @@ def _should_send_to_user(user: User, pub: Publication) -> bool:
 
 async def process_new_publications(db: AsyncSession) -> int:
     """Envoie des notifications aux utilisateurs pour les publications non encore notifiees."""
+    if _notification_lock.locked():
+        logger.warning("[Notifications] Cycle deja en cours, skip")
+        return 0
+    async with _notification_lock:
+        return await _process_new_publications_inner(db)
+
+
+async def _process_new_publications_inner(db: AsyncSession) -> int:
+    """Logique interne d'envoi de notifications (protegee par le lock)."""
     # Utilisateurs actifs
     query = select(User).where(
         and_(

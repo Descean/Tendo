@@ -5,16 +5,18 @@ Outil de pilotage complet pour :
   - Financier : MRR, ARR, ARPU, conversions, projections, paiements
   - Opérationnel : scrapers, logs temps réel, déclencheurs, santé système
 
-Auth : paramètre ?key= vérifié contre SECRET_KEY.
+Auth : paramètre ?key= OU header Authorization: Bearer <key>.
 """
 
 import asyncio
+import contextvars
 import logging
 from collections import deque
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy import select, func, and_, delete, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -75,8 +77,31 @@ logging.getLogger("tendo").addHandler(_buf)
 
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
+# ContextVar pour acceder a la request courante depuis _ck() sans modifier les 31 endpoints
+_current_request_var: contextvars.ContextVar[Request | None] = contextvars.ContextVar("_current_request", default=None)
+
+
+class AdminAuthMiddleware(BaseHTTPMiddleware):
+    """Stocke la Request dans un ContextVar pour que _ck() puisse lire le header Authorization."""
+    async def dispatch(self, request: Request, call_next):
+        token = _current_request_var.set(request)
+        try:
+            return await call_next(request)
+        finally:
+            _current_request_var.reset(token)
+
+
 def _ck(key: str = ""):
-    if not key or key != settings.secret_key:
+    """Verifie la cle admin via ?key= OU header Authorization: Bearer <key>."""
+    admin_key = key
+    # Si pas de ?key=, tenter le header Authorization: Bearer
+    if not admin_key:
+        req = _current_request_var.get()
+        if req is not None:
+            auth_header = req.headers.get("authorization", "")
+            if auth_header.lower().startswith("bearer "):
+                admin_key = auth_header[7:].strip()
+    if not admin_key or admin_key != settings.secret_key:
         raise HTTPException(status_code=403, detail="Clé admin invalide")
 
 
@@ -1860,21 +1885,43 @@ Si tu n'as pas de code a generer (question, explication), utilise : {"response":
 class CodeExecRequest(BaseModel):
     command: str
 
+# Whitelist de commandes autorisees (prefixes) pour l'exec shell
+_ALLOWED_COMMANDS = [
+    "ls", "cat", "head", "tail", "wc", "grep", "find",
+    "df", "du", "free", "uptime", "whoami", "pwd", "date",
+    "docker logs", "docker ps", "docker stats", "docker inspect",
+    "pip list", "pip show", "pip freeze",
+    "python --version", "python -c",
+    "git status", "git log", "git diff", "git branch", "git show",
+    "alembic history", "alembic current",
+    "env", "printenv",
+]
+
+def _is_command_allowed(cmd: str) -> bool:
+    """Verifie que la commande commence par un prefixe autorise."""
+    cmd_stripped = cmd.strip()
+    # Interdire les enchainements (;, &&, ||, |, backticks, $())
+    for dangerous_char in [";", "&&", "||", "|", "`", "$(", "\n"]:
+        if dangerous_char in cmd_stripped:
+            return False
+    # Verifier le prefixe
+    for allowed in _ALLOWED_COMMANDS:
+        if cmd_stripped == allowed or cmd_stripped.startswith(allowed + " "):
+            return True
+    return False
+
 @router.post("/api/code/exec")
 async def api_code_exec(data: CodeExecRequest, key: str = ""):
-    """Execute une commande shell sur le serveur (securisee)."""
+    """Execute une commande shell sur le serveur (whitelist uniquement)."""
     _ck(key)
 
     cmd = data.command.strip()
 
-    # Commandes interdites (destructrices)
-    dangerous = ["rm -rf /", "mkfs", "dd if=", ":(){", "chmod -R 777 /",
-                 "wget|sh", "curl|sh", "shutdown", "reboot", "halt",
-                 "kill -9 1", "init 0", "init 6"]
-    cmd_lower = cmd.lower()
-    for d in dangerous:
-        if d in cmd_lower:
-            raise HTTPException(status_code=403, detail=f"Commande interdite: contient '{d}'")
+    if not _is_command_allowed(cmd):
+        raise HTTPException(
+            status_code=403,
+            detail=f"Commande non autorisee. Commandes permises : {', '.join(_ALLOWED_COMMANDS)}",
+        )
 
     try:
         result = subprocess.run(

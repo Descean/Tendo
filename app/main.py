@@ -92,6 +92,10 @@ app.add_middleware(
 # Session middleware (requis pour sqladmin auth)
 app.add_middleware(SessionMiddleware, secret_key=settings.secret_key)
 
+# Admin auth : permet a _ck() de lire le header Authorization: Bearer
+from app.routers.admin import AdminAuthMiddleware
+app.add_middleware(AdminAuthMiddleware)
+
 
 # ── Static files ──
 static_dir = Path(__file__).parent.parent / "static"

@@ -352,7 +352,10 @@ async def _handle_intent(intent: str, body: str, user: User, phone: str, db: Asy
             )
             return
         user.conversation_state = "inscription_nom"
-        user.conversation_data = {}
+        # Preserver l'historique de conversation existant
+        existing = dict(user.conversation_data or {})
+        existing.pop("inscription", None)  # Reset uniquement les donnees d'inscription
+        user.conversation_data = existing
         flag_modified(user, "conversation_data")
         await whatsapp.send_message(phone,
             "INSCRIPTION TENDO\n\n"
@@ -445,13 +448,13 @@ async def _send_plans(phone: str):
     await whatsapp.send_interactive_buttons(
         phone,
         "PLANS D'ABONNEMENT TENDO\n\n"
-        "--- Essentiel -- 5 000 FCFA/mois ---\n"
+        "--- Essentiel -- 2 990 FCFA/mois ---\n"
         "Alertes personnalisees, resumes IA, recherche\n\n"
-        "--- Premium -- 15 000 FCFA/mois ---\n"
+        "--- Premium -- 9 990 FCFA/mois ---\n"
         "Tout Essentiel + IA expert, dossiers AO, email monitoring, support prioritaire",
         [
-            {"id": "menu_pay_essentiel", "title": "Essentiel 5000F"},
-            {"id": "menu_pay_premium", "title": "Premium 15000F"},
+            {"id": "menu_pay_essentiel", "title": "Essentiel 2990F"},
+            {"id": "menu_pay_premium", "title": "Premium 9990F"},
             {"id": "menu_menu", "title": "Retour au menu"},
         ],
         header="Abonnement",
@@ -1056,7 +1059,7 @@ async def _handle_payment(user: User, plan: str = "essentiel") -> str:
             plan=plan,
             user_name=user.name,
         )
-        other_plan = "Premium (15 000 FCFA)" if plan == "essentiel" else "Essentiel (5 000 FCFA)"
+        other_plan = "Premium (9 990 FCFA)" if plan == "essentiel" else "Essentiel (2 990 FCFA)"
         other_cmd = "Premium" if plan == "essentiel" else "Essentiel"
 
         return (

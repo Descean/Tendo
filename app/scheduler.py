@@ -219,7 +219,7 @@ async def job_send_expiration_reminders():
                         f"RAPPEL TENDO\n\n"
                         f"Votre essai gratuit expire dans {days_left} jour(s).\n\n"
                         f"Pour continuer a recevoir vos alertes marches publics, "
-                        f"souscrivez au Plan Essentiel (5 000 FCFA/mois).\n\n"
+                        f"souscrivez au Plan Essentiel (2 990 FCFA/mois).\n\n"
                         f"Payer maintenant :\n{payment['payment_link']}\n\n"
                         f"Tapez *Abonnement* pour voir tous les plans."
                     )
@@ -434,6 +434,31 @@ async def job_cleanup_expired_publications():
             await db.rollback()
 
 
+async def job_cleanup_pdf_extracts():
+    """Supprime les fichiers PDF extraits de plus de 30 jours."""
+    from pathlib import Path
+    import os
+    import time
+
+    pdf_dir = Path(__file__).parent / "data" / "pdf_extracts"
+    if not pdf_dir.exists():
+        return
+
+    logger.info("[Scheduler] Nettoyage des PDF extraits anciens...")
+    cutoff = time.time() - (30 * 24 * 3600)  # 30 jours
+    removed = 0
+
+    try:
+        for f in pdf_dir.iterdir():
+            if f.is_file() and f.suffix.lower() == ".pdf":
+                if f.stat().st_mtime < cutoff:
+                    f.unlink()
+                    removed += 1
+        logger.info(f"[Scheduler] {removed} PDF extraits anciens supprimes")
+    except Exception as e:
+        logger.error(f"[Scheduler] Erreur nettoyage PDF extraits: {e}")
+
+
 async def job_enrich_publications():
     """Enrichit les publications via lecture IA des PDF (DeepSeek/Groq/Gemini).
 
@@ -507,8 +532,8 @@ async def job_enrich_publications():
 
                         # Deadline depuis l'IA
                         if not pub.deadline and info.get("deadline_date"):
-                            from app.services.scraping.gouv_bj import GouvBJScraper
-                            parsed = GouvBJScraper._parse_date(None, info["deadline_date"])
+                            from app.utils.date_parser import parse_date_fr
+                            parsed = parse_date_fr(info["deadline_date"])
                             if parsed:
                                 from datetime import datetime as dt
                                 try:
@@ -662,8 +687,8 @@ async def job_reenrich_deadlines():
                     if info:
                         # Deadline
                         if info.get("deadline_date"):
-                            from app.services.scraping.gouv_bj import GouvBJScraper
-                            parsed = GouvBJScraper._parse_date(None, info["deadline_date"])
+                            from app.utils.date_parser import parse_date_fr
+                            parsed = parse_date_fr(info["deadline_date"])
                             if parsed:
                                 from datetime import datetime as dt
                                 try:
@@ -1220,6 +1245,15 @@ def setup_scheduler():
         CronTrigger(hour="1", minute="0"),
         id="cleanup_expired",
         name="Nettoyage AO expires",
+        replace_existing=True,
+    )
+
+    # Nettoyage des PDF extraits -- chaque jour a 3h du matin
+    scheduler.add_job(
+        job_cleanup_pdf_extracts,
+        CronTrigger(hour="3", minute="0"),
+        id="cleanup_pdf_extracts",
+        name="Nettoyage PDF extraits > 30 jours",
         replace_existing=True,
     )
 

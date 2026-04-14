@@ -19,15 +19,14 @@ router = APIRouter(prefix="/users", tags=["Users"])
 
 @router.post("/auth/token")
 async def get_token(phone_number: str, db: AsyncSession = Depends(get_db)):
-    """Génère un token JWT à partir du numéro WhatsApp (magic link)."""
-    result = await db.execute(select(User).where(User.phone_number == phone_number))
-    user = result.scalar_one_or_none()
+    """Endpoint désactivé — aucune vérification d'identité implémentée.
 
-    if not user:
-        raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
-
-    token = create_access_token(data={"sub": user.phone_number, "user_id": user.id})
-    return {"access_token": token, "token_type": "bearer"}
+    TODO: Implémenter un flow OTP (code envoyé par WhatsApp) avant de réactiver.
+    """
+    raise HTTPException(
+        status_code=501,
+        detail="Authentification non implémentée. Utilisez le chatbot WhatsApp.",
+    )
 
 
 @router.get("/me", response_model=UserProfile)

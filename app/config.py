@@ -71,6 +71,9 @@ class Settings(BaseSettings):
     admin_emails: List[str] = Field(default_factory=lambda: ["admin@shiftup.bj"])
     admin_phones: List[str] = Field(default_factory=lambda: ["2290140809108"])  # Numeros WhatsApp admin pour alertes
 
+    # Notifications : mode test (liste vide = envoi a tous les utilisateurs actifs)
+    test_phone_numbers: List[str] = Field(default_factory=list)
+
     # App
     app_name: str = "Tendo"
     app_env: str = "development"
