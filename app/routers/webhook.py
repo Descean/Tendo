@@ -69,6 +69,53 @@ def _save_conversation_history(user: User, user_msg: str, bot_msg: str):
 
 
 # ================================================
+#  CONTEXTE DERNIERE NOTIFICATION
+# ================================================
+
+async def _get_last_notification_context(user: User, db: AsyncSession) -> str:
+    """Recupere le contexte de la derniere publication notifiee a l'utilisateur.
+
+    Permet a l'IA de repondre a des questions comme 'resume la decision'
+    en sachant de quelle publication il s'agit.
+    """
+    from sqlalchemy import select
+    result = await db.execute(
+        select(Notification)
+        .where(Notification.user_id == user.id)
+        .order_by(Notification.sent_at.desc())
+        .limit(3)
+    )
+    recent_notifs = result.scalars().all()
+    if not recent_notifs:
+        return ""
+
+    pub_ids = [n.publication_id for n in recent_notifs]
+    pub_result = await db.execute(
+        select(Publication).where(Publication.id.in_(pub_ids))
+    )
+    pubs = pub_result.scalars().all()
+    if not pubs:
+        return ""
+
+    parts = ["DERNIERES PUBLICATIONS NOTIFIEES A CET UTILISATEUR :"]
+    for pub in pubs:
+        entry = f"- *{pub.title}* (ref: {pub.reference}, type: {pub.document_type})"
+        if pub.authority_name:
+            entry += f"\n  Autorite: {pub.authority_name}"
+        if pub.deadline:
+            entry += f"\n  Date limite: {pub.deadline.strftime('%d/%m/%Y')}"
+        if pub.technical_summary:
+            entry += f"\n  Synthese complete: {pub.technical_summary[:800]}"
+        elif pub.pdf_content:
+            entry += f"\n  Contenu du document: {pub.pdf_content[:800]}"
+        elif pub.summary:
+            entry += f"\n  Resume: {pub.summary[:400]}"
+        parts.append(entry)
+
+    return "\n\n".join(parts)
+
+
+# ================================================
 #  WEBHOOK META WHATSAPP CLOUD API
 # ================================================
 
@@ -321,7 +368,14 @@ async def _process_message(from_number: str, body: str, db: AsyncSession):
         # Conversation IA libre avec historique
         is_premium = user.subscription_plan == "premium"
         history = _get_conversation_history(user)
-        reply = await claude.chat(body, is_premium=is_premium, conversation_history=history, db_session=db)
+        # Injecter le contexte des dernieres notifications pour les questions contextuelles
+        # ("resume la decision", "c'est quoi cet AO?", "explique moi ce marche", etc.)
+        notif_ctx = await _get_last_notification_context(user, db)
+        reply = await claude.chat(
+            body, is_premium=is_premium, conversation_history=history,
+            publication_context=notif_ctx if notif_ctx else None,
+            db_session=db,
+        )
         _save_conversation_history(user, body, reply)
         await whatsapp.send_message(from_number, reply)
     else:
