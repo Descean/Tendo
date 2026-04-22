@@ -97,19 +97,31 @@ async def _get_last_notification_context(user: User, db: AsyncSession) -> str:
     if not pubs:
         return ""
 
-    parts = ["DERNIERES PUBLICATIONS NOTIFIEES A CET UTILISATEUR :"]
-    for pub in pubs:
-        entry = f"- *{pub.title}* (ref: {pub.reference}, type: {pub.document_type})"
+    parts = [
+        "DERNIERES PUBLICATIONS NOTIFIEES A CET UTILISATEUR :",
+        "INSTRUCTION IMPORTANTE : Si l'utilisateur dit 'resume', 'explique', 'c'est quoi', "
+        "'cette decision', 'cet appel d'offres', etc. sans preciser de reference, "
+        "il parle de la PREMIERE publication ci-dessous (la plus recente). "
+        "Resume-la directement a partir du contenu fourni sans demander de precision. "
+        "Si le contenu n'est pas disponible, dis-lui de cliquer sur le bouton "
+        "'Resume technique' dans la notification pour obtenir l'analyse complete.",
+    ]
+
+    for i, pub in enumerate(pubs):
+        marker = " (LA PLUS RECENTE)" if i == 0 else ""
+        entry = f"- *{pub.title}*{marker} (ref: {pub.reference}, type: {pub.document_type})"
         if pub.authority_name:
             entry += f"\n  Autorite: {pub.authority_name}"
         if pub.deadline:
             entry += f"\n  Date limite: {pub.deadline.strftime('%d/%m/%Y')}"
         if pub.technical_summary:
-            entry += f"\n  Synthese complete: {pub.technical_summary[:800]}"
-        elif pub.pdf_content:
-            entry += f"\n  Contenu du document: {pub.pdf_content[:800]}"
+            entry += f"\n  Synthese complete: {pub.technical_summary[:1200]}"
+        elif pub.pdf_content and pub.pdf_content not in ("[extraction_failed]", ""):
+            entry += f"\n  Contenu du document: {pub.pdf_content[:1200]}"
         elif pub.summary:
             entry += f"\n  Resume: {pub.summary[:400]}"
+        else:
+            entry += "\n  [Contenu non disponible — PDF non extrait]"
         parts.append(entry)
 
     return "\n\n".join(parts)
