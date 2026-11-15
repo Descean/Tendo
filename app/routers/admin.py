@@ -1794,7 +1794,7 @@ Si tu n'as pas de code a generer (question, explication), utilise : {"response":
                 r = await client.post(
                     "https://api.groq.com/openai/v1/chat/completions",
                     headers={"Authorization": f"Bearer {settings.groq_api_key}", "Content-Type": "application/json"},
-                    json={"model": "llama-3.3-70b-versatile", "messages": [
+                    json={"model": "openai/gpt-oss-120b", "messages": [
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_prompt},
                     ], "max_tokens": 4000, "temperature": 0.3},
@@ -1814,7 +1814,7 @@ Si tu n'as pas de code a generer (question, explication), utilise : {"response":
                 def _sync():
                     from google.genai import types
                     resp = client.models.generate_content(
-                        model="gemini-2.0-flash",
+                        model="gemini-2.5-flash",
                         contents=[types.Content(role="user", parts=[types.Part(text=user_prompt)])],
                         config=types.GenerateContentConfig(system_instruction=system_prompt, max_output_tokens=4000, temperature=0.3),
                     )

@@ -396,8 +396,8 @@ async def _extract_with_groq_vision(pdf_bytes: bytes, max_pages: int = 5) -> Opt
     Gratuit : 1000 req/jour, 7000 tokens/min.
     Convertit chaque page PDF en image JPEG puis envoie a l'API Groq.
     """
-    if not settings.groq_api_key:
-        logger.warning("[DocAnalyzer] GROQ_API_KEY manquante — Vision OCR indisponible")
+    if not (settings.gemini_api_key or settings.groq_api_key):
+        logger.warning("[DocAnalyzer] GEMINI_API_KEY manquante — Vision OCR indisponible")
         return None
 
     try:
@@ -445,7 +445,7 @@ async def _extract_with_groq_vision(pdf_bytes: bytes, max_pages: int = 5) -> Opt
             if page_text and page_text.strip():
                 text_parts.append(f"--- Page {i + 1} (Vision) ---\n{page_text}")
 
-            await asyncio.sleep(4)  # Rate limit Groq (30K tokens/min)
+            await asyncio.sleep(7)  # Rate limit Gemini gratuit (~10 req/min)
 
         except Exception as e:
             logger.warning(f"[DocAnalyzer] Groq Vision page {i + 1}: {e}")
@@ -456,8 +456,8 @@ async def _extract_with_groq_vision(pdf_bytes: bytes, max_pages: int = 5) -> Opt
 async def _extract_image_with_groq_vision(
     image_bytes: bytes, mime_type: str = "image/jpeg"
 ) -> Optional[str]:
-    """Extrait le texte d'une image unique via Groq Vision."""
-    if not settings.groq_api_key:
+    """Extrait le texte d'une image unique via Gemini Vision."""
+    if not (settings.gemini_api_key or settings.groq_api_key):
         return None
 
     try:
@@ -480,58 +480,85 @@ async def _call_groq_vision(
     mime_type: str = "image/jpeg",
     _retry: int = 0,
 ) -> Optional[str]:
-    """Appel bas-niveau a l'API Groq Vision (format OpenAI compatible).
+    """Lecture IA d'une image (OCR vision).
 
-    Modele : meta-llama/llama-4-scout-17b-16e-instruct
-    Max 2 retries sur rate limit (429).
+    Nov. 2026 : le modele Groq vision (llama-4-scout) a ete retire le 17/07/2026.
+    La lecture passe desormais par Google Gemini 2.5 Flash (gratuit, multimodal).
+    Nom de fonction conserve pour ne pas toucher aux appelants.
     """
+    if not settings.gemini_api_key:
+        logger.warning("[Vision] GEMINI_API_KEY manquante — lecture IA indisponible")
+        return None
+    return await _call_gemini_vision(img_b64, prompt, mime_type, _retry)
+
+
+GEMINI_VISION_MODEL = "gemini-2.5-flash"
+
+
+async def _call_gemini_vision(
+    img_b64: str,
+    prompt: str,
+    mime_type: str = "image/jpeg",
+    _retry: int = 0,
+) -> Optional[str]:
+    """Appel REST a Gemini (generateContent) avec une image en ligne.
+
+    Max 2 retries sur rate limit (429) ou surcharge (503).
+    """
+    url = (
+        "https://generativelanguage.googleapis.com/v1beta/models/"
+        f"{GEMINI_VISION_MODEL}:generateContent"
+    )
+    body = {
+        "contents": [
+            {
+                "parts": [
+                    {"text": prompt},
+                    {"inline_data": {"mime_type": mime_type, "data": img_b64}},
+                ]
+            }
+        ],
+        "generationConfig": {
+            "temperature": 0.1,
+            "maxOutputTokens": 4000,
+            "thinkingConfig": {"thinkingBudget": 0},
+        },
+    }
     try:
-        async with httpx.AsyncClient(timeout=60) as client:
+        async with httpx.AsyncClient(timeout=90) as client:
             response = await client.post(
-                "https://api.groq.com/openai/v1/chat/completions",
+                url,
                 headers={
-                    "Authorization": f"Bearer {settings.groq_api_key}",
+                    "x-goog-api-key": settings.gemini_api_key,
                     "Content-Type": "application/json",
                 },
-                json={
-                    "model": "meta-llama/llama-4-scout-17b-16e-instruct",
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": [
-                                {"type": "text", "text": prompt},
-                                {
-                                    "type": "image_url",
-                                    "image_url": {
-                                        "url": f"data:{mime_type};base64,{img_b64}",
-                                    },
-                                },
-                            ],
-                        }
-                    ],
-                    "max_tokens": 4000,
-                    "temperature": 0.1,
-                },
+                json=body,
             )
 
         if response.status_code == 200:
             data = response.json()
-            text = data["choices"][0]["message"]["content"].strip()
-            logger.info(f"[Groq Vision] OCR: {len(text)} chars extraits")
-            return text
+            parts = (
+                data.get("candidates", [{}])[0]
+                .get("content", {})
+                .get("parts", [])
+            )
+            text = "".join(p.get("text", "") for p in parts).strip()
+            logger.info(f"[Gemini Vision] OCR: {len(text)} chars extraits")
+            return text or None
 
-        # Retry sur rate limit (429) — max 2 tentatives
-        if response.status_code == 429 and _retry < 2:
-            wait = 8 * (_retry + 1)  # 8s, 16s
-            logger.warning(f"[Groq Vision] Rate limit, retry {_retry + 1}/2 dans {wait}s...")
+        if response.status_code in (429, 503) and _retry < 2:
+            wait = 15 * (_retry + 1)  # 15s, 30s
+            logger.warning(
+                f"[Gemini Vision] {response.status_code}, retry {_retry + 1}/2 dans {wait}s..."
+            )
             await asyncio.sleep(wait)
-            return await _call_groq_vision(img_b64, prompt, mime_type, _retry + 1)
+            return await _call_gemini_vision(img_b64, prompt, mime_type, _retry + 1)
 
-        logger.error(f"[Groq Vision] Erreur {response.status_code}: {response.text[:300]}")
+        logger.error(f"[Gemini Vision] Erreur {response.status_code}: {response.text[:300]}")
         return None
 
     except Exception as e:
-        logger.error(f"[Groq Vision] Erreur appel: {e}")
+        logger.error(f"[Gemini Vision] Erreur appel: {e}")
         return None
 
 

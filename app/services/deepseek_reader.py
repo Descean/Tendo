@@ -561,7 +561,7 @@ async def _call_groq(prompt: str) -> Optional[str]:
                     "Content-Type": "application/json",
                 },
                 json={
-                    "model": "llama-3.3-70b-versatile",
+                    "model": "openai/gpt-oss-120b",
                     "messages": [
                         {"role": "system", "content": "Tu es un expert en extraction d'informations de documents de marches publics."},
                         {"role": "user", "content": prompt},
@@ -595,7 +595,7 @@ async def _call_gemini(prompt: str) -> Optional[str]:
 
         def _sync():
             response = client.models.generate_content(
-                model="gemini-2.0-flash",
+                model="gemini-2.5-flash",
                 contents=[types.Content(role="user", parts=[types.Part(text=prompt)])],
                 config=types.GenerateContentConfig(
                     system_instruction="Tu es un expert en extraction d'informations de documents de marches publics.",

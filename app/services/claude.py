@@ -357,7 +357,7 @@ async def _chat_groq(
                     "Content-Type": "application/json",
                 },
                 json={
-                    "model": "llama-3.3-70b-versatile",
+                    "model": "openai/gpt-oss-120b",
                     "messages": messages,
                     "max_tokens": 500,
                     "temperature": 0.7,
@@ -415,7 +415,7 @@ async def _chat_gemini(
         ))
 
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash",
             contents=contents,
             config=types.GenerateContentConfig(
                 system_instruction=system_prompt,
