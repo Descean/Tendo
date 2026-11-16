@@ -1161,47 +1161,52 @@ async def _handle_button_voir(body: str, from_number: str, db: AsyncSession):
 
     MAX_PDF_SIZE = 10 * 1024 * 1024  # 10 Mo max pour envoi WhatsApp
 
-    if pub.pdf_url:
-        # Verifier si c'est un sous-PDF local et sa taille
+    from app.utils.text_quality import clean_authority
+
+    authority = clean_authority(pub.authority_name)
+    url = pub.pdf_url or ""
+    is_pdf = url.lower().split("?")[0].endswith(".pdf") or "/pdf-extracts/" in url
+
+    def _text_card() -> str:
+        """Fiche texte propre : titre, autorite, extrait (sans repetition du titre)."""
+        title = (pub.title or "").strip()
+        parts = [f"*{title}*"]
+        if authority:
+            parts.append(f"Autorité : {authority}")
+        if pub.deadline:
+            parts.append(f"Date limite : {pub.deadline.strftime('%d/%m/%Y')}")
+        summary = (pub.summary or "").strip()
+        if len(summary) > 30 and summary.lower()[:60] != title.lower()[:60]:
+            parts.append(f"\n{summary[:800]}")
+        elif pub.pdf_content and not pub.technical_summary:
+            parts.append(f"\n{pub.pdf_content[:800].strip()}")
+        if pub.technical_summary:
+            parts.append(f"\n*Résumé technique*\n{pub.technical_summary[:900].strip()}")
+        if url:
+            parts.append(f"\nLien de l’avis : {url}")
+        elif not summary and not pub.technical_summary:
+            parts.append("\nAucun document disponible pour cet avis.")
+        return "\n".join(parts)
+
+    if is_pdf:
         send_pdf = True
-        if "/pdf-extracts/" in pub.pdf_url:
-            filename = pub.pdf_url.split("/pdf-extracts/")[-1]
+        if "/pdf-extracts/" in url:
+            filename = url.split("/pdf-extracts/")[-1]
             local_path = Path("app/data/pdf_extracts") / filename
             if local_path.exists() and local_path.stat().st_size > MAX_PDF_SIZE:
                 send_pdf = False
                 logger.info(f"[Webhook] PDF trop volumineux ({local_path.stat().st_size // 1024 // 1024} Mo), envoi du contenu texte")
-
         if send_pdf:
             await whatsapp.send_document(
                 from_number,
-                document_url=pub.pdf_url,
+                document_url=url,
                 caption=f"{pub.title}",
                 filename=f"{pub.reference}.pdf",
             )
-        else:
-            # PDF trop gros : envoyer le resume textuel + lien
-            parts = [f"*{pub.title}*"]
-            if pub.authority_name and "@" not in (pub.authority_name or ""):
-                parts.append(f"Autorite : {pub.authority_name}")
-            if pub.summary and len(pub.summary.strip()) > 30:
-                parts.append(f"\n{pub.summary[:800]}")
-            elif pub.pdf_content:
-                parts.append(f"\n{pub.pdf_content[:800]}")
-            parts.append(f"\nLe document complet est disponible dans le JNMP.")
-            parts.append(f"Consultez : {pub.pdf_url}")
-            await whatsapp.send_message(from_number, "\n".join(parts))
-    else:
-        # Pas de PDF : envoyer le contenu textuel disponible
-        parts = [pub.title]
-        if pub.authority_name:
-            parts.append(f"Autorite : {pub.authority_name}")
-        if pub.summary and len(pub.summary.strip()) > 30:
-            parts.append(f"\n{pub.summary[:600]}")
-        if pub.technical_summary:
-            parts.append(f"\nResume technique :\n{pub.technical_summary[:600]}")
-        if not pub.summary and not pub.technical_summary:
-            parts.append("\nAucun document PDF disponible pour cet avis.")
-        await whatsapp.send_message(from_number, "\n".join(parts))
+            return
+
+    # Page web (pas un PDF) ou PDF trop lourd : fiche texte + lien
+    await whatsapp.send_message(from_number, _text_card())
 
 
 async def _handle_button_savoir(body: str, from_number: str, user: User, db: AsyncSession):

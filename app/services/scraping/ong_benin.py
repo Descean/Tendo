@@ -7,6 +7,7 @@ from typing import List
 
 from app.services.scraping.base import BaseScraper
 from app.utils.logger import logger
+from app.utils.text_quality import is_generic_title
 
 
 class ASINScraper(BaseScraper):
@@ -68,7 +69,7 @@ class ASINScraper(BaseScraper):
                 if not title and link:
                     title = self.clean_text(link.get_text())
 
-            if not title or len(title) < 15:
+            if not title or len(title) < 15 or is_generic_title(title):
                 continue
 
             href = link.get("href", "") if link else ""

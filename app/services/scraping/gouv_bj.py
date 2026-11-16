@@ -10,6 +10,7 @@ from urllib.parse import urljoin
 
 from app.services.scraping.base import BaseScraper
 from app.utils.logger import logger
+from app.utils.text_quality import clean_authority, is_generic_title
 
 
 class GouvBJScraper(BaseScraper):
@@ -123,13 +124,20 @@ class GouvBJScraper(BaseScraper):
                 except ValueError:
                     pass
 
-            # Autorité contractante
+            # Autorité contractante — uniquement dans le corps de l'article
+            # (la page entiere contient le menu du site, d'ou des autorites
+            # du type "S D'Adoption En Savoir Plus Offres D'Emploi ...").
+            body_el = soup.select_one(".entry-content, article .content, article, main")
+            body_text = body_el.get_text(" ", strip=True) if body_el else ""
             auth_match = re.search(
-                r"(?:autorit[ée]\s+contractante|ma[iî]tre\s+d.ouvrage|organisme)\s*[:\-]?\s*([^\n.]{5,100})",
-                text,
+                r"(?:autorit[ée]\s+contractante|ma[iî]tre\s+d.ouvrage)\s*[:\-]\s*([^\n.;]{5,100})",
+                body_text,
+                re.I,
             )
             if auth_match:
-                pub["authority_name"] = auth_match.group(1).strip().title()
+                cleaned = clean_authority(auth_match.group(1))
+                if cleaned:
+                    pub["authority_name"] = cleaned
 
             # Type de marché
             type_match = re.search(
@@ -247,5 +255,7 @@ class GouvBJScraper(BaseScraper):
         for pattern in patterns:
             match = re.search(pattern, text)
             if match:
-                return match.group(0).strip().title()
+                cleaned = clean_authority(" ".join(match.group(0).split()[:8]).title())
+                if cleaned:
+                    return cleaned
         return None

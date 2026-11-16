@@ -22,6 +22,9 @@ from app.models.notification import Notification
 from app.services import whatsapp
 from app.config import settings
 from app.utils.logger import logger
+from app.utils.text_quality import (
+    clean_authority, deadline_from_text, is_generic_title, outdated_reason, strip_accents,
+)
 
 # ── Configuration ──
 SEND_DELAY = 5
@@ -44,43 +47,43 @@ DEADLINE_TYPES = {"AAO", "DAO", "AMI", "RFQ", "RFP", "DRP", "AON", "AOI", "AOR",
 
 # Labels lisibles par type de document (pour le header et le champ Type)
 _DOC_TYPE_LABELS = {
-    "DRP": "Demande de renseignements et prix (DRP)",
+    "DRP": "Demande de renseignements et de prix (DRP)",
     "RFQ": "Demande de devis (RFQ)",
     "RFP": "Demande de propositions (RFP)",
-    "AOI": "Appel d offres international (AOI)",
-    "AOR": "Appel d offres restreint (AOR)",
-    "AON": "Appel d offres national (AON)",
-    "AMI": "Appel a manifestation d interet (AMI)",
-    "AAO": "Avis d appel a concurrence",
-    "DAO": "Dossier d appel d offres",
-    "PV_OUVERTURE": "PV d ouverture des plis",
-    "PV_ATTRIBUTION": "PV d attribution provisoire",
-    "AVIS_ATTRIBUTION": "Avis d attribution definitive",
-    "DECISION_ARMP": "Decision ARMP",
+    "AOI": "Appel d’offres international (AOI)",
+    "AOR": "Appel d’offres restreint (AOR)",
+    "AON": "Appel d’offres national (AON)",
+    "AMI": "Appel à manifestation d’intérêt (AMI)",
+    "AAO": "Avis d’appel à concurrence",
+    "DAO": "Dossier d’appel d’offres",
+    "PV_OUVERTURE": "PV d’ouverture des plis",
+    "PV_ATTRIBUTION": "PV d’attribution provisoire",
+    "AVIS_ATTRIBUTION": "Avis d’attribution définitive",
+    "DECISION_ARMP": "Décision ARMP",
     "ADDITIF": "Addendum / Additif",
-    "PPM": "Plan de passation des marches",
-    "Services": "Avis d appel d offres",
-    "Travaux": "Avis d appel d offres - Travaux",
-    "Fournitures": "Avis d appel d offres - Fournitures",
-    "Prestations intellectuelles": "Avis d appel d offres",
+    "PPM": "Plan de passation des marchés",
+    "Services": "Avis d’appel d’offres",
+    "Travaux": "Avis d’appel d’offres – Travaux",
+    "Fournitures": "Avis d’appel d’offres – Fournitures",
+    "Prestations intellectuelles": "Avis d’appel d’offres",
 }
 
 # Headers courts pour le tag du message (max ~40 chars pour WhatsApp)
 _DOC_TYPE_HEADERS = {
-    "DRP": "AVIS DE DEMANDE DE RENSEIGNEMENTS ET DE PRIX",
+    "DRP": "DEMANDE DE RENSEIGNEMENTS ET DE PRIX",
     "RFQ": "DEMANDE DE DEVIS (RFQ)",
     "RFP": "DEMANDE DE PROPOSITIONS (RFP)",
-    "AOI": "APPEL D OFFRES INTERNATIONAL",
-    "AOR": "APPEL D OFFRES RESTREINT",
-    "AON": "APPEL D OFFRES NATIONAL",
-    "AMI": "APPEL A MANIFESTATION D INTERET",
-    "AAO": "AVIS D APPEL D OFFRES",
-    "DAO": "DOSSIER D APPEL D OFFRES",
-    "Services": "AVIS D APPEL D OFFRES",
-    "Travaux": "AVIS D APPEL D OFFRES - TRAVAUX",
-    "Fournitures": "AVIS D APPEL D OFFRES - FOURNITURES",
-    "Prestations intellectuelles": "AVIS D APPEL D OFFRES",
-    "Services / Prestations intellectuelles": "AVIS D APPEL D OFFRES",
+    "AOI": "APPEL D’OFFRES INTERNATIONAL",
+    "AOR": "APPEL D’OFFRES RESTREINT",
+    "AON": "APPEL D’OFFRES NATIONAL",
+    "AMI": "APPEL À MANIFESTATION D’INTÉRÊT",
+    "AAO": "AVIS D’APPEL D’OFFRES",
+    "DAO": "DOSSIER D’APPEL D’OFFRES",
+    "Services": "AVIS D’APPEL D’OFFRES",
+    "Travaux": "AVIS D’APPEL D’OFFRES – TRAVAUX",
+    "Fournitures": "AVIS D’APPEL D’OFFRES – FOURNITURES",
+    "Prestations intellectuelles": "AVIS D’APPEL D’OFFRES",
+    "Services / Prestations intellectuelles": "AVIS D’APPEL D’OFFRES",
 }
 
 
@@ -104,11 +107,28 @@ def _days_remaining(deadline) -> int | None:
 
 
 def _is_expired(pub) -> bool:
-    """Verifie si une publication a une deadline passee."""
+    """Vrai si la publication n'est plus d'actualite.
+
+    Avant nov. 2026 seul le champ deadline etait teste : les avis sans deadline
+    parsee (ex. AMI de 2024 re-scrapes apres la remise a zero de la base)
+    etaient envoyes comme [NOUVEAU]. On regarde maintenant aussi la date limite
+    ecrite dans le texte, la date de publication et les annees citees.
+    """
+    reason = outdated_reason(
+        deadline=pub.deadline,
+        published_date=pub.published_date if isinstance(pub.published_date, datetime) else None,
+        texts=(pub.title, pub.summary, pub.technical_summary, (pub.pdf_content or "")[:20000]),
+    )
+    if reason:
+        logger.info(f"[Notifications] pub={pub.id} ecartee : {reason}")
+        return True
+    # Date limite presente seulement dans le texte : la reporter sur la fiche
+    # pour l'afficher dans l'alerte (Date limite / Délai restant).
     if not pub.deadline:
-        return False
-    days = _days_remaining(pub.deadline)
-    return days is not None and days < 0
+        found = deadline_from_text(pub.title, pub.summary, pub.technical_summary, (pub.pdf_content or "")[:20000])
+        if found:
+            pub.deadline = found
+    return False
 
 
 def _deadline_tag(days: int | None) -> str:
@@ -186,11 +206,11 @@ def _extract_real_object(pub: Publication) -> str:
 
 
 def _extract_real_authority(pub: Publication) -> str | None:
-    """Extrait le vrai nom de l'autorite contractante, pas l'email."""
-    auth = pub.authority_name or ""
+    """Extrait le vrai nom de l'autorite contractante (jamais un email ni un bout de menu)."""
+    auth = clean_authority(pub.authority_name) or ""
 
-    # Si c'est un email, chercher le vrai nom dans le contenu
-    if "@" in auth or not auth or len(auth) < 5:
+    # Si l'autorite stockee est absente ou douteuse, chercher le vrai nom dans le contenu
+    if not auth:
         text = pub.pdf_content or pub.summary or ""
         patterns = [
             r"(?:autorit[eé]\s*contractante|ma[iî]tre\s*d['']\s*ouvrage)\s*[:]\s*(.{5,100}?)(?:\n|T[eé]l|Email|Adresse|Ref)",
@@ -200,15 +220,12 @@ def _extract_real_authority(pub: Publication) -> str | None:
             m = re.search(pat, text, re.I)
             if m:
                 name = m.group(1) if m.lastindex else m.group(0)
-                name = re.sub(r"\s+", " ", name).strip()
-                if len(name) > 5 and "@" not in name:
+                name = clean_authority(name)
+                if name:
                     return name
+        return None
 
-    # Si l'autorite est propre (pas un email), la garder
-    if auth and "@" not in auth and len(auth) > 5:
-        return auth
-
-    return None
+    return auth
 
 
 def _extract_reference(pub: Publication) -> str | None:
@@ -233,8 +250,8 @@ def _extract_reference(pub: Publication) -> str | None:
 def _format_deadline_date(deadline) -> str:
     """Formate la deadline en date lisible: '28 mai 2026'."""
     MOIS = [
-        "", "janvier", "fevrier", "mars", "avril", "mai", "juin",
-        "juillet", "aout", "septembre", "octobre", "novembre", "decembre",
+        "", "janvier", "février", "mars", "avril", "mai", "juin",
+        "juillet", "août", "septembre", "octobre", "novembre", "décembre",
     ]
     if not deadline:
         return ""
@@ -255,10 +272,10 @@ def _build_aao_message(pub: Publication, user: User) -> tuple:
 
     # Detecter AMI dans le titre meme si le type est AAO
     title_lower = (pub.title or "").lower()
-    if "manifestation" in title_lower or "ami" in title_lower:
-        header_label = "APPEL A MANIFESTATION D INTERET"
+    if "manifestation" in title_lower or re.search(r"\bami\b", title_lower):
+        header_label = "APPEL À MANIFESTATION D’INTÉRÊT"
     else:
-        header_label = _DOC_TYPE_HEADERS.get(doc_type, "AVIS D APPEL D OFFRES")
+        header_label = _DOC_TYPE_HEADERS.get(doc_type, "AVIS D’APPEL D’OFFRES")
     header = f"{tag} {header_label}"
 
     # Extraire les vraies donnees d'affichage
@@ -271,10 +288,10 @@ def _build_aao_message(pub: Publication, user: User) -> tuple:
 
     parts = []
     if real_authority:
-        parts.append(f"Autorite : {real_authority}")
+        parts.append(f"Autorité : {real_authority}")
     parts.append(f"Objet : {real_object}")
     if real_ref:
-        parts.append(f"Reference : {real_ref}")
+        parts.append(f"Référence : {real_ref}")
     # Type de document
     parts.append(f"Type : {type_label}")
     # Lots
@@ -289,24 +306,24 @@ def _build_aao_message(pub: Publication, user: User) -> tuple:
     if days is not None and days >= 0:
         today_str = datetime.now(timezone.utc).strftime("%d/%m/%Y")
         parts.append(
-            f"Delai : {days} jour{'s' if days != 1 else ''} restant{'s' if days != 1 else ''}"
+            f"Délai : {days} jour{'s' if days != 1 else ''} restant{'s' if days != 1 else ''}"
             f" (base : {today_str})"
         )
     # Delai de livraison
     if pub.delivery_delay:
-        parts.append(f"Delai de livraison : {pub.delivery_delay}")
+        parts.append(f"Délai de livraison : {pub.delivery_delay}")
     if pub.financing_source:
         parts.append(f"Financement : {pub.financing_source}")
 
     body = "\n".join(parts)
 
     # Boutons (max 3, titre max 20 chars)
-    buttons = [{"id": f"voir_{pub.id}", "title": "Voir l avis"}]
+    buttons = [{"id": f"voir_{pub.id}", "title": "Voir l’avis"}]
 
     if plan in ("essentiel", "premium"):
-        buttons.append({"id": f"resume_{pub.id}", "title": "Resume technique"})
+        buttons.append({"id": f"resume_{pub.id}", "title": "Résumé technique"})
     else:
-        buttons.append({"id": f"upsell_resume_{pub.id}", "title": "Resume (abonnez)"})
+        buttons.append({"id": f"upsell_resume_{pub.id}", "title": "Résumé (abonnés)"})
 
     buttons.append({"id": f"ignorer_{pub.id}", "title": "Ignorer"})
 
@@ -319,7 +336,7 @@ def _build_ami_message(pub: Publication, user: User) -> tuple:
     tag = _deadline_tag(days)
     plan = _user_plan(user)
 
-    header = f"{tag} APPEL A MANIFESTATION D INTERET"
+    header = f"{tag} APPEL À MANIFESTATION D’INTÉRÊT"
 
     real_authority = _extract_real_authority(pub)
     real_object = _extract_real_object(pub)
@@ -327,11 +344,11 @@ def _build_ami_message(pub: Publication, user: User) -> tuple:
 
     parts = []
     if real_authority:
-        parts.append(f"Autorite : {real_authority}")
+        parts.append(f"Autorité : {real_authority}")
     parts.append(f"Objet : {real_object}")
     if real_ref:
-        parts.append(f"Reference : {real_ref}")
-    parts.append(f"Type : Appel a manifestation d interet (AMI)")
+        parts.append(f"Référence : {real_ref}")
+    parts.append("Type : Appel à manifestation d’intérêt (AMI)")
     if pub.lots_detail:
         parts.append(f"Lots : {pub.lots_detail}")
     if pub.deadline:
@@ -339,19 +356,19 @@ def _build_ami_message(pub: Publication, user: User) -> tuple:
     if days is not None and days >= 0:
         today_str = datetime.now(timezone.utc).strftime("%d/%m/%Y")
         parts.append(
-            f"Delai : {days} jour{'s' if days != 1 else ''} restant{'s' if days != 1 else ''}"
+            f"Délai : {days} jour{'s' if days != 1 else ''} restant{'s' if days != 1 else ''}"
             f" (base : {today_str})"
         )
     if pub.delivery_delay:
-        parts.append(f"Delai de livraison : {pub.delivery_delay}")
+        parts.append(f"Délai de livraison : {pub.delivery_delay}")
 
     body = "\n".join(parts)
 
-    buttons = [{"id": f"voir_{pub.id}", "title": "Voir l avis"}]
+    buttons = [{"id": f"voir_{pub.id}", "title": "Voir l’avis"}]
     if plan in ("essentiel", "premium"):
-        buttons.append({"id": f"resume_{pub.id}", "title": "Criteres selection"})
+        buttons.append({"id": f"resume_{pub.id}", "title": "Critères sélection"})
     else:
-        buttons.append({"id": f"upsell_resume_{pub.id}", "title": "Criteres (abonnez)"})
+        buttons.append({"id": f"upsell_resume_{pub.id}", "title": "Critères (abonnés)"})
     buttons.append({"id": f"ignorer_{pub.id}", "title": "Ignorer"})
 
     return body, buttons, header
@@ -368,19 +385,19 @@ def _build_additif_message(pub: Publication, user: User) -> tuple:
     real_authority = _extract_real_authority(pub)
 
     parts = []
-    parts.append(f"Marche concerne : {real_object}")
+    parts.append(f"Marché concerné : {real_object}")
     if real_authority:
-        parts.append(f"Autorite : {real_authority}")
+        parts.append(f"Autorité : {real_authority}")
     if pub.deadline:
-        parts.append(f"Nouvelle date limite : {pub.deadline.strftime('%d/%m/%Y a %Hh%M')}")
+        parts.append(f"Nouvelle date limite : {pub.deadline.strftime('%d/%m/%Y à %Hh%M')}")
     if days is not None and days >= 0:
-        parts.append(f"Delai : {days} jour{'s' if days != 1 else ''} restant{'s' if days != 1 else ''}")
+        parts.append(f"Délai : {days} jour{'s' if days != 1 else ''} restant{'s' if days != 1 else ''}")
 
     body = "\n".join(parts)
 
-    buttons = [{"id": f"voir_{pub.id}", "title": "Telecharger"}]
+    buttons = [{"id": f"voir_{pub.id}", "title": "Télécharger"}]
     if plan == "premium":
-        buttons.append({"id": f"suivre_{pub.id}", "title": "Maj mon suivi"})
+        buttons.append({"id": f"suivre_{pub.id}", "title": "MàJ mon suivi"})
 
     return body, buttons, header
 
@@ -388,15 +405,15 @@ def _build_additif_message(pub: Publication, user: User) -> tuple:
 def _build_pv_ouverture_message(pub: Publication, user: User) -> tuple:
     """Proces-verbal d'ouverture des plis."""
     plan = _user_plan(user)
-    header = "[PROCES VERBAL D OUVERTURE]"
+    header = "[PROCÈS-VERBAL D’OUVERTURE]"
 
     real_object = _extract_real_object(pub)
     real_authority = _extract_real_authority(pub)
 
     parts = []
-    parts.append(f"Marche : {real_object}")
+    parts.append(f"Marché : {real_object}")
     if real_authority:
-        parts.append(f"Autorite : {real_authority}")
+        parts.append(f"Autorité : {real_authority}")
 
     body = "\n".join(parts)
 
@@ -415,9 +432,9 @@ def _build_pv_attribution_message(pub: Publication, user: User) -> tuple:
     real_authority = _extract_real_authority(pub)
 
     parts = []
-    parts.append(f"Marche : {real_object}")
+    parts.append(f"Marché : {real_object}")
     if real_authority:
-        parts.append(f"Autorite : {real_authority}")
+        parts.append(f"Autorité : {real_authority}")
     if pub.budget:
         parts.append(f"Montant : {pub.budget:,.0f} FCFA")
 
@@ -430,12 +447,12 @@ def _build_pv_attribution_message(pub: Publication, user: User) -> tuple:
 
 def _build_avis_attribution_message(pub: Publication, user: User) -> tuple:
     """Avis d'attribution definitive."""
-    header = "[ATTRIBUTION DEFINITIVE]"
+    header = "[ATTRIBUTION DÉFINITIVE]"
 
     real_object = _extract_real_object(pub)
 
     parts = []
-    parts.append(f"Marche : {real_object}")
+    parts.append(f"Marché : {real_object}")
     if pub.authority_name and "@" not in (pub.authority_name or ""):
         parts.append(f"Titulaire : {pub.authority_name}")
     if pub.budget:
@@ -443,14 +460,14 @@ def _build_avis_attribution_message(pub: Publication, user: User) -> tuple:
 
     body = "\n".join(parts)
 
-    buttons = [{"id": f"voir_{pub.id}", "title": "Voir l avis"}]
+    buttons = [{"id": f"voir_{pub.id}", "title": "Voir l’avis"}]
 
     return body, buttons, header
 
 
 def _build_decision_armp_message(pub: Publication, user: User) -> tuple:
     """Decision ARMP (recours, sanction, exclusion)."""
-    header = "[DECISION ARMP]"
+    header = "[DÉCISION ARMP]"
 
     parts = []
     parts.append(f"Objet : {pub.title}")
@@ -461,7 +478,7 @@ def _build_decision_armp_message(pub: Publication, user: User) -> tuple:
 
     body = "\n".join(parts)
 
-    buttons = [{"id": f"voir_{pub.id}", "title": "Lire la decision"}]
+    buttons = [{"id": f"voir_{pub.id}", "title": "Lire la décision"}]
 
     return body, buttons, header
 
@@ -478,24 +495,24 @@ def _build_ppm_message(pub: Publication, user: User) -> tuple:
     parts = []
     parts.append(f"Objet : {objet}")
     if autorite:
-        parts.append(f"Autorite : {autorite}")
+        parts.append(f"Autorité : {autorite}")
     if ref:
         parts.append(f"Ref : {ref}")
-    if pub.published_at:
-        parts.append(f"Annee : {pub.published_at.strftime('%Y')}")
+    if isinstance(pub.published_date, datetime):
+        parts.append(f"Année : {pub.published_date.strftime('%Y')}")
 
     body = "\n".join(parts)
 
-    buttons = [{"id": f"voir_{pub.id}", "title": "Telecharger le PPM"}]
+    buttons = [{"id": f"voir_{pub.id}", "title": "Télécharger le PPM"}]
     if plan == "premium":
-        buttons.append({"id": f"suivre_{pub.id}", "title": "Notifier marches"})
+        buttons.append({"id": f"suivre_{pub.id}", "title": "Notifier marchés"})
 
     return body, buttons, header
 
 
 def _build_generic_message(pub: Publication, user: User) -> tuple:
     """Document non classifie ou type inconnu."""
-    header = f"[DOCUMENT RECU] {pub.source or ''}"
+    header = f"[DOCUMENT REÇU] {pub.source or ''}"
 
     objet = _extract_real_object(pub)
     autorite = _extract_real_authority(pub)
@@ -513,7 +530,7 @@ def _build_generic_message(pub: Publication, user: User) -> tuple:
     body = "\n".join(parts)
 
     buttons = [{"id": f"voir_{pub.id}", "title": "Voir le document"}]
-    buttons.append({"id": f"resume_{pub.id}", "title": "Analyser par IA"})
+    buttons.append({"id": f"resume_{pub.id}", "title": "Analyser par l’IA"})
 
     return body, buttons, header
 
@@ -578,10 +595,12 @@ def _is_quality_publication(pub: Publication) -> bool:
     if len(title) < 15:
         return False
 
-    # Titre blackliste (navigation, contenu generique)
-    title_lower = title.lower()
+    # Titre blackliste (navigation, contenu generique) — comparaison sans accents
+    title_lower = strip_accents(title).lower()
+    if is_generic_title(title):
+        return False
     for pattern in _BLACKLISTED_TITLE_PATTERNS:
-        if pattern in title_lower:
+        if pattern in title_lower and len(title_lower) < len(pattern) + 25:
             return False
 
     # Pas de PDF ET pas de resume/contenu substantiel → rien a montrer
