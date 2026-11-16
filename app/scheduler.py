@@ -1293,6 +1293,15 @@ def setup_scheduler():
         replace_existing=True,
     )
 
+    # Résultats des dossiers SHIFT UP -- chaque jour à 9h et 15h (après la segmentation JNMP)
+    scheduler.add_job(
+        job_resultats_shiftup,
+        CronTrigger(hour="9,15", minute="10"),
+        id="resultats_shiftup",
+        name="Veille des résultats des dossiers SHIFT UP",
+        replace_existing=True,
+    )
+
     # Auto-apprentissage -- chaque dimanche a 3h du matin
     scheduler.add_job(
         job_self_learn,
@@ -1321,6 +1330,17 @@ def setup_scheduler():
 
     scheduler.start()
     logger.info("[Scheduler] Taches planifiees configurees")
+
+
+async def job_resultats_shiftup():
+    """Cherche dans les PV d'attribution le résultat des offres déposées par SHIFT UP."""
+    from app.services.resultats_shiftup import verifier_resultats
+    async with AsyncSessionLocal() as db:
+        try:
+            bilan = await verifier_resultats(db)
+            logger.info(f"[Scheduler] Résultats SHIFT UP : {bilan}")
+        except Exception as e:
+            logger.error(f"[Scheduler] Erreur veille résultats SHIFT UP: {e}")
 
 
 def shutdown_scheduler():

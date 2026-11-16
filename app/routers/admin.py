@@ -1558,6 +1558,17 @@ async def trigger_self_learn(key: str = ""):
     return {"status": "started", "message": "Auto-apprentissage lance en arriere-plan"}
 
 
+@router.post("/trigger/resultats-shiftup")
+async def trigger_resultats_shiftup(key: str = ""):
+    """Lance tout de suite la veille des résultats des dossiers SHIFT UP."""
+    _ck(key)
+    async def _run():
+        from app.scheduler import job_resultats_shiftup
+        await job_resultats_shiftup()
+    asyncio.create_task(_run())
+    return {"status": "started", "message": "Veille des résultats SHIFT UP lancée en arrière-plan"}
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 # API Knowledge Base CRUD
 # ══════════════════════════════════════════════════════════════════════════════

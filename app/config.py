@@ -71,6 +71,10 @@ class Settings(BaseSettings):
     admin_emails: List[str] = Field(default_factory=lambda: ["admin@shiftup.bj"])
     admin_phones: List[str] = Field(default_factory=lambda: ["2290140809108"])  # Numeros WhatsApp admin pour alertes
 
+    # SHIFT UP : chiffres publics et suivi des résultats des dossiers déposés
+    shiftup_api_url: str = "https://www.shiftup.bj"
+    shiftup_api_key: str = ""  # même valeur que TENDO_API_KEY sur Vercel (shiftup.bj)
+
     # Notifications : mode test (liste vide = envoi a tous les utilisateurs actifs)
     test_phone_numbers: List[str] = Field(default_factory=list)
 

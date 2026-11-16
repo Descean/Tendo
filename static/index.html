@@ -1,1333 +1,369 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tendo — Gagnez vos marchés publics directement sur WhatsApp</title>
-    <meta name="description" content="Tendo surveille les appels d'offres au Bénin 24h/24, analyse les DAO avec l'IA et vous alerte sur WhatsApp. Essai gratuit 7 jours.">
-    <meta name="keywords" content="marchés publics, Bénin, appels d'offres, WhatsApp, DAO, ARMP, soumission, BTP, fournitures">
-    <meta property="og:title" content="Tendo — Assistant IA Marchés Publics">
-    <meta property="og:description" content="Recevez les appels d'offres qui vous concernent directement sur WhatsApp. Analyse IA des dossiers.">
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://tendo.shiftup.bj">
-    <meta property="og:image" content="https://tendo.shiftup.bj/static/images/banner.png">
-    <link rel="icon" type="image/png" href="/static/images/logo.png">
-    <link rel="canonical" href="https://tendo.shiftup.bj">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --primary: #6C3CE1;
-            --primary-dark: #5228B5;
-            --primary-light: #8B6CF6;
-            --whatsapp: #25D366;
-            --whatsapp-dark: #1DA851;
-            --dark: #0F1117;
-            --dark-2: #1A1D27;
-            --gray-900: #1F2937;
-            --gray-700: #374151;
-            --gray-500: #6B7280;
-            --gray-300: #D1D5DB;
-            --gray-100: #F3F4F6;
-            --white: #FFFFFF;
-            --danger: #EF4444;
-            --success: #10B981;
-            --warning: #F59E0B;
-        }
-
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-
-        body {
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
-            background: var(--white);
-            color: var(--gray-900);
-            line-height: 1.6;
-            -webkit-font-smoothing: antialiased;
-        }
-
-        
-        .checkbox-label {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 0.75rem;
-            border: 1px solid var(--gray-300);
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
-            font-size: 0.85rem;
-        }
-        .checkbox-label:hover {
-            border-color: var(--primary);
-            background: rgba(108,60,225,0.04);
-        }
-        .checkbox-label input:checked + span {
-            color: var(--primary);
-            font-weight: 600;
-        }
-        .checkbox-label:has(input:checked) {
-            border-color: var(--primary);
-            background: rgba(108,60,225,0.06);
-        }
-
-        /* ===== HEADER / NAV ===== */
-        .nav {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            z-index: 1000;
-            background: rgba(15, 17, 23, 0.95);
-            backdrop-filter: blur(20px);
-            border-bottom: 1px solid rgba(255,255,255,0.06);
-            padding: 0 2rem;
-            transition: all 0.3s;
-        }
-        .nav-inner {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            height: 64px;
-        }
-        .nav-logo {
-            font-size: 1.5rem;
-            font-weight: 800;
-            color: var(--white);
-            text-decoration: none;
-            letter-spacing: -0.5px;
-        }
-        .nav-logo span { color: var(--primary-light); }
-        .nav-links {
-            display: flex;
-            gap: 2rem;
-            align-items: center;
-            list-style: none;
-        }
-        .nav-links a {
-            color: rgba(255,255,255,0.7);
-            text-decoration: none;
-            font-size: 0.9rem;
-            font-weight: 500;
-            transition: color 0.2s;
-        }
-        .nav-links a:hover { color: var(--white); }
-        .nav-cta {
-            background: var(--primary) !important;
-            color: var(--white) !important;
-            padding: 0.5rem 1.2rem;
-            border-radius: 8px;
-            font-weight: 600 !important;
-            transition: background 0.2s !important;
-        }
-        .nav-cta:hover { background: var(--primary-dark) !important; }
-
-        .mobile-menu-btn {
-            display: none;
-            background: none;
-            border: none;
-            color: var(--white);
-            font-size: 1.5rem;
-            cursor: pointer;
-        }
-
-        /* ===== HERO ===== */
-        .hero {
-            background: linear-gradient(160deg, rgba(15,17,23,0.88) 0%, rgba(26,29,39,0.85) 40%, rgba(45,27,94,0.9) 100%), url('/static/images/banner.png') center/cover no-repeat;
-            color: var(--white);
-            padding: 8rem 2rem 5rem;
-            position: relative;
-            overflow: hidden;
-        }
-        .hero::before {
-            content: '';
-            position: absolute;
-            top: -30%;
-            right: -20%;
-            width: 600px;
-            height: 600px;
-            background: radial-gradient(circle, rgba(108,60,225,0.15) 0%, transparent 70%);
-            border-radius: 50%;
-        }
-        .hero::after {
-            content: '';
-            position: absolute;
-            bottom: -20%;
-            left: -10%;
-            width: 400px;
-            height: 400px;
-            background: radial-gradient(circle, rgba(37,211,102,0.08) 0%, transparent 70%);
-            border-radius: 50%;
-        }
-        .hero-inner {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 4rem;
-            align-items: center;
-            position: relative;
-            z-index: 1;
-        }
-        .hero-badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: rgba(108,60,225,0.2);
-            border: 1px solid rgba(108,60,225,0.3);
-            padding: 0.4rem 1rem;
-            border-radius: 50px;
-            font-size: 0.8rem;
-            font-weight: 500;
-            margin-bottom: 1.5rem;
-            color: var(--primary-light);
-        }
-        .hero h1 {
-            font-size: 3.2rem;
-            font-weight: 800;
-            line-height: 1.1;
-            letter-spacing: -1.5px;
-            margin-bottom: 1.5rem;
-        }
-        .hero h1 .highlight { color: var(--primary-light); }
-        .hero h1 .wa-highlight { color: var(--whatsapp); }
-        .hero-desc {
-            font-size: 1.15rem;
-            color: rgba(255,255,255,0.7);
-            margin-bottom: 2rem;
-            max-width: 480px;
-            line-height: 1.7;
-        }
-        .hero-actions {
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-        }
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.9rem 2rem;
-            border-radius: 12px;
-            font-size: 1rem;
-            font-weight: 600;
-            text-decoration: none;
-            transition: all 0.3s;
-            border: none;
-            cursor: pointer;
-        }
-        .btn-whatsapp {
-            background: var(--whatsapp);
-            color: var(--white);
-            box-shadow: 0 4px 24px rgba(37,211,102,0.3);
-        }
-        .btn-whatsapp:hover {
-            background: var(--whatsapp-dark);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 32px rgba(37,211,102,0.4);
-        }
-        .btn-outline {
-            background: transparent;
-            color: var(--white);
-            border: 1.5px solid rgba(255,255,255,0.2);
-        }
-        .btn-outline:hover {
-            border-color: rgba(255,255,255,0.5);
-            background: rgba(255,255,255,0.05);
-        }
-        .btn-primary {
-            background: var(--primary);
-            color: var(--white);
-        }
-        .btn-primary:hover {
-            background: var(--primary-dark);
-            transform: translateY(-1px);
-        }
-        .hero-stats {
-            display: flex;
-            gap: 2rem;
-            margin-top: 2.5rem;
-            padding-top: 2rem;
-            border-top: 1px solid rgba(255,255,255,0.1);
-        }
-        .hero-stat-value {
-            font-size: 1.8rem;
-            font-weight: 800;
-            color: var(--primary-light);
-        }
-        .hero-stat-label {
-            font-size: 0.8rem;
-            color: rgba(255,255,255,0.5);
-            margin-top: 0.2rem;
-        }
-
-        /* Phone mockup */
-        .hero-visual {
-            display: flex;
-            justify-content: center;
-        }
-        .phone-mockup {
-            width: 300px;
-            background: var(--dark);
-            border-radius: 32px;
-            padding: 12px;
-            box-shadow: 0 30px 80px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.08);
-        }
-        .phone-screen {
-            background: #ECE5DD;
-            border-radius: 22px;
-            overflow: hidden;
-            min-height: 420px;
-        }
-        .phone-header {
-            background: #075E54;
-            color: white;
-            padding: 0.8rem 1rem;
-            display: flex;
-            align-items: center;
-            gap: 0.6rem;
-            font-size: 0.85rem;
-            font-weight: 600;
-        }
-        .phone-avatar {
-            width: 32px;
-            height: 32px;
-            background: var(--primary);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.75rem;
-            font-weight: 700;
-        }
-        .phone-messages {
-            padding: 0.8rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-        .msg {
-            max-width: 85%;
-            padding: 0.6rem 0.8rem;
-            border-radius: 8px;
-            font-size: 0.75rem;
-            line-height: 1.4;
-        }
-        .msg-bot {
-            background: white;
-            align-self: flex-start;
-            border-top-left-radius: 2px;
-        }
-        .msg-user {
-            background: #DCF8C6;
-            align-self: flex-end;
-            border-top-right-radius: 2px;
-        }
-        .msg b { font-weight: 600; }
-        .msg-buttons {
-            display: flex;
-            flex-direction: column;
-            margin-top: 4px;
-        }
-        .msg-btn {
-            text-align: center;
-            padding: 6px;
-            color: #0099ff;
-            font-size: 0.72rem;
-            font-weight: 500;
-            border-top: 1px solid #e8e8e8;
-        }
-        .msg-alert-hdr {
-            background: #f0ecf8;
-            padding: 4px 8px;
-            font-size: 0.65rem;
-            color: #5228B5;
-            font-weight: 600;
-            border-radius: 8px 8px 0 0;
-        }
-
-        /* ===== SECTION COMMON ===== */
-        section { padding: 5rem 2rem; }
-        .section-inner { max-width: 1200px; margin: 0 auto; }
-        .section-label {
-            font-size: 0.8rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            color: var(--primary);
-            margin-bottom: 0.8rem;
-        }
-        .section-title {
-            font-size: 2.4rem;
-            font-weight: 800;
-            letter-spacing: -1px;
-            margin-bottom: 1rem;
-            color: var(--gray-900);
-        }
-        .section-desc {
-            font-size: 1.05rem;
-            color: var(--gray-500);
-            max-width: 600px;
-            line-height: 1.7;
-        }
-
-        /* ===== PROBLEM / SOLUTION ===== */
-        .problem { background: var(--gray-100); }
-        .problem-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 3rem;
-            margin-top: 3rem;
-        }
-        .problem-card, .solution-card {
-            padding: 2rem;
-            border-radius: 16px;
-            background: var(--white);
-            border: 1px solid var(--gray-300);
-        }
-        .solution-card {
-            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-            color: var(--white);
-            border: none;
-        }
-        .problem-card h3, .solution-card h3 {
-            font-size: 1.3rem;
-            font-weight: 700;
-            margin-bottom: 1rem;
-        }
-        .problem-list {
-            list-style: none;
-            display: flex;
-            flex-direction: column;
-            gap: 0.8rem;
-        }
-        .problem-list li {
-            display: flex;
-            align-items: flex-start;
-            gap: 0.6rem;
-            font-size: 0.95rem;
-            line-height: 1.5;
-        }
-        .problem-list .icon { flex-shrink: 0; font-size: 1.1rem; }
-
-        /* ===== SERVICES ===== */
-        .services-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 1.5rem;
-            margin-top: 3rem;
-        }
-        .service-card {
-            padding: 2rem 1.5rem;
-            border-radius: 16px;
-            background: var(--white);
-            border: 1px solid var(--gray-300);
-            transition: all 0.3s;
-            text-align: center;
-        }
-        .service-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 12px 40px rgba(0,0,0,0.08);
-            border-color: var(--primary-light);
-        }
-        .service-icon {
-            width: 56px;
-            height: 56px;
-            background: rgba(108,60,225,0.1);
-            border-radius: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            margin: 0 auto 1.2rem;
-        }
-        .service-card h3 {
-            font-size: 1.05rem;
-            font-weight: 700;
-            margin-bottom: 0.6rem;
-        }
-        .service-card p {
-            font-size: 0.88rem;
-            color: var(--gray-500);
-            line-height: 1.5;
-        }
-
-        /* ===== PROCESS ===== */
-        .process { background: var(--dark); color: var(--white); }
-        .process .section-title { color: var(--white); }
-        .process .section-desc { color: rgba(255,255,255,0.6); }
-        .process-steps {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 2rem;
-            margin-top: 3rem;
-        }
-        .step {
-            text-align: center;
-            padding: 2rem;
-        }
-        .step-number {
-            width: 48px;
-            height: 48px;
-            background: var(--primary);
-            border-radius: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-            font-weight: 800;
-            margin: 0 auto 1.2rem;
-        }
-        .step h3 {
-            font-size: 1.15rem;
-            font-weight: 700;
-            margin-bottom: 0.6rem;
-        }
-        .step p {
-            font-size: 0.9rem;
-            color: rgba(255,255,255,0.6);
-            line-height: 1.6;
-        }
-
-        /* ===== PRICING ===== */
-        .pricing-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1.5rem;
-            margin-top: 3rem;
-        }
-        .price-card {
-            padding: 2.5rem 2rem;
-            border-radius: 16px;
-            background: var(--white);
-            border: 1.5px solid var(--gray-300);
-            text-align: center;
-            transition: all 0.3s;
-            position: relative;
-        }
-        .price-card.featured {
-            border-color: var(--primary);
-            box-shadow: 0 8px 40px rgba(108,60,225,0.15);
-            transform: scale(1.03);
-        }
-        .price-card.featured::before {
-            content: 'Populaire';
-            position: absolute;
-            top: -12px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: var(--primary);
-            color: white;
-            padding: 0.25rem 1rem;
-            border-radius: 50px;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-        .price-name {
-            font-size: 1.1rem;
-            font-weight: 700;
-            margin-bottom: 0.3rem;
-        }
-        .price-amount {
-            font-size: 2.8rem;
-            font-weight: 800;
-            color: var(--gray-900);
-            margin: 1rem 0 0.3rem;
-        }
-        .price-amount span { font-size: 1rem; font-weight: 500; color: var(--gray-500); }
-        .price-period { font-size: 0.85rem; color: var(--gray-500); margin-bottom: 1.5rem; }
-        .price-features {
-            list-style: none;
-            text-align: left;
-            margin-bottom: 2rem;
-        }
-        .price-features li {
-            padding: 0.5rem 0;
-            font-size: 0.9rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            border-bottom: 1px solid var(--gray-100);
-        }
-        .price-features .check { color: var(--success); font-weight: 700; }
-
-        /* ===== REGISTRATION FORM ===== */
-        .register { background: var(--gray-100); }
-        .register-form {
-            max-width: 560px;
-            margin: 2rem auto 0;
-            background: var(--white);
-            padding: 2.5rem;
-            border-radius: 20px;
-            box-shadow: 0 8px 40px rgba(0,0,0,0.06);
-            border: 1px solid var(--gray-300);
-        }
-        .form-group {
-            margin-bottom: 1.2rem;
-        }
-        .form-group label {
-            display: block;
-            font-size: 0.85rem;
-            font-weight: 600;
-            margin-bottom: 0.4rem;
-            color: var(--gray-700);
-        }
-        .form-group input, .form-group select {
-            width: 100%;
-            padding: 0.75rem 1rem;
-            border: 1.5px solid var(--gray-300);
-            border-radius: 10px;
-            font-size: 0.95rem;
-            font-family: inherit;
-            transition: border-color 0.2s;
-            background: var(--white);
-        }
-        .form-group input:focus, .form-group select:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(108,60,225,0.1);
-        }
-        .form-group input.invalid { border-color: var(--danger); }
-        .form-error {
-            font-size: 0.78rem;
-            color: var(--danger);
-            margin-top: 0.3rem;
-            display: none;
-        }
-        .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 1rem;
-        }
-        .form-submit {
-            width: 100%;
-            margin-top: 1rem;
-        }
-        .form-note {
-            text-align: center;
-            font-size: 0.8rem;
-            color: var(--gray-500);
-            margin-top: 1rem;
-        }
-        .honeypot { display: none !important; }
-
-        /* ===== TRUST ===== */
-        .trust-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 2rem;
-            margin-top: 3rem;
-        }
-        .trust-item {
-            text-align: center;
-            padding: 1.5rem;
-        }
-        .trust-icon {
-            font-size: 2rem;
-            margin-bottom: 0.8rem;
-        }
-        .trust-item h3 {
-            font-size: 1rem;
-            font-weight: 700;
-            margin-bottom: 0.4rem;
-        }
-        .trust-item p {
-            font-size: 0.88rem;
-            color: var(--gray-500);
-        }
-
-        /* ===== FOOTER ===== */
-        .footer {
-            background: var(--dark);
-            color: rgba(255,255,255,0.6);
-            padding: 3rem 2rem 2rem;
-        }
-        .footer-inner {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: 2fr 1fr 1fr;
-            gap: 2rem;
-        }
-        .footer-brand h3 {
-            color: var(--white);
-            font-size: 1.3rem;
-            font-weight: 700;
-            margin-bottom: 0.5rem;
-        }
-        .footer-brand h3 span { color: var(--primary-light); }
-        .footer-brand p { font-size: 0.85rem; line-height: 1.6; }
-        .footer-col h4 {
-            color: var(--white);
-            font-size: 0.9rem;
-            font-weight: 600;
-            margin-bottom: 0.8rem;
-        }
-        .footer-col a {
-            display: block;
-            color: rgba(255,255,255,0.5);
-            text-decoration: none;
-            font-size: 0.85rem;
-            padding: 0.3rem 0;
-            transition: color 0.2s;
-        }
-        .footer-col a:hover { color: var(--white); }
-        .footer-bottom {
-            max-width: 1200px;
-            margin: 2rem auto 0;
-            padding-top: 1.5rem;
-            border-top: 1px solid rgba(255,255,255,0.08);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.8rem;
-        }
-
-        /* ===== RESPONSIVE ===== */
-        @media (max-width: 900px) {
-            .hero-inner { grid-template-columns: 1fr; text-align: center; }
-            .hero h1 { font-size: 2.4rem; }
-            .hero-desc { margin: 0 auto 2rem; }
-            .hero-actions { justify-content: center; }
-            .hero-stats { justify-content: center; }
-            .hero-visual { display: none; }
-            .problem-grid { grid-template-columns: 1fr; }
-            .services-grid { grid-template-columns: repeat(2, 1fr); }
-            .process-steps { grid-template-columns: 1fr; }
-            .pricing-grid { grid-template-columns: 1fr; }
-            .price-card.featured { transform: none; }
-            .trust-grid { grid-template-columns: 1fr; }
-            .footer-inner { grid-template-columns: 1fr; }
-            .footer-bottom { flex-direction: column; gap: 0.5rem; text-align: center; }
-            .nav-links { display: none; }
-            .mobile-menu-btn { display: block; }
-            .nav-links.active {
-                display: flex;
-                flex-direction: column;
-                position: absolute;
-                top: 64px;
-                left: 0;
-                right: 0;
-                background: var(--dark);
-                padding: 1rem 2rem 2rem;
-                border-bottom: 1px solid rgba(255,255,255,0.1);
-            }
-            .form-row { grid-template-columns: 1fr; }
-        }
-        @media (max-width: 600px) {
-            .hero h1 { font-size: 2rem; }
-            .services-grid { grid-template-columns: 1fr; }
-            section { padding: 3rem 1.2rem; }
-        }
-        /* ===== ANIMATIONS ===== */
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(30px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes floatPhone {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
-        }
-        .hero-badge, .hero h1, .hero-desc, .hero-actions, .hero-stats {
-            animation: fadeInUp 0.8s ease-out both;
-        }
-        .hero h1 { animation-delay: 0.1s; }
-        .hero-desc { animation-delay: 0.2s; }
-        .hero-actions { animation-delay: 0.3s; }
-        .hero-stats { animation-delay: 0.4s; }
-        .phone-mockup {
-            animation: floatPhone 4s ease-in-out infinite, fadeInUp 1s ease-out 0.5s both;
-        }
-        .fade-in {
-            opacity: 0;
-            transform: translateY(20px);
-            transition: opacity 0.6s ease, transform 0.6s ease;
-        }
-        .fade-in.visible {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tendo — Toute la commande publique, dans un seul abonnement</title>
+<meta name="description" content="Avis, additifs, résultats et décisions des marchés publics au Bénin, expliqués et envoyés sur WhatsApp. Un service SHIFT UP. Essai gratuit de 7 jours.">
+<meta property="og:title" content="Tendo — Toute la commande publique, dans un seul abonnement">
+<meta property="og:description" content="Les marchés publics du Bénin, expliqués et envoyés sur WhatsApp.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://tendo.shiftup.bj">
+<meta name="theme-color" content="#192338">
+<link rel="icon" type="image/png" href="/static/images/logo.png">
+<link rel="canonical" href="https://tendo.shiftup.bj">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap">
+<style>
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:#192338}
+a{color:#31487A}a:hover{color:#192338}
+.dots{background-image:radial-gradient(rgba(143,179,226,0.22) 1px,transparent 1.2px);background-size:24px 24px}
+.dots-light{background-image:radial-gradient(rgba(49,72,122,0.13) 1px,transparent 1.2px);background-size:22px 22px}
+@keyframes tdMarquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.marquee-track{display:flex;width:max-content;animation:tdMarquee 38s linear infinite}
+.marquee-wrap:hover .marquee-track{animation-play-state:paused}
+@keyframes tdFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.floaty{animation:tdFloat 6s ease-in-out infinite}
+.floaty2{animation:tdFloat 7s ease-in-out infinite 1.2s}
+.floaty3{animation:tdFloat 8s ease-in-out infinite 0.6s}
+.lift{transition:transform .25s ease, box-shadow .25s ease}
+.lift:hover{transform:translateY(-4px);box-shadow:0 22px 44px rgba(25,35,56,0.14)}
+@media (prefers-reduced-motion: reduce){.marquee-track,.floaty,.floaty2,.floaty3{animation:none}}
+@media (max-width: 960px){
+.hide-sm{display:none !important}
+.stage{height:auto !important}
+.scatter{height:auto !important;display:flex !important;flex-wrap:wrap;gap:12px}
+.scatter > .s-card{position:static !important;transform:none !important}
+.big-h1{font-size:42px !important;letter-spacing:-1px !important}
+.hl{white-space:normal !important}
+.hl svg{display:none}
+.span2{grid-column:auto !important}
+}
+.faq summary::-webkit-details-marker{display:none}
+.faq .faq-sign::before{content:"+"}
+.faq[open] .faq-sign::before{content:"\2212"}
+nav a:hover{opacity:.85}
+</style>
 </head>
 <body>
+<div style="font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #192338; background: #FFFFFF; width: 100%">
 
-<!-- ===== HEADER / NAV ===== -->
-<nav class="nav" id="nav">
-    <div class="nav-inner">
-        <a href="#" class="nav-logo"><img src="/static/images/logo.png" alt="Tendo" style="height:36px;vertical-align:middle;margin-right:6px;"><span style="vertical-align:middle;">Tend<span>o</span></span></a>
-        <ul class="nav-links" id="navLinks">
-            <li><a href="#services">Services</a></li>
-            <li><a href="#process">Comment ca marche</a></li>
-            <li><a href="#pricing">Tarifs</a></li>
-            <li><a href="#about">A propos</a></li>
-            <li><a href="#register" class="nav-cta">S'inscrire</a></li>
-        </ul>
-        <button class="mobile-menu-btn" onclick="document.getElementById('navLinks').classList.toggle('active')"><i class="fa-solid fa-bars"></i></button>
-    </div>
+<section class="dots" style="background-color: #192338; color: #FFFFFF; position: relative; overflow: hidden">
+<div aria-hidden="true" style="position: absolute; left: 50%; top: -340px; width: 1100px; height: 700px; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(closest-side, rgba(49,72,122,0.55), rgba(25,35,56,0))"></div>
+
+<header style="position: relative; max-width: 1240px; margin: 0 auto; padding: 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 18px">
+<div style="display: flex; align-items: center; gap: 12px">
+<svg aria-hidden="true" width="40" height="40" viewBox="0 0 40 40"><rect width="40" height="40" rx="12" fill="#8FB3E2"></rect><path d="M11 13h18M20 13v15" stroke="#192338" stroke-width="3.6" stroke-linecap="round"></path><circle cx="29" cy="27" r="3" fill="#B4C9E8"></circle></svg>
+<div style="display: flex; flex-direction: column; line-height: 1.1">
+<span style="font-weight: 800; font-size: 22px; letter-spacing: -0.3px">Tendo</span>
+<span style="font-size: 12.5px; color: #B4C9E8">un service SHIFT UP</span>
+</div>
+</div>
+<nav class="hide-sm" aria-label="Navigation principale" style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px; background: rgba(255,255,255,0.06); border: 1px solid rgba(180,201,232,0.18); border-radius: 999px; padding: 6px">
+<a href="#couverture" style="color: #D9E1F1; text-decoration: none; padding: 10px 16px; border-radius: 999px; font-size: 14.5px; font-weight: 500">Couverture</a>
+<a href="#methode" style="color: #D9E1F1; text-decoration: none; padding: 10px 16px; border-radius: 999px; font-size: 14.5px; font-weight: 500">Méthode</a>
+<a href="#formules" style="color: #D9E1F1; text-decoration: none; padding: 10px 16px; border-radius: 999px; font-size: 14.5px; font-weight: 500">Formules</a>
+<a href="#faq" style="color: #D9E1F1; text-decoration: none; padding: 10px 16px; border-radius: 999px; font-size: 14.5px; font-weight: 500">Questions</a>
 </nav>
+<a href="https://wa.me/22941889921?text=Bonjour" style="background: #FFFFFF; color: #192338; text-decoration: none; padding: 12px 20px; border-radius: 999px; font-weight: 700; font-size: 14.5px; display: flex; align-items: center; gap: 8px">Essai gratuit<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a>
+</header>
 
-<!-- ===== HERO ===== -->
-<section class="hero" id="home">
-    <div class="hero-inner">
-        <div>
-            <div class="hero-badge"><i class="fa-solid fa-bolt"></i> Essai gratuit 7 jours</div>
-            <h1>Gagnez vos <span class="highlight">marches publics</span> directement sur <span class="wa-highlight">WhatsApp</span></h1>
-            <p class="hero-desc">Tendo surveille les appels d'offres au Benin 24h/24, analyse les dossiers avec l'IA et vous alerte instantanement sur WhatsApp.</p>
-            <div class="hero-actions">
-                <a href="https://wa.me/22941889921?text=Bonjour%20Tendo%20!" class="btn btn-whatsapp">
-                    <i class="fa-brands fa-whatsapp"></i> Demarrer sur WhatsApp
-                </a>
-                <a href="#register" class="btn btn-outline">S'inscrire gratuitement</a>
-            </div>
-            <div class="hero-stats">
-                <div>
-                    <div class="hero-stat-value">120+</div>
-                    <div class="hero-stat-label">Appels d'offres actifs</div>
-                </div>
-                <div>
-                    <div class="hero-stat-value">9</div>
-                    <div class="hero-stat-label">Sources surveillees</div>
-                </div>
-                <div>
-                    <div class="hero-stat-value">24/7</div>
-                    <div class="hero-stat-label">Veille automatique</div>
-                </div>
-            </div>
-        </div>
-        <div class="hero-visual">
-            <div class="phone-mockup">
-                <div class="phone-screen">
-                    <div class="phone-header">
-                        <img src="/static/images/logo.png" alt="Tendo" style="height:24px;border-radius:50%;">
-                        <div>Tendo</div>
-                    </div>
-                    <div class="phone-messages">
-                        <div class="msg msg-bot">Bienvenue sur Tendo.<br>Votre assistant de veille sur les marches publics au Benin.
-                            <div class="msg-buttons">
-                                <div class="msg-btn">S'inscrire</div>
-                                <div class="msg-btn">Voir le menu</div>
-                            </div>
-                        </div>
-                        <div class="msg msg-user">Voir le menu</div>
-                        <div class="msg msg-bot" style="padding:0;overflow:hidden;">
-                            <div class="msg-alert-hdr">SYGMAP | Travaux</div>
-                            <div style="padding:6px 8px;font-size:0.72rem;line-height:1.45;">
-                                <b>Autorite:</b> Mairie de Cotonou<br>
-                                <b>Objet:</b> Construction centre de sante<br>
-                                <b>Ref:</b> MC-2026-0412<br>
-                                <b>Date limite:</b> 25/04/2026
-                            </div>
-                            <div class="msg-buttons">
-                                <div class="msg-btn">Voir le dossier</div>
-                                <div class="msg-btn">En savoir plus</div>
-                                <div class="msg-btn">Demander dossier</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+<div style="position: relative; max-width: 1240px; margin: 0 auto; padding: 72px 24px 104px; display: flex; flex-wrap: wrap; align-items: center; gap: 64px">
+<div style="flex: 1 1 540px; min-width: 0; display: flex; flex-direction: column; gap: 30px">
+<h1 class="big-h1" style="margin: 0; font-weight: 800; font-size: 68px; line-height: 1.03; letter-spacing: -2px">Toute la commande publique, dans <span class="hl" style="position: relative; white-space: nowrap; color: #8FB3E2">un seul abonnement<svg aria-hidden="true" viewBox="0 0 400 18" preserveAspectRatio="none" style="position: absolute; left: 0; bottom: -10px; width: 100%; height: 14px"><path d="M3 13 C 90 3, 210 3, 397 11" stroke="#B4C9E8" stroke-width="5" fill="none" stroke-linecap="round"></path></svg></span>.</h1>
+<p style="margin: 0; font-size: 20px; line-height: 1.55; color: #D9E1F1; max-width: 520px">Les marchés publics du Bénin, expliqués et envoyés sur WhatsApp.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 22px; align-items: center">
+<a href="https://wa.me/22941889921?text=Bonjour" style="background: #8FB3E2; color: #192338; text-decoration: none; padding: 18px 30px; border-radius: 14px; font-weight: 700; font-size: 16.5px">Essayer gratuitement</a>
+<a href="#formules" style="color: #FFFFFF; text-decoration: none; font-weight: 600; font-size: 16.5px; display: flex; align-items: center; gap: 8px">Voir les formules<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a>
+</div>
+</div>
+
+<div class="stage" style="flex: 1 1 440px; min-width: 0; position: relative; height: 580px; display: flex; align-items: center; justify-content: center">
+<div aria-hidden="true" class="hide-sm" style="position: absolute; width: 420px; height: 420px; border-radius: 50%; background: radial-gradient(closest-side, rgba(143,179,226,0.22), rgba(143,179,226,0))"></div>
+<figure style="position: relative; margin: 0; width: 290px; max-width: 100%; background: #1E2E4F; border-radius: 44px; padding: 10px; box-shadow: 0 50px 90px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(180,201,232,0.3)">
+<div style="border-radius: 35px; overflow: hidden; background: #192338">
+<div style="background: #1E2E4F; padding: 22px 16px 12px; display: flex; align-items: center; gap: 10px">
+<svg aria-hidden="true" width="34" height="34" viewBox="0 0 40 40"><rect width="40" height="40" rx="20" fill="#8FB3E2"></rect><path d="M12 14h16M20 14v14" stroke="#192338" stroke-width="3.6" stroke-linecap="round"></path></svg>
+<span style="font-weight: 700; font-size: 15px">Tendo</span>
+</div>
+<div class="dots" style="padding: 18px 12px 24px; display: flex; flex-direction: column; gap: 10px; background-color: #192338">
+<div style="background: #1E2E4F; border-radius: 14px 14px 14px 4px; padding: 14px; font-size: 13.5px; line-height: 1.5; display: flex; flex-direction: column; gap: 6px">
+<span style="font-weight: 700">Fourniture de matériel informatique</span>
+<span style="color: #B4C9E8">Date limite dans 3 jours</span>
+<span style="color: #D9E1F1; display: flex; gap: 6px; align-items: center"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#8FB3E2" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>Pièces à fournir prêtes</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px">
+<span style="text-align: center; background: #1E2E4F; color: #8FB3E2; font-size: 12px; font-weight: 600; padding: 10px 4px; border-radius: 10px">Voir l’avis</span>
+<span style="text-align: center; background: #8FB3E2; color: #192338; font-size: 12px; font-weight: 700; padding: 10px 4px; border-radius: 10px">Confier le dossier</span>
+</div>
+</div>
+</div>
+</figure>
+
+<div class="hide-sm floaty" style="position: absolute; left: 0; top: 110px; background: #FFFFFF; color: #192338; border-radius: 16px; padding: 14px 16px; box-shadow: 0 24px 50px rgba(0,0,0,0.3); display: flex; gap: 12px; align-items: center">
+<div aria-hidden="true" style="flex: none; width: 36px; height: 36px; border-radius: 10px; background: #D9E1F1; color: #31487A; display: flex; align-items: center; justify-content: center"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7v5l3 2"></path></svg></div>
+<span style="font-size: 14px; font-weight: 600">Additif : délai reporté</span>
+</div>
+<div class="hide-sm floaty2" style="position: absolute; right: 0; bottom: 120px; background: #FFFFFF; color: #192338; border-radius: 16px; padding: 14px 16px; box-shadow: 0 24px 50px rgba(0,0,0,0.3); display: flex; gap: 12px; align-items: center">
+<div aria-hidden="true" style="flex: none; width: 36px; height: 36px; border-radius: 10px; background: #D9E1F1; color: #31487A; display: flex; align-items: center; justify-content: center"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg></div>
+<span style="font-size: 14px; font-weight: 600">Attribution publiée</span>
+</div>
+</div>
+</div>
+
+<div class="marquee-wrap" style="position: relative; border-top: 1px solid rgba(180,201,232,0.14); background: rgba(10,17,31,0.55); overflow: hidden">
+<div class="marquee-track" style="padding: 18px 0; font-size: 15px; font-weight: 600; color: #B4C9E8">
+<span style="padding: 0 26px">Avis d’appel d’offres</span><span aria-hidden="true" style="color: #31487A">•</span>
+<span style="padding: 0 26px">Demandes de cotation</span><span aria-hidden="true" style="color: #31487A">•</span>
+<span style="padding: 0 26px">Manifestations d’intérêt</span><span aria-hidden="true" style="color: #31487A">•</span>
+<span style="padding: 0 26px">Additifs et reports</span><span aria-hidden="true" style="color: #31487A">•</span>
+<span style="padding: 0 26px">PV d’ouverture</span><span aria-hidden="true" style="color: #31487A">•</span>
+<span style="padding: 0 26px">Attributions</span><span aria-hidden="true" style="color: #31487A">•</span>
+<span style="padding: 0 26px">Décisions de l’ARMP</span><span aria-hidden="true" style="color: #31487A">•</span>
+<span style="padding: 0 26px">Plans de passation</span><span aria-hidden="true" style="color: #31487A">•</span>
+<span aria-hidden="true" style="padding: 0 26px">Avis d’appel d’offres</span><span aria-hidden="true" style="color: #31487A">•</span>
+<span aria-hidden="true" style="padding: 0 26px">Demandes de cotation</span><span aria-hidden="true" style="color: #31487A">•</span>
+<span aria-hidden="true" style="padding: 0 26px">Manifestations d’intérêt</span><span aria-hidden="true" style="color: #31487A">•</span>
+<span aria-hidden="true" style="padding: 0 26px">Additifs et reports</span><span aria-hidden="true" style="color: #31487A">•</span>
+<span aria-hidden="true" style="padding: 0 26px">PV d’ouverture</span><span aria-hidden="true" style="color: #31487A">•</span>
+<span aria-hidden="true" style="padding: 0 26px">Attributions</span><span aria-hidden="true" style="color: #31487A">•</span>
+<span aria-hidden="true" style="padding: 0 26px">Décisions de l’ARMP</span><span aria-hidden="true" style="color: #31487A">•</span>
+<span aria-hidden="true" style="padding: 0 26px">Plans de passation</span><span aria-hidden="true" style="color: #31487A">•</span>
+</div>
+</div>
 </section>
 
-<!-- ===== PROBLEME / SOLUTION ===== -->
-<section class="problem" id="problem">
-    <div class="section-inner">
-        <div class="section-label">Le constat</div>
-        <div class="section-title">Vous perdez des opportunites chaque jour</div>
-        <div class="problem-grid">
-            <div class="problem-card">
-                <h3><i class="fa-solid fa-circle-xmark" style="color:var(--danger);"></i> Sans Tendo</h3>
-                <ul class="problem-list">
-                    <li><span class="icon"><i class="fa-solid fa-xmark" style="color:var(--danger);"></i></span> Vous passez des heures a chercher les AO sur plusieurs sites</li>
-                    <li><span class="icon"><i class="fa-solid fa-xmark" style="color:var(--danger);"></i></span> Vous decouvrez les dossiers apres la date limite</li>
-                    <li><span class="icon"><i class="fa-solid fa-xmark" style="color:var(--danger);"></i></span> Vous ne savez pas quelles pieces preparer</li>
-                    <li><span class="icon"><i class="fa-solid fa-xmark" style="color:var(--danger);"></i></span> Les DAO sont longs et complexes a analyser</li>
-                    <li><span class="icon"><i class="fa-solid fa-xmark" style="color:var(--danger);"></i></span> Vous ratez des opportunites par manque de veille</li>
-                </ul>
-            </div>
-            <div class="solution-card">
-                <h3><i class="fa-solid fa-circle-check" style="color:var(--success);"></i> Avec Tendo</h3>
-                <ul class="problem-list">
-                    <li><span class="icon"><i class="fa-solid fa-check" style="color:var(--success);"></i></span> Les AO arrivent directement sur votre WhatsApp</li>
-                    <li><span class="icon"><i class="fa-solid fa-check" style="color:var(--success);"></i></span> Alerte instantanee des la publication</li>
-                    <li><span class="icon"><i class="fa-solid fa-check" style="color:var(--success);"></i></span> L'IA extrait les pieces requises automatiquement</li>
-                    <li><span class="icon"><i class="fa-solid fa-check" style="color:var(--success);"></i></span> Resume technique en 30 secondes</li>
-                    <li><span class="icon"><i class="fa-solid fa-check" style="color:var(--success);"></i></span> 9 sources surveillees 24h/24</li>
-                </ul>
-            </div>
-        </div>
-    </div>
+<section style="background: #FFFFFF">
+<div style="max-width: 1240px; margin: 0 auto; padding: 120px 24px; display: flex; flex-wrap: wrap; gap: 64px; align-items: center">
+<div style="flex: 1 1 440px; min-width: 0; display: flex; flex-direction: column; gap: 22px">
+<h2 style="margin: 0; font-weight: 800; font-size: 46px; line-height: 1.08; letter-spacing: -1.2px">Vous payez plusieurs sources. <span style="color: #8A97AE">Vous en manquez encore.</span></h2>
+<p style="margin: 0; font-size: 18px; line-height: 1.7; color: #4A5468">Chaque journal, portail ou réseau ne publie qu’une partie des marchés. Les additifs passent inaperçus, les résultats arrivent tard, les dossiers restent à décrypter.</p>
+<div style="display: flex; align-items: center; gap: 14px; background: #EEF2F9; border-radius: 16px; padding: 18px 20px">
+<div aria-hidden="true" style="flex: none; width: 44px; height: 44px; border-radius: 12px; background: #192338; display: flex; align-items: center; justify-content: center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8FB3E2" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></div>
+<p style="margin: 0; font-size: 16.5px; line-height: 1.5; font-weight: 600">Tendo réunit tout dans un seul fil, à jour chaque matin.</p>
+</div>
+</div>
+
+<div class="dots-light" style="flex: 1 1 560px; min-width: 0; border-radius: 28px; background-color: #EEF2F9; padding: 28px; display: flex; flex-wrap: wrap; align-items: center; gap: 24px">
+<div class="scatter" style="flex: 1 1 260px; position: relative; height: 380px">
+<div class="s-card" style="position: absolute; left: 0; top: 10px; transform: rotate(-6deg); background: #FFFFFF; border-radius: 14px; padding: 14px 16px; width: 180px; box-shadow: 0 10px 24px rgba(25,35,56,0.1); display: flex; flex-direction: column; gap: 4px"><span style="font-weight: 700; font-size: 15px">Journal spécialisé</span><span style="font-size: 12.5px; color: #31487A; font-weight: 600">Avis seulement</span></div>
+<div class="s-card" style="position: absolute; left: 70px; top: 96px; transform: rotate(4deg); background: #FFFFFF; border-radius: 14px; padding: 14px 16px; width: 180px; box-shadow: 0 10px 24px rgba(25,35,56,0.1); display: flex; flex-direction: column; gap: 4px"><span style="font-weight: 700; font-size: 15px">Portail en ligne</span><span style="font-size: 12.5px; color: #31487A; font-weight: 600">Sans les additifs</span></div>
+<div class="s-card" style="position: absolute; left: 6px; top: 184px; transform: rotate(-3deg); background: #FFFFFF; border-radius: 14px; padding: 14px 16px; width: 180px; box-shadow: 0 10px 24px rgba(25,35,56,0.1); display: flex; flex-direction: column; gap: 4px"><span style="font-weight: 700; font-size: 15px">Groupes et réseaux</span><span style="font-size: 12.5px; color: #31487A; font-weight: 600">Informations éparses</span></div>
+<div class="s-card" style="position: absolute; left: 64px; top: 272px; transform: rotate(5deg); background: #FFFFFF; border-radius: 14px; padding: 14px 16px; width: 180px; box-shadow: 0 10px 24px rgba(25,35,56,0.1); display: flex; flex-direction: column; gap: 4px"><span style="font-weight: 700; font-size: 15px">Sites des bailleurs</span><span style="font-size: 12.5px; color: #31487A; font-weight: 600">À consulter un par un</span></div>
+</div>
+<div aria-hidden="true" class="hide-sm" style="flex: none; display: flex; align-items: center; color: #31487A"><svg width="64" height="24" viewBox="0 0 64 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h56M48 4l10 8-10 8"></path></svg></div>
+<div style="flex: 1 1 200px; background: #192338; color: #FFFFFF; border-radius: 22px; padding: 26px; display: flex; flex-direction: column; gap: 14px; box-shadow: 0 24px 50px rgba(25,35,56,0.3)">
+<svg aria-hidden="true" width="44" height="44" viewBox="0 0 40 40"><rect width="40" height="40" rx="12" fill="#8FB3E2"></rect><path d="M11 13h18M20 13v15" stroke="#192338" stroke-width="3.6" stroke-linecap="round"></path><circle cx="29" cy="27" r="3" fill="#B4C9E8"></circle></svg>
+<span style="font-weight: 800; font-size: 22px; line-height: 1.2">Un seul abonnement Tendo</span>
+<span style="font-size: 14.5px; line-height: 1.55; color: #D9E1F1">Avis, additifs, résultats et décisions, expliqués et datés.</span>
+</div>
+</div>
+</div>
 </section>
 
-<!-- ===== SERVICES ===== -->
-<section id="services">
-    <div class="section-inner">
-        <div class="section-label">Nos services</div>
-        <div class="section-title">Tout ce qu'il faut pour gagner vos marches</div>
-        <div class="section-desc">Tendo combine veille automatisee et intelligence artificielle pour vous donner un avantage decisif.</div>
-        <div class="services-grid">
-            <div class="service-card">
-                <div class="service-icon"><i class="fa-solid fa-magnifying-glass-chart"></i></div>
-                <h3>Analyse DAO</h3>
-                <p>L'IA lit et resume les dossiers d'appels d'offres. Pieces requises, criteres, budget — tout en un clin d'oeil.</p>
-            </div>
-            <div class="service-card">
-                <div class="service-icon"><i class="fa-solid fa-file-pen"></i></div>
-                <h3>Aide a la Redaction</h3>
-                <p>Suggestions pour vos offres techniques et financieres basees sur les criteres identifies dans le DAO.</p>
-            </div>
-            <div class="service-card">
-                <div class="service-icon"><i class="fa-solid fa-scale-balanced"></i></div>
-                <h3>Veille Juridique</h3>
-                <p>Suivez les decisions ARMP, PV d'attribution et modifications reglementaires en temps reel.</p>
-            </div>
-            <div class="service-card">
-                <div class="service-icon"><i class="fa-solid fa-clipboard-check"></i></div>
-                <h3>Check-list Conformite</h3>
-                <p>Verificateur automatique : toutes les pieces administratives, techniques et financieres sont-elles pretes ?</p>
-            </div>
-        </div>
-    </div>
+<section id="couverture" style="background: #EEF2F9">
+<div style="max-width: 1240px; margin: 0 auto; padding: 120px 24px; display: flex; flex-direction: column; gap: 52px">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 24px">
+<h2 style="margin: 0; font-weight: 800; font-size: 46px; line-height: 1.08; letter-spacing: -1.2px; max-width: 660px">Tout le cycle d’un marché, pas seulement l’avis.</h2>
+<p style="margin: 0; font-size: 18px; line-height: 1.6; color: #4A5468; max-width: 420px">De la planification à l’attribution, chaque étape publiée vous parvient.</p>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px">
+<div class="lift span2" style="grid-column: span 2; min-height: 290px; background: #192338; color: #FFFFFF; border-radius: 26px; padding: 34px; display: flex; flex-wrap: wrap; gap: 28px; justify-content: space-between; position: relative; overflow: hidden">
+<div aria-hidden="true" class="dots" style="position: absolute; inset: 0; opacity: 0.6"></div>
+<div style="position: relative; flex: 1 1 260px; display: flex; flex-direction: column; gap: 14px">
+<h3 style="margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.4px">Avis et demandes de cotation</h3>
+<p style="margin: 0; font-size: 16px; line-height: 1.6; color: #D9E1F1">Appels d’offres nationaux et internationaux, DRP et demandes de prix, avec la date limite et les jours restants.</p>
+</div>
+<div style="position: relative; flex: 0 1 280px; display: flex; flex-direction: column; gap: 10px">
+<div style="background: rgba(255,255,255,0.08); border: 1px solid rgba(180,201,232,0.2); border-radius: 14px; padding: 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px"><span style="font-size: 14px; font-weight: 600">Travaux de réhabilitation</span><span style="background: #8FB3E2; color: #192338; font-size: 12px; font-weight: 800; padding: 4px 8px; border-radius: 6px">J-3</span></div>
+<div style="background: rgba(255,255,255,0.08); border: 1px solid rgba(180,201,232,0.2); border-radius: 14px; padding: 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px"><span style="font-size: 14px; font-weight: 600">Fourniture d’équipements</span><span style="background: #8FB3E2; color: #192338; font-size: 12px; font-weight: 800; padding: 4px 8px; border-radius: 6px">J-12</span></div>
+<div style="background: rgba(255,255,255,0.08); border: 1px solid rgba(180,201,232,0.2); border-radius: 14px; padding: 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px"><span style="font-size: 14px; font-weight: 600">Prestations de services</span><span style="background: #8FB3E2; color: #192338; font-size: 12px; font-weight: 800; padding: 4px 8px; border-radius: 6px">J-21</span></div>
+</div>
+</div>
+<div class="lift" style="background: #FFFFFF; border-radius: 26px; padding: 30px; display: flex; flex-direction: column; gap: 14px; border: 1px solid #D9E1F1">
+<div aria-hidden="true" style="width: 50px; height: 50px; border-radius: 14px; background: #EEF2F9; color: #31487A; display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"></circle><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"></path><path d="M16 4.5a3.5 3.5 0 0 1 0 7M21 20c0-2.6-1.6-4.8-4-5.6"></path></svg></div>
+<h3 style="margin: 0; font-size: 20px; font-weight: 700">Manifestations d’intérêt</h3>
+<p style="margin: 0; font-size: 15.5px; line-height: 1.6; color: #4A5468">Recrutements de cabinets, consultants et répertoires de prestataires.</p>
+</div>
+<div class="lift" style="background: #FFFFFF; border-radius: 26px; padding: 30px; display: flex; flex-direction: column; gap: 14px; border: 1px solid #D9E1F1">
+<div aria-hidden="true" style="width: 50px; height: 50px; border-radius: 14px; background: #D9E1F1; color: #31487A; display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7v5l3 2"></path></svg></div>
+<h3 style="margin: 0; font-size: 20px; font-weight: 700">Additifs et reports</h3>
+<p style="margin: 0; font-size: 15.5px; line-height: 1.6; color: #4A5468">Chaque modification d’un dossier que vous suivez, dès sa publication.</p>
+</div>
+<div class="lift" style="background: #FFFFFF; border-radius: 26px; padding: 30px; display: flex; flex-direction: column; gap: 14px; border: 1px solid #D9E1F1">
+<div aria-hidden="true" style="width: 50px; height: 50px; border-radius: 14px; background: #EEF2F9; color: #31487A; display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg></div>
+<h3 style="margin: 0; font-size: 20px; font-weight: 700">Ouvertures et attributions</h3>
+<p style="margin: 0; font-size: 15.5px; line-height: 1.6; color: #4A5468">PV d’ouverture, attributions provisoires et définitives, montants retenus.</p>
+</div>
+<div class="lift" style="background: #FFFFFF; border-radius: 26px; padding: 30px; display: flex; flex-direction: column; gap: 14px; border: 1px solid #D9E1F1">
+<div aria-hidden="true" style="width: 50px; height: 50px; border-radius: 14px; background: #EEF2F9; color: #31487A; display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M5 7h14M7 7l-3 7a3 3 0 0 0 6 0zM17 7l-3 7a3 3 0 0 0 6 0z"></path></svg></div>
+<h3 style="margin: 0; font-size: 20px; font-weight: 700">Décisions de l’ARMP</h3>
+<p style="margin: 0; font-size: 15.5px; line-height: 1.6; color: #4A5468">Recours, sanctions et avis qui fixent les règles du jeu.</p>
+</div>
+<div class="lift" style="grid-column: 1 / -1; background: #8FB3E2; color: #192338; border-radius: 26px; padding: 30px; display: flex; flex-direction: column; gap: 14px">
+<div aria-hidden="true" style="width: 50px; height: 50px; border-radius: 14px; background: rgba(255,255,255,0.55); color: #192338; display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="2"></rect><path d="M3 9.5h18M8 3v3M16 3v3"></path></svg></div>
+<h3 style="margin: 0; font-size: 20px; font-weight: 700">Plans de passation</h3>
+<p style="margin: 0; font-size: 15.5px; line-height: 1.6; color: #1E2E4F">Les marchés prévus dans l’année, pour vous préparer avant l’avis.</p>
+</div>
+</div>
+</div>
 </section>
 
-<!-- ===== PROCESS ===== -->
-<section class="process" id="process">
-    <div class="section-inner">
-        <div class="section-label" style="color: var(--primary-light);">Comment ca marche</div>
-        <div class="section-title">Pret en 3 etapes</div>
-        <div class="section-desc">Aucune application a installer. Tout se passe sur WhatsApp.</div>
-        <div class="process-steps">
-            <div class="step">
-                <div class="step-number">1</div>
-                <h3>Ecrivez-nous sur WhatsApp</h3>
-                <p>Envoyez un simple "Bonjour" au +229 41 88 99 21. Tendo vous accueille et vous presente les AO en cours.</p>
-            </div>
-            <div class="step">
-                <div class="step-number">2</div>
-                <h3>Configurez votre profil</h3>
-                <p>Indiquez vos secteurs (BTP, fournitures, services...) et vos regions. Tendo filtre les AO pour vous.</p>
-            </div>
-            <div class="step">
-                <div class="step-number">3</div>
-                <h3>Recevez vos alertes</h3>
-                <p>Chaque matin et apres-midi, recevez les AO pertinents avec analyse IA et lien vers le dossier complet.</p>
-            </div>
-        </div>
-    </div>
+<section id="methode" style="background: #FFFFFF">
+<div style="max-width: 1240px; margin: 0 auto; padding: 120px 24px; display: flex; flex-direction: column; gap: 64px">
+<div style="display: flex; flex-direction: column; gap: 14px; align-items: center; text-align: center">
+<h2 style="margin: 0; font-weight: 800; font-size: 46px; line-height: 1.08; letter-spacing: -1.2px">De l’information à l’offre déposée.</h2>
+<p style="margin: 0; font-size: 18px; color: #4A5468; max-width: 600px">Vous gardez la main à chaque étape. Vous pouvez aussi la passer.</p>
+</div>
+<div style="position: relative; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 28px">
+<div aria-hidden="true" class="hide-sm" style="position: absolute; left: 16%; right: 16%; top: 36px; border-top: 2px dashed #B4C9E8"></div>
+<div style="position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px; padding: 0 12px">
+<div style="width: 72px; height: 72px; border-radius: 50%; background: #192338; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 24px; box-shadow: 0 0 0 10px #EEF2F9">1</div>
+<h3 style="margin: 0; font-size: 22px; font-weight: 700">Être informé</h3>
+<p style="margin: 0; font-size: 16px; line-height: 1.65; color: #4A5468">Chaque matin, les avis de votre secteur et de votre région, triés par urgence.</p>
+</div>
+<div style="position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px; padding: 0 12px">
+<div style="width: 72px; height: 72px; border-radius: 50%; background: #31487A; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 24px; box-shadow: 0 0 0 10px #EEF2F9">2</div>
+<h3 style="margin: 0; font-size: 22px; font-weight: 700">Comprendre le dossier</h3>
+<p style="margin: 0; font-size: 16px; line-height: 1.65; color: #4A5468">L’objet, les lots, les pièces exigées et les critères, résumés en une minute de lecture.</p>
+</div>
+<div style="position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px; padding: 0 12px">
+<div style="width: 72px; height: 72px; border-radius: 50%; background: #8FB3E2; color: #192338; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 24px; box-shadow: 0 0 0 10px #EEF2F9">3</div>
+<h3 style="margin: 0; font-size: 22px; font-weight: 700">Soumissionner</h3>
+<p style="margin: 0; font-size: 16px; line-height: 1.65; color: #4A5468">Montez votre offre vous-même, ou confiez-la à un expert en un message.</p>
+</div>
+</div>
+</div>
 </section>
 
-<!-- ===== PRICING ===== -->
-<section id="pricing">
-    <div class="section-inner">
-        <div class="section-label">Tarifs</div>
-        <div class="section-title">Des formules adaptees a votre activite</div>
-        <div class="section-desc">Essai gratuit de 7 jours, sans engagement. Paiement par Mobile Money (MTN/Moov).</div>
-        <div class="pricing-grid">
-            <div class="price-card">
-                <div class="price-name">Decouverte</div>
-                <div style="color: var(--gray-500); font-size: 0.85rem;">Pour commencer</div>
-                <div class="price-amount">Gratuit</div>
-                <div class="price-period">7 jours d'essai</div>
-                <ul class="price-features">
-                    <li><span class="check"><i class="fa-solid fa-check"></i></span> Alertes WhatsApp quotidiennes</li>
-                    <li><span class="check"><i class="fa-solid fa-check"></i></span> 5 analyses DAO par jour</li>
-                    <li><span class="check"><i class="fa-solid fa-check"></i></span> Recherche par secteur et region</li>
-                    <li><span class="check"><i class="fa-solid fa-check"></i></span> Resume technique IA</li>
-                </ul>
-                <a href="#register" class="btn btn-outline" style="color: var(--gray-900); border-color: var(--gray-300); width: 100%; justify-content: center;" onclick="document.getElementById('plan').value='trial';"><i class="fa-solid fa-gift"></i> Essayer gratuitement</a>
-            </div>
-            <div class="price-card featured">
-                <div class="price-name">Essentiel</div>
-                <div style="color: var(--gray-500); font-size: 0.85rem;">Pour les professionnels</div>
-                <div class="price-amount">2 990 <span>FCFA/mois</span></div>
-                <div class="price-period">Paiement mensuel Mobile Money</div>
-                <ul class="price-features">
-                    <li><span class="check"><i class="fa-solid fa-check"></i></span> Alertes WhatsApp illimitees</li>
-                    <li><span class="check"><i class="fa-solid fa-check"></i></span> Analyse IA de tous les DAO</li>
-                    <li><span class="check"><i class="fa-solid fa-check"></i></span> Telechargement des dossiers</li>
-                    <li><span class="check"><i class="fa-solid fa-check"></i></span> Pieces requises extraites</li>
-                    <li><span class="check"><i class="fa-solid fa-check"></i></span> Criteres de qualification</li>
-                    <li><span class="check"><i class="fa-solid fa-check"></i></span> 9 sources surveillees 24/7</li>
-                    <li><span class="check"><i class="fa-solid fa-check"></i></span> Support par WhatsApp</li>
-                </ul>
-                <a href="#register" class="btn btn-primary" style="width: 100%; justify-content: center;" onclick="document.getElementById('plan').value='essentiel';"><i class="fa-solid fa-arrow-right"></i> Choisir Essentiel</a>
-            </div>
-            <div class="price-card">
-                <div class="price-name">Premium</div>
-                <div style="color: var(--gray-500); font-size: 0.85rem;">Pour les entreprises</div>
-                <div class="price-amount">9 990 <span>FCFA/mois</span></div>
-                <div class="price-period">Paiement mensuel Mobile Money</div>
-                <ul class="price-features">
-                    <li><span class="check"><i class="fa-solid fa-check"></i></span> Tout Essentiel inclus</li>
-                    <li><span class="check"><i class="fa-solid fa-check"></i></span> IA avancee (Claude)</li>
-                    <li><span class="check"><i class="fa-solid fa-check"></i></span> Aide redaction offres techniques</li>
-                    <li><span class="check"><i class="fa-solid fa-check"></i></span> Demande de dossier automatique</li>
-                    <li><span class="check"><i class="fa-solid fa-check"></i></span> Veille juridique ARMP</li>
-                    <li><span class="check"><i class="fa-solid fa-check"></i></span> Check-list conformite</li>
-                    <li><span class="check"><i class="fa-solid fa-check"></i></span> Historique complet</li>
-                    <li><span class="check"><i class="fa-solid fa-check"></i></span> Support dedie prioritaire</li>
-                </ul>
-                <a href="#register" class="btn btn-outline" style="color: var(--gray-900); border-color: var(--gray-300); width: 100%; justify-content: center;" onclick="document.getElementById('plan').value='premium';"><i class="fa-solid fa-arrow-right"></i> Choisir Premium</a>
-            </div>
-        </div>
-    </div>
+<section style="background: #FFFFFF">
+<div style="max-width: 1240px; margin: 0 auto; padding: 0 24px 120px">
+<div style="position: relative; overflow: hidden; border-radius: 32px; background: #192338; color: #FFFFFF; display: flex; flex-wrap: wrap">
+<div aria-hidden="true" class="dots" style="position: absolute; inset: 0"></div>
+<div style="position: relative; flex: 1 1 520px; padding: 60px; display: flex; flex-direction: column; gap: 20px">
+<h2 style="margin: 0; font-weight: 800; font-size: 40px; line-height: 1.1; letter-spacing: -1px">Vous préférez déléguer le montage ?</h2>
+<p style="margin: 0; font-size: 18px; line-height: 1.65; color: #D9E1F1; max-width: 520px">Les experts SHIFT UP prennent le dossier en main : analyse du DAO, constitution des pièces, offres technique et financière, dépôt dans les délais.</p>
+<a href="https://shiftup.bj" style="align-self: flex-start; background: #8FB3E2; color: #192338; text-decoration: none; padding: 16px 26px; border-radius: 14px; font-weight: 700; margin-top: 6px">Confier un dossier à SHIFT UP</a>
+</div>
+<div style="position: relative; flex: 1 1 360px; padding: 60px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; align-content: center; background: rgba(49,72,122,0.45)">
+<div style="background: rgba(255,255,255,0.07); border: 1px solid rgba(180,201,232,0.2); border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 4px"><span data-chiffre="dossiersMontes" style="font-weight: 800; font-size: 46px; letter-spacing: -1px">26</span><span style="font-size: 14.5px; color: #D9E1F1">dossiers montés</span></div>
+<div style="background: rgba(255,255,255,0.07); border: 1px solid rgba(180,201,232,0.2); border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 4px"><span data-chiffre="dossiersGagnes" style="font-weight: 800; font-size: 46px; letter-spacing: -1px; color: #8FB3E2">14</span><span style="font-size: 14.5px; color: #D9E1F1">marchés gagnés</span></div>
+<div style="grid-column: span 2; background: rgba(255,255,255,0.07); border: 1px solid rgba(180,201,232,0.2); border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 4px"><span data-chiffre="entreprisesAccompagnees" style="font-weight: 800; font-size: 46px; letter-spacing: -1px">7</span><span style="font-size: 14.5px; color: #D9E1F1">entreprises accompagnées</span></div>
+</div>
+</div>
+</div>
 </section>
 
-<!-- ===== REGISTRATION ===== -->
-<section class="register" id="register">
-    <div class="section-inner" style="text-align: center;">
-        <div class="section-label">Inscription</div>
-        <div class="section-title">Commencez a recevoir vos AO</div>
-        <div class="section-desc" style="margin: 0 auto;">Remplissez le formulaire ci-dessous. Votre compte sera active sous 24h.</div>
-        <form class="register-form" id="registerForm" onsubmit="return handleSubmit(event)" novalidate>
-            <!-- Honeypot anti-bot -->
-            <div class="honeypot">
-                <input type="text" name="website" id="honeypot" tabindex="-1" autocomplete="off">
-            </div>
-            <input type="hidden" name="device_fp" id="deviceFp">
-            <input type="hidden" name="form_token" id="formToken">
-
-            <div class="form-group">
-                <label for="fullname">Nom complet *</label>
-                <input type="text" id="fullname" name="fullname" required minlength="3" maxlength="100" placeholder="Ex: Jean-Paul HOUESSOU" autocomplete="name">
-                <div class="form-error" id="err-fullname"></div>
-            </div>
-
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="phone">Numero WhatsApp *</label>
-                    <input type="tel" id="phone" name="phone" required pattern="[0-9+\s\-]{8,20}" placeholder="+229 XX XX XX XX" autocomplete="tel">
-                    <div class="form-error" id="err-phone"></div>
-                </div>
-                <div class="form-group">
-                    <label for="email">Email *</label>
-                    <input type="email" id="email" name="email" required placeholder="jean@entreprise.bj" autocomplete="email">
-                    <div class="form-error" id="err-email"></div>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label for="company">Entreprise / Organisation *</label>
-                <input type="text" id="company" name="company" required minlength="2" maxlength="200" placeholder="Ex: SOGEA SATOM Benin" autocomplete="organization">
-                <div class="form-error" id="err-company"></div>
-            </div>
-
-            <div class="form-row">
-                <div class="form-group" style="grid-column: 1 / -1;">
-                    <label>Secteurs d'activite * <small style="color:var(--gray-500);font-weight:400;">(plusieurs choix possibles)</small></label>
-                    <div class="sector-checkboxes" id="sectorGroup" style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-top:0.5rem;">
-                        <label class="checkbox-label"><input type="checkbox" name="sectors" value="BTP"> <span>BTP / Construction</span></label>
-                        <label class="checkbox-label"><input type="checkbox" name="sectors" value="Fournitures"> <span>Fournitures / Equipements</span></label>
-                        <label class="checkbox-label"><input type="checkbox" name="sectors" value="Services"> <span>Services / Conseil</span></label>
-                        <label class="checkbox-label"><input type="checkbox" name="sectors" value="TIC"> <span>TIC / Informatique</span></label>
-                        <label class="checkbox-label"><input type="checkbox" name="sectors" value="Sante"> <span>Sante / Medical</span></label>
-                        <label class="checkbox-label"><input type="checkbox" name="sectors" value="Education"> <span>Education / Formation</span></label>
-                        <label class="checkbox-label"><input type="checkbox" name="sectors" value="Agriculture"> <span>Agriculture / Rural</span></label>
-                        <label class="checkbox-label"><input type="checkbox" name="sectors" value="Energie"> <span>Energie / Solaire</span></label>
-                        <label class="checkbox-label"><input type="checkbox" name="sectors" value="Transport"> <span>Transport / Logistique</span></label>
-                        <label class="checkbox-label"><input type="checkbox" name="sectors" value="Environnement"> <span>Environnement / Eau</span></label>
-                    </div>
-                    <div class="form-error" id="err-sector"></div>
-                </div>
-                <div class="form-group">
-                    <label for="region">Region *</label>
-                    <select id="region" name="region" required>
-                        <option value="">Choisir...</option>
-                        <option value="National">Tout le Benin</option>
-                        <option value="Cotonou">Cotonou / Littoral</option>
-                        <option value="Porto-Novo">Porto-Novo / Oueme</option>
-                        <option value="Parakou">Parakou / Borgou</option>
-                        <option value="Abomey">Abomey / Zou</option>
-                        <option value="Natitingou">Natitingou / Atacora</option>
-                        <option value="CEDEAO">International / CEDEAO</option>
-                    </select>
-                    <div class="form-error" id="err-region"></div>
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label for="plan">Formule souhaitee *</label>
-                <select id="plan" name="plan" required>
-                    <option value="trial">Decouverte (7 jours gratuits)</option>
-                    <option value="essentiel" selected>Essentiel - 2 990 FCFA/mois</option>
-                    <option value="premium">Premium - 9 990 FCFA/mois</option>
-                </select>
-            </div>
-
-            <button type="submit" class="btn btn-primary form-submit" id="submitBtn">
-                <i class="fa-solid fa-user-plus"></i> Creer mon compte Tendo
-            </button>
-            <p class="form-note">En vous inscrivant, vous acceptez nos <a href="/terms" style="color: var(--primary);">Conditions d'utilisation</a> et notre <a href="/privacy" style="color: var(--primary);">Politique de confidentialite</a>.</p>
-        </form>
-    </div>
+<section id="formules" class="dots" style="background-color: #192338; color: #FFFFFF">
+<div style="max-width: 1240px; margin: 0 auto; padding: 120px 24px; display: flex; flex-direction: column; gap: 56px">
+<div style="display: flex; flex-direction: column; gap: 14px; align-items: center; text-align: center">
+<h2 style="margin: 0; font-weight: 800; font-size: 46px; line-height: 1.08; letter-spacing: -1.2px">Un abonnement remplace tous les autres.</h2>
+<p style="margin: 0; font-size: 18px; color: #D9E1F1">7 jours offerts. Paiement mensuel par MTN MoMo ou Moov Money. Sans engagement.</p>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 22px; align-items: center">
+<div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(180,201,232,0.2); border-radius: 26px; padding: 36px; display: flex; flex-direction: column; gap: 22px">
+<div style="display: flex; flex-direction: column; gap: 6px"><h3 style="margin: 0; font-size: 21px; font-weight: 700">Découverte</h3><span style="font-size: 15px; color: #B4C9E8">Pour tester Tendo</span></div>
+<p style="margin: 0; font-weight: 800; font-size: 48px; line-height: 1; letter-spacing: -1px">0 <span style="font-size: 16px; font-weight: 500; color: #B4C9E8; letter-spacing: 0">FCFA · 7 jours</span></p>
+<ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 12px; font-size: 15.5px; color: #D9E1F1">
+<li style="display: flex; gap: 10px"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8FB3E2" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>Alertes quotidiennes</li>
+<li style="display: flex; gap: 10px"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8FB3E2" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>Résumés des dossiers</li>
+<li style="display: flex; gap: 10px"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8FB3E2" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>Filtre par secteur et région</li>
+</ul>
+<a href="https://wa.me/22941889921?text=Bonjour" style="text-align: center; border: 1px solid rgba(217,225,241,0.5); color: #FFFFFF; text-decoration: none; padding: 15px; border-radius: 14px; font-weight: 700">Commencer l’essai</a>
+</div>
+<div style="position: relative; background: #FFFFFF; color: #192338; border-radius: 26px; padding: 44px 36px; display: flex; flex-direction: column; gap: 22px; box-shadow: 0 40px 80px rgba(0,0,0,0.45)">
+<div style="display: flex; flex-direction: column; gap: 6px"><h3 style="margin: 0; font-size: 21px; font-weight: 700">Essentiel</h3><span style="font-size: 15px; color: #5A6478">Pour suivre tout le marché</span></div>
+<p style="margin: 0; font-weight: 800; font-size: 52px; line-height: 1; letter-spacing: -1.5px">2 990 <span style="font-size: 16px; font-weight: 500; color: #5A6478; letter-spacing: 0">FCFA / mois</span></p>
+<ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 12px; font-size: 15.5px; color: #2A3448">
+<li style="display: flex; gap: 10px"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#31487A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>Toute l’information du marché public</li>
+<li style="display: flex; gap: 10px"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#31487A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>Analyse de chaque dossier</li>
+<li style="display: flex; gap: 10px"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#31487A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>Pièces et critères à réunir</li>
+<li style="display: flex; gap: 10px"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#31487A" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>Téléchargement des dossiers</li>
+</ul>
+<a href="https://wa.me/22941889921?text=Je%20choisis%20Essentiel" style="text-align: center; background: #192338; color: #FFFFFF; text-decoration: none; padding: 16px; border-radius: 14px; font-weight: 700">Choisir Essentiel</a>
+</div>
+<div style="background: rgba(255,255,255,0.05); border: 1px solid rgba(180,201,232,0.2); border-radius: 26px; padding: 36px; display: flex; flex-direction: column; gap: 22px">
+<div style="display: flex; flex-direction: column; gap: 6px"><h3 style="margin: 0; font-size: 21px; font-weight: 700">Premium</h3><span style="font-size: 15px; color: #B4C9E8">Pour soumissionner souvent</span></div>
+<p style="margin: 0; font-weight: 800; font-size: 48px; line-height: 1; letter-spacing: -1px">9 990 <span style="font-size: 16px; font-weight: 500; color: #B4C9E8; letter-spacing: 0">FCFA / mois</span></p>
+<ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 12px; font-size: 15.5px; color: #D9E1F1">
+<li style="display: flex; gap: 10px"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8FB3E2" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>Tout l’Essentiel</li>
+<li style="display: flex; gap: 10px"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8FB3E2" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>Suivi jusqu’à l’attribution</li>
+<li style="display: flex; gap: 10px"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8FB3E2" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>Aide à la rédaction de l’offre</li>
+<li style="display: flex; gap: 10px"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8FB3E2" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>Check-list avant dépôt</li>
+<li style="display: flex; gap: 10px"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8FB3E2" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>Assistance prioritaire</li>
+</ul>
+<a href="https://wa.me/22941889921?text=Je%20choisis%20Premium" style="text-align: center; border: 1px solid rgba(217,225,241,0.5); color: #FFFFFF; text-decoration: none; padding: 15px; border-radius: 14px; font-weight: 700">Choisir Premium</a>
+</div>
+</div>
+</div>
 </section>
 
-<!-- ===== TRUST / ABOUT ===== -->
-<section id="about">
-    <div class="section-inner" style="text-align: center;">
-        <div class="section-label">A propos</div>
-        <div class="section-title">Une solution by <span style="color:var(--primary);">SHIFT UP</span></div>
-        <div class="section-desc" style="margin: 0 auto 2rem;">SHIFT UP est une entreprise beninoise specialisee dans les solutions numeriques pour la commande publique. Tendo est notre outil phare, concu pour democratiser l'acces aux marches publics.</div>
-        <div style="margin-bottom:2rem;"><img src="/static/images/banner.png" alt="Tendo by SHIFT UP" style="max-width:500px;width:100%;border-radius:16px;box-shadow:0 8px 30px rgba(108,60,225,0.15);"></div>
-        <div class="trust-grid">
-            <div class="trust-item">
-                <div class="trust-icon"><i class="fa-solid fa-shield-halved"></i></div>
-                <h3>Securise</h3>
-                <p>Vos donnees sont chiffrees et protegees. Aucune information n'est partagee avec des tiers.</p>
-            </div>
-            <div class="trust-item">
-                <div class="trust-icon"><i class="fa-solid fa-bolt-lightning"></i></div>
-                <h3>Instantane</h3>
-                <p>Les alertes sont envoyees des la publication de l'AO. Pas de retard, pas d'oubli.</p>
-            </div>
-            <div class="trust-item">
-                <div class="trust-icon"><i class="fa-solid fa-brain"></i></div>
-                <h3>Intelligence Artificielle</h3>
-                <p>Nos algorithmes analysent chaque DAO et extraient les informations cles en quelques secondes.</p>
-            </div>
-        </div>
-    </div>
+<section id="faq" style="background: #FFFFFF">
+<div style="max-width: 1240px; margin: 0 auto; padding: 120px 24px; display: flex; flex-wrap: wrap; gap: 56px">
+<div style="flex: 1 1 340px; min-width: 0; display: flex; flex-direction: column; gap: 18px">
+<h2 style="margin: 0; font-weight: 800; font-size: 46px; line-height: 1.08; letter-spacing: -1.2px">Questions fréquentes</h2>
+<p style="margin: 0; font-size: 17px; line-height: 1.6; color: #4A5468">Une autre question ? Écrivez-nous sur WhatsApp, nous répondons dans la journée.</p>
+</div>
+<div style="flex: 1 1 620px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+<details class="faq" open style="background: #EEF2F9; border-radius: 18px; border: 1px solid #D9E1F1">
+<summary style="cursor: pointer; padding: 22px 24px; display: flex; justify-content: space-between; align-items: center; gap: 16px; font-size: 17.5px; font-weight: 700; color: #192338; list-style: none"><span>Dois-je installer une application ?</span><span aria-hidden="true" class="faq-sign" style="flex: none; width: 32px; height: 32px; border-radius: 50%; background: #192338; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 600"></span></summary>
+<p style="margin: 0; padding: 0 24px 22px; font-size: 16px; line-height: 1.65; color: #4A5468">Non. Tout se passe dans WhatsApp, sur le numéro que vous utilisez déjà.</p>
+</details>
+<details class="faq" style="background: #EEF2F9; border-radius: 18px; border: 1px solid #D9E1F1">
+<summary style="cursor: pointer; padding: 22px 24px; display: flex; justify-content: space-between; align-items: center; gap: 16px; font-size: 17.5px; font-weight: 700; color: #192338; list-style: none"><span>Quelles informations vais-je recevoir ?</span><span aria-hidden="true" class="faq-sign" style="flex: none; width: 32px; height: 32px; border-radius: 50%; background: #192338; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 600"></span></summary>
+<p style="margin: 0; padding: 0 24px 22px; font-size: 16px; line-height: 1.65; color: #4A5468">Les avis qui correspondent à votre activité, mais aussi les additifs, résultats et décisions qui concernent les marchés publics au Bénin.</p>
+</details>
+<details class="faq" style="background: #EEF2F9; border-radius: 18px; border: 1px solid #D9E1F1">
+<summary style="cursor: pointer; padding: 22px 24px; display: flex; justify-content: space-between; align-items: center; gap: 16px; font-size: 17.5px; font-weight: 700; color: #192338; list-style: none"><span>Comment payer mon abonnement ?</span><span aria-hidden="true" class="faq-sign" style="flex: none; width: 32px; height: 32px; border-radius: 50%; background: #192338; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 600"></span></summary>
+<p style="margin: 0; padding: 0 24px 22px; font-size: 16px; line-height: 1.65; color: #4A5468">Par MTN MoMo ou Moov Money, directement depuis la conversation avec Tendo. Sans engagement.</p>
+</details>
+<details class="faq" style="background: #EEF2F9; border-radius: 18px; border: 1px solid #D9E1F1">
+<summary style="cursor: pointer; padding: 22px 24px; display: flex; justify-content: space-between; align-items: center; gap: 16px; font-size: 17.5px; font-weight: 700; color: #192338; list-style: none"><span>Puis-je faire monter mon dossier par un expert ?</span><span aria-hidden="true" class="faq-sign" style="flex: none; width: 32px; height: 32px; border-radius: 50%; background: #192338; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 600"></span></summary>
+<p style="margin: 0; padding: 0 24px 22px; font-size: 16px; line-height: 1.65; color: #4A5468">Oui. Depuis chaque alerte, un message suffit pour confier le montage de votre offre à l’équipe SHIFT UP.</p>
+</details>
+
+</div>
+</div>
 </section>
 
-<!-- ===== FOOTER ===== -->
-<footer class="footer">
-    <div class="footer-inner">
-        <div class="footer-brand">
-            <h3>Tend<span>o</span></h3>
-            <p>Assistant IA pour les marches publics au Benin et en Afrique de l'Ouest. Developpe par SHIFT UP.</p>
-            <p style="margin-top: 0.5rem;"><i class="fa-solid fa-phone"></i> +229 41 88 99 21</p>
-            <p><i class="fa-solid fa-envelope"></i> contact@shiftup.bj</p>
-        </div>
-        <div class="footer-col">
-            <h4>Liens utiles</h4>
-            <a href="#services">Services</a>
-            <a href="#pricing">Tarifs</a>
-            <a href="#register">S'inscrire</a>
-            <a href="https://wa.me/22941889921"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>
-        </div>
-        <div class="footer-col">
-            <h4>Legal</h4>
-            <a href="/terms">Conditions d'utilisation</a>
-            <a href="/privacy">Politique de confidentialite</a>
-            <a href="/delete-data">Suppression de donnees</a>
-        </div>
-    </div>
-    <div class="footer-bottom">
-        <span>&copy; 2024-2026 SHIFT UP. Tous droits reserves.</span>
-        <span>Cotonou, Benin</span>
-    </div>
+<section class="dots" style="background-color: #192338; color: #FFFFFF; position: relative; overflow: hidden">
+<div aria-hidden="true" style="position: absolute; left: 50%; bottom: -380px; width: 1000px; height: 640px; transform: translateX(-50%); border-radius: 50%; background: radial-gradient(closest-side, rgba(143,179,226,0.3), rgba(25,35,56,0))"></div>
+<div style="position: relative; max-width: 1240px; margin: 0 auto; padding: 120px 24px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 26px">
+<h2 style="margin: 0; font-weight: 800; font-size: 58px; line-height: 1.04; letter-spacing: -1.8px; max-width: 900px">Le prochain marché se joue <span style="color: #8FB3E2">avant</span> la date limite.</h2>
+<p style="margin: 0; font-size: 19px; color: #D9E1F1; max-width: 600px">Écrivez « Bonjour » au +229 41 88 99 21. Vos premiers avis arrivent dès demain matin.</p>
+<a href="https://wa.me/22941889921?text=Bonjour" style="background: #8FB3E2; color: #192338; text-decoration: none; padding: 19px 32px; border-radius: 14px; font-weight: 700; font-size: 17px; box-shadow: 0 10px 30px rgba(143,179,226,0.35)">Démarrer sur WhatsApp</a>
+<p style="margin: 0; font-size: 14.5px; color: #B4C9E8">Disponible au Bénin. D’autres pays suivront.</p>
+</div>
+</section>
+
+<footer style="background: #192338; color: #B4C9E8">
+<div style="max-width: 1240px; margin: 0 auto; padding: 44px 24px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 28px; font-size: 14.5px">
+<div style="display: flex; align-items: center; gap: 12px">
+<svg aria-hidden="true" width="34" height="34" viewBox="0 0 40 40"><rect width="40" height="40" rx="12" fill="#8FB3E2"></rect><path d="M11 13h18M20 13v15" stroke="#192338" stroke-width="3.6" stroke-linecap="round"></path><circle cx="29" cy="27" r="3" fill="#B4C9E8"></circle></svg>
+<div style="display: flex; flex-direction: column; gap: 2px"><span style="color: #FFFFFF; font-weight: 700">Tendo, un service SHIFT UP</span><span>Abomey-Calavi, Bénin · +229 41 88 99 21 · contact@shiftup.bj</span></div>
+</div>
+<nav aria-label="Liens légaux" style="display: flex; flex-wrap: wrap; gap: 22px">
+<a href="/static/terms.html" style="color: #D9E1F1">Conditions d’utilisation</a>
+<a href="/static/privacy.html" style="color: #D9E1F1">Confidentialité</a>
+<a href="/static/delete-data.html" style="color: #D9E1F1">Suppression des données</a>
+<a href="https://shiftup.bj" style="color: #D9E1F1">shiftup.bj</a>
+</nav>
+</div>
 </footer>
 
+</div>
 <script>
-// ===== DEVICE FINGERPRINT =====
-(function() {
-    var fp = [];
-    fp.push(navigator.userAgent);
-    fp.push(screen.width + 'x' + screen.height);
-    fp.push(Intl.DateTimeFormat().resolvedOptions().timeZone);
-    fp.push(navigator.language);
-    fp.push(navigator.hardwareConcurrency || 0);
-    fp.push(new Date().getTimezoneOffset());
-    // Simple hash
-    var hash = 0;
-    var str = fp.join('|');
-    for (var i = 0; i < str.length; i++) {
-        var char = str.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash;
-    }
-    document.getElementById('deviceFp').value = Math.abs(hash).toString(36);
-})();
-
-// ===== FORM TOKEN (anti-CSRF) =====
-(function() {
-    var token = Date.now().toString(36) + Math.random().toString(36).substr(2, 8);
-    document.getElementById('formToken').value = token;
-})();
-
-// ===== ANTI-INJECTION SANITIZE =====
-function sanitize(str) {
-    if (!str) return '';
-    return str.replace(/[<>"'`\\\/;(){}]/g, '').trim();
-}
-
-function validatePhone(phone) {
-    var cleaned = phone.replace(/[\s\-]/g, '');
-    return /^\+?[0-9]{8,15}$/.test(cleaned);
-}
-
-function validateEmail(email) {
-    if (!email) return false; // Obligatoire
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
-
-// ===== FORM SUBMISSION =====
-function handleSubmit(e) {
-    e.preventDefault();
-
-    // Honeypot check
-    if (document.getElementById('honeypot').value) return false;
-
-    // Timing check (bot fills in < 3s)
-    var tokenVal = document.getElementById('formToken').value; var formLoadTime = parseInt(tokenVal.substring(0, tokenVal.length - 8), 36);
-    if (Date.now() - formLoadTime < 3000) return false;
-
-    var form = document.getElementById('registerForm');
-    var btn = document.getElementById('submitBtn');
-    var valid = true;
-
-    // Reset errors
-    document.querySelectorAll('.form-error').forEach(function(el) { el.style.display = 'none'; });
-    document.querySelectorAll('.invalid').forEach(function(el) { el.classList.remove('invalid'); });
-
-    // Validate fullname
-    var fullname = sanitize(document.getElementById('fullname').value);
-    if (fullname.length < 3) {
-        showError('fullname', 'Veuillez entrer votre nom complet (min. 3 caracteres)');
-        valid = false;
-    }
-
-    // Validate phone
-    var phone = document.getElementById('phone').value.trim();
-    if (!validatePhone(phone)) {
-        showError('phone', 'Numero invalide. Format: +229 XX XX XX XX');
-        valid = false;
-    }
-
-    // Validate email (obligatoire)
-    var email = document.getElementById('email').value.trim();
-    if (!email) {
-        showError('email', 'L\'adresse email est obligatoire');
-        valid = false;
-    } else if (!validateEmail(email)) {
-        showError('email', 'Adresse email invalide');
-        valid = false;
-    }
-
-    // Validate company
-    var company = sanitize(document.getElementById('company').value);
-    if (company.length < 2) {
-        showError('company', 'Veuillez entrer le nom de votre entreprise');
-        valid = false;
-    }
-
-    // Validate sectors (au moins 1 checkbox cochee)
-    var checkedSectors = document.querySelectorAll('input[name="sectors"]:checked');
-    if (checkedSectors.length === 0) {
-        showError('sector', 'Veuillez choisir au moins un secteur');
-        valid = false;
-    }
-
-    // Validate region
-    if (!document.getElementById('region').value) {
-        showError('region', 'Veuillez choisir une region');
-        valid = false;
-    }
-
-    if (!valid) return false;
-
-    // Submit
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Envoi en cours...';
-
-    var data = {
-        fullname: fullname,
-        phone: phone.replace(/[\s\-]/g, ''),
-        email: email,
-        company: company,
-        sectors: Array.from(document.querySelectorAll('input[name="sectors"]:checked')).map(function(cb) { return cb.value; }),
-        region: document.getElementById('region').value,
-        plan: document.getElementById('plan').value,
-        device_fp: document.getElementById('deviceFp').value,
-        form_token: document.getElementById('formToken').value,
-    };
-
-    fetch('/api/v1/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-    })
-    .then(function(res) { return res.json(); })
-    .then(function(result) {
-        if (result.success || result.user_id) {
-            if (result.payment_url) {
-                // Rediriger vers FedaPay avec les infos pre-remplies
-                form.innerHTML = '<div style="text-align:center;padding:2rem;">' +
-                    '<div style="font-size:3rem;margin-bottom:1rem;"><i class="fa-solid fa-spinner fa-spin" style="color:var(--primary);"></i></div>' +
-                    '<h3 style="margin-bottom:0.5rem;">Redirection vers le paiement...</h3>' +
-                    '<p style="color:#6B7280;">Vous allez etre redirige vers FedaPay pour finaliser votre inscription.</p>' +
-                    '</div>';
-                setTimeout(function() { window.location.href = result.payment_url; }, 1500);
-            } else {
-                // Plan gratuit : afficher succes + WhatsApp
-                form.innerHTML = '<div style="text-align:center;padding:2rem;">' +
-                    '<div style="font-size:3rem;margin-bottom:1rem;"><i class="fa-solid fa-circle-check" style="color:var(--success);"></i></div>' +
-                    '<h3 style="margin-bottom:0.5rem;">Inscription reussie !</h3>' +
-                    '<p style="color:#6B7280;">Votre essai gratuit de 7 jours est active.</p>' +
-                    '<a href="https://wa.me/22941889921?text=Bonjour%20Tendo%20!%20Je%20viens%20de%20m\'inscrire." class="btn btn-whatsapp" style="margin-top:1.5rem;"><i class="fa-brands fa-whatsapp"></i> Ouvrir WhatsApp</a>' +
-                    '</div>';
-            }
-        } else {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Creer mon compte Tendo';
-            alert(result.detail || result.message || 'Une erreur est survenue. Veuillez reessayer.');
-        }
-    })
-    .catch(function() {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fa-solid fa-user-plus"></i> Creer mon compte Tendo';
-        alert('Erreur de connexion. Verifiez votre internet et reessayez.');
-    });
-
-    return false;
-}
-
-function showError(field, message) {
-    var errEl = document.getElementById('err-' + field);
-    var input = document.getElementById(field);
-    if (errEl) { errEl.textContent = message; errEl.style.display = 'block'; }
-    if (input) input.classList.add('invalid');
-}
-
-// ===== SMOOTH SCROLL =====
-document.querySelectorAll('a[href^="#"]').forEach(function(anchor) {
-    anchor.addEventListener('click', function(e) {
-        e.preventDefault();
-        var target = document.querySelector(this.getAttribute('href'));
-        if (target) {
-            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            document.getElementById('navLinks').classList.remove('active');
-        }
-    });
-});
-
-// ===== NAV SCROLL EFFECT =====
-window.addEventListener('scroll', function() {
-    var nav = document.getElementById('nav');
-    if (window.scrollY > 50) {
-        nav.style.boxShadow = '0 4px 20px rgba(0,0,0,0.3)';
-    } else {
-        nav.style.boxShadow = 'none';
-    }
-});
-
-// ===== SCROLL REVEAL ANIMATIONS =====
-var fadeEls = document.querySelectorAll('.service-card, .problem-card, .solution-card, .step, .price-card, .trust-card, .section-label, .section-title');
-fadeEls.forEach(function(el) { el.classList.add('fade-in'); });
-var observer = new IntersectionObserver(function(entries) {
-    entries.forEach(function(entry) {
-        if (entry.isIntersecting) {
-            entry.target.classList.add('visible');
-        }
-    });
-}, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
-fadeEls.forEach(function(el) { observer.observe(el); });
+// Chiffres SHIFT UP mis à jour automatiquement (dossiers montés, entreprises accompagnées, dossiers gagnés)
+fetch("https://www.shiftup.bj/api/chiffres").then(function (r) { return r.ok ? r.json() : null; }).then(function (c) {
+  if (!c) return;
+  document.querySelectorAll("[data-chiffre]").forEach(function (el) {
+    var v = c[el.getAttribute("data-chiffre")];
+    if (typeof v === "number") el.textContent = v.toLocaleString("fr-FR");
+  });
+}).catch(function () {});
 </script>
-
 </body>
 </html>
