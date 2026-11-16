@@ -188,6 +188,11 @@ async def _handle_meta_webhook(request: Request, db: AsyncSession):
                     elif interactive.get("type") == "list_reply":
                         text = interactive["list_reply"]["id"]
                         await _process_message(f"+{from_number}", text, db)
+                elif msg_type == "button":
+                    # Bouton d'un modèle Meta (ex. « Voir mes avis » de tendo_alerte_avis)
+                    btn = msg.get("button", {})
+                    text = btn.get("payload") or btn.get("text", "")
+                    await _process_message(f"+{from_number}", text, db)
                 elif msg_type == "document":
                     # Document envoye (PDF, Word, etc.)
                     doc_info = msg.get("document", {})
@@ -354,6 +359,13 @@ async def _process_message(from_number: str, body: str, db: AsyncSession):
         return
     if body.startswith("ignorer_"):
         # Bouton ignorer : marquer comme notifie sans action
+        return
+    if body.startswith("confier_"):
+        await _handle_button_confier(body, from_number, user, db)
+        return
+    if body == "recap_avis" or body.strip().lower() in ("voir mes avis", "mes avis"):
+        from app.services.notifications import recap_recent
+        await recap_recent(db, user)
         return
 
     # Commandes speciales
@@ -1207,6 +1219,48 @@ async def _handle_button_voir(body: str, from_number: str, db: AsyncSession):
 
     # Page web (pas un PDF) ou PDF trop lourd : fiche texte + lien
     await whatsapp.send_message(from_number, _text_card())
+
+
+NUMERO_SHIFTUP = "2290195035099"  # WhatsApp de l'équipe SHIFT UP (application WhatsApp Business)
+
+
+async def _handle_button_confier(body: str, from_number: str, user: User, db: AsyncSession):
+    """Bouton « Confier à SHIFT UP » : met l'abonné en relation avec l'équipe pour le montage."""
+    from urllib.parse import quote
+    from app.services.notifications import _extract_real_object, _extract_reference
+
+    try:
+        pub_id = int(body.replace("confier_", "").strip())
+    except ValueError:
+        return
+    pub = (await db.execute(select(Publication).where(Publication.id == pub_id))).scalar_one_or_none()
+    if not pub:
+        await whatsapp.send_message(from_number, "Avis introuvable.")
+        return
+
+    objet = _extract_real_object(pub)
+    ref = _extract_reference(pub) or pub.reference
+    message_equipe = f"Bonjour SHIFT UP, je souhaite vous confier le montage du dossier : {objet[:200]} (réf. {ref})."
+    lien = f"https://wa.me/{NUMERO_SHIFTUP}?text={quote(message_equipe)}"
+    await whatsapp.send_message(
+        from_number,
+        "C’est noté. L’équipe SHIFT UP a reçu votre demande et vous contacte rapidement pour le montage de ce dossier :\n"
+        f"*{objet[:300]}*\n\n"
+        f"Pour lui écrire tout de suite : {lien}",
+    )
+    nom = user.name or "Abonné"
+    entreprise = f" ({user.company})" if user.company else ""
+    alerte = (
+        f"*Dossier à monter* — demande via Tendo\n{nom}{entreprise}, {from_number}\n"
+        f"Marché : {objet[:300]}\nRéf. : {ref}\nDate limite : "
+        f"{pub.deadline.strftime('%d/%m/%Y') if pub.deadline else 'non précisée'}"
+        + (f"\nAvis : {pub.pdf_url}" if pub.pdf_url else "")
+    )
+    for numero in settings.admin_phones:
+        try:
+            await whatsapp.send_message(numero if numero.startswith("+") else f"+{numero}", alerte)
+        except Exception as e:
+            logger.warning(f"[Confier] Alerte équipe impossible ({numero}): {e}")
 
 
 async def _handle_button_savoir(body: str, from_number: str, user: User, db: AsyncSession):

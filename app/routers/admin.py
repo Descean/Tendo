@@ -11,6 +11,8 @@ Auth : paramètre ?key= OU header Authorization: Bearer <key>.
 import asyncio
 import contextvars
 import logging
+import hmac
+import time
 from collections import deque
 from datetime import datetime, timedelta, timezone
 
@@ -91,6 +93,9 @@ class AdminAuthMiddleware(BaseHTTPMiddleware):
             _current_request_var.reset(token)
 
 
+_echecs_cle: deque = deque(maxlen=100)
+
+
 def _ck(key: str = ""):
     """Verifie la cle admin via ?key= OU header Authorization: Bearer <key>."""
     admin_key = key
@@ -101,8 +106,23 @@ def _ck(key: str = ""):
             auth_header = req.headers.get("authorization", "")
             if auth_header.lower().startswith("bearer "):
                 admin_key = auth_header[7:].strip()
-    if not admin_key or admin_key != settings.secret_key:
+    # Freine les essais de clé au hasard : au-delà de 20 échecs en 10 min, tout est refusé 10 min
+    maintenant = time.monotonic()
+    while _echecs_cle and maintenant - _echecs_cle[0] > 600:
+        _echecs_cle.popleft()
+    if len(_echecs_cle) >= 20:
+        raise HTTPException(status_code=429, detail="Trop d'essais. Réessayez dans 10 minutes.")
+    if not admin_key or not hmac.compare_digest(admin_key, settings.secret_key):
+        _echecs_cle.append(maintenant)
         raise HTTPException(status_code=403, detail="Clé admin invalide")
+
+
+def _outils_code_actifs():
+    """Lecture/écriture de fichiers, exécution de commandes et git depuis le tableau de bord :
+    désactivés par défaut (une clé volée donnerait le contrôle du serveur).
+    Réactivation volontaire et temporaire : ADMIN_CODE_TOOLS=true dans .env."""
+    if not getattr(settings, "admin_code_tools", False):
+        raise HTTPException(status_code=403, detail="Outils de code désactivés (ADMIN_CODE_TOOLS=false).")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1676,6 +1696,7 @@ def _safe_path(path: str) -> str:
 async def api_code_files(key: str = ""):
     """Liste les fichiers du projet."""
     _ck(key)
+    _outils_code_actifs()
     files = []
     for root, dirs, filenames in os.walk(_PROJECT_ROOT):
         # Exclure les dossiers non pertinents
@@ -1695,6 +1716,7 @@ async def api_code_files(key: str = ""):
 async def api_code_read(path: str, key: str = ""):
     """Lit le contenu d'un fichier."""
     _ck(key)
+    _outils_code_actifs()
     full = _safe_path(path)
     if not os.path.isfile(full):
         raise HTTPException(status_code=404, detail=f"Fichier non trouve: {path}")
@@ -1718,6 +1740,7 @@ class CodeWriteRequest(BaseModel):
 async def api_code_write(data: CodeWriteRequest, key: str = ""):
     """Ecrit/modifie un fichier du projet."""
     _ck(key)
+    _outils_code_actifs()
     full = _safe_path(data.path)
     # Interdire l'ecriture dans certains fichiers sensibles
     basename = os.path.basename(full)
@@ -1753,6 +1776,7 @@ class CodeGenerateRequest(BaseModel):
 async def api_code_generate(data: CodeGenerateRequest, key: str = ""):
     """Genere du code via IA a partir d'une instruction en langage naturel."""
     _ck(key)
+    _outils_code_actifs()
 
     # Construire le contexte pour l'IA
     system_prompt = """Tu es un assistant de developpement expert Python/FastAPI pour le projet Tendo.
@@ -1925,6 +1949,7 @@ def _is_command_allowed(cmd: str) -> bool:
 async def api_code_exec(data: CodeExecRequest, key: str = ""):
     """Execute une commande shell sur le serveur (whitelist uniquement)."""
     _ck(key)
+    _outils_code_actifs()
 
     cmd = data.command.strip()
 
@@ -1958,6 +1983,7 @@ async def api_code_exec(data: CodeExecRequest, key: str = ""):
 async def api_code_restart(key: str = ""):
     """Redemarre l'application Tendo (signal au process uvicorn)."""
     _ck(key)
+    _outils_code_actifs()
     logger.info("[CodeCenter] Redemarrage demande par admin")
     # Dans un conteneur Docker, on ne peut pas docker compose depuis l'interieur.
     # On peut envoyer un signal au process principal pour forcer un restart gracieux.
@@ -1977,6 +2003,7 @@ async def api_code_restart(key: str = ""):
 async def api_git_status(key: str = ""):
     """Retourne le statut git du projet."""
     _ck(key)
+    _outils_code_actifs()
     try:
         status = subprocess.run(
             "git status --porcelain", shell=True, capture_output=True, text=True,
@@ -2020,6 +2047,7 @@ class GitCommitRequest(BaseModel):
 async def api_git_commit(data: GitCommitRequest, key: str = ""):
     """Commit les modifications."""
     _ck(key)
+    _outils_code_actifs()
     if not data.message.strip():
         raise HTTPException(status_code=400, detail="Message de commit requis")
     try:
@@ -2048,6 +2076,7 @@ async def api_git_commit(data: GitCommitRequest, key: str = ""):
 async def api_git_push(key: str = ""):
     """Push les commits vers GitHub."""
     _ck(key)
+    _outils_code_actifs()
     try:
         result = subprocess.run(
             "git push origin main", shell=True, capture_output=True, text=True,

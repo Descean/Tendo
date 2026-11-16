@@ -88,9 +88,9 @@ _DOC_TYPE_HEADERS = {
 
 
 def matches_user_preferences(user: User, publication: Publication) -> bool:
-    """SUSPENDU : retourne toujours True.
-    Le matching sera reactive plus tard."""
-    return True
+    """Secteurs, régions et sources choisis par l'abonné (voir app/services/matching.py)."""
+    from app.services.matching import correspond_profil
+    return correspond_profil(user, publication)
 
 
 def _days_remaining(deadline) -> int | None:
@@ -325,7 +325,7 @@ def _build_aao_message(pub: Publication, user: User) -> tuple:
     else:
         buttons.append({"id": f"upsell_resume_{pub.id}", "title": "Résumé (abonnés)"})
 
-    buttons.append({"id": f"ignorer_{pub.id}", "title": "Ignorer"})
+    buttons.append({"id": f"confier_{pub.id}", "title": "Confier à SHIFT UP"})
 
     return body, buttons, header
 
@@ -369,7 +369,7 @@ def _build_ami_message(pub: Publication, user: User) -> tuple:
         buttons.append({"id": f"resume_{pub.id}", "title": "Critères sélection"})
     else:
         buttons.append({"id": f"upsell_resume_{pub.id}", "title": "Critères (abonnés)"})
-    buttons.append({"id": f"ignorer_{pub.id}", "title": "Ignorer"})
+    buttons.append({"id": f"confier_{pub.id}", "title": "Confier à SHIFT UP"})
 
     return body, buttons, header
 
@@ -638,6 +638,114 @@ def _should_send_to_user(user: User, pub: Publication) -> bool:
     return matches_user_preferences(user, pub)
 
 
+MAX_RECAP = 10  # avis par récapitulatif (limite d'une liste WhatsApp)
+MODELE_ALERTE = "tendo_alerte_avis"  # modèle approuvé par Meta, pour écrire hors de la fenêtre de 24 h
+
+
+def _cle_urgence(pub: Publication):
+    d = pub.deadline
+    if d is not None and d.tzinfo is None:
+        d = d.replace(tzinfo=timezone.utc)
+    return (d is None, d or datetime.max.replace(tzinfo=timezone.utc), -(pub.id or 0))
+
+
+def _court(t: str, n: int) -> str:
+    t = re.sub(r"\s+", " ", t or "").strip()
+    return t if len(t) <= n else t[: n - 1].rstrip() + "…"
+
+
+def _ligne_recap(pub: Publication) -> dict:
+    """Ligne de liste WhatsApp : titre ≤ 24, description ≤ 72 caractères."""
+    days = _days_remaining(pub.deadline)
+    delai = "date limite non précisée" if days is None else ("dernier jour" if days == 0 else f"J-{days}")
+    autorite = _extract_real_authority(pub) or (pub.source or "")
+    return {
+        "id": f"voir_{pub.id}",
+        "title": _court(_extract_real_object(pub), 24),
+        "description": _court(f"{delai} · {autorite}", 72),
+    }
+
+
+def _hors_fenetre(err: Exception) -> bool:
+    e = str(err)
+    return "131047" in e or "re-engagement" in e.lower() or "window" in e.lower()
+
+
+async def _envoyer_a_utilisateur(user: User, pubs: list) -> list:
+    """Un avis : message à boutons. Plusieurs : un seul récapitulatif en liste.
+    Hors de la fenêtre de 24 h : modèle Meta « tendo_alerte_avis » (bouton « Voir mes avis »).
+    Retourne les publications effectivement annoncées."""
+    try:
+        if len(pubs) == 1:
+            pub = pubs[0]
+            body, buttons, header = _build_alert_message(pub, user)
+            if _user_plan(user) == "gratuit":
+                body += "\n\nPassez à l’abonnement pour débloquer toutes les actions."
+            await whatsapp.send_interactive_buttons(
+                user.phone_number, body, buttons, header=header[:60], footer="tendo.shiftup.bj",
+            )
+        else:
+            await whatsapp.send_interactive_list(
+                user.phone_number,
+                f"{len(pubs)} avis ouverts correspondent à votre activité, du plus urgent au moins urgent. "
+                "Choisissez-en un pour recevoir le dossier et son résumé.",
+                "Voir les avis",
+                [{"title": "Avis du jour", "rows": [_ligne_recap(p) for p in pubs]}],
+                header="Vos avis du jour",
+                footer="tendo.shiftup.bj",
+            )
+        return pubs
+    except Exception as e:
+        if not _hors_fenetre(e):
+            raise
+    # L'abonné n'a pas écrit depuis plus de 24 h : seul un modèle approuvé passe
+    premier = pubs[0]
+    date_limite = _format_deadline_date(premier.deadline) if premier.deadline else "non précisée"
+    await whatsapp.send_template_message(
+        user.phone_number,
+        MODELE_ALERTE,
+        language="fr",
+        components=[
+            {"type": "body", "parameters": [
+                {"type": "text", "text": str(len(pubs))},
+                {"type": "text", "text": _court(_extract_real_object(premier), 120)},
+                {"type": "text", "text": date_limite},
+            ]},
+            {"type": "button", "sub_type": "quick_reply", "index": "0",
+             "parameters": [{"type": "payload", "payload": "recap_avis"}]},
+        ],
+    )
+    return pubs
+
+
+async def recap_recent(db: AsyncSession, user: User) -> None:
+    """Renvoie le récapitulatif des avis annoncés ces 3 derniers jours (bouton « Voir mes avis »)."""
+    depuis = datetime.now(timezone.utc) - timedelta(days=3)
+    res = await db.execute(
+        select(Publication)
+        .join(Notification, Notification.publication_id == Publication.id)
+        .where(and_(Notification.user_id == user.id, Notification.sent_at >= depuis))
+    )
+    pubs = [p for p in res.scalars().unique().all() if not _is_expired(p)]
+    if not pubs:
+        await whatsapp.send_message(user.phone_number, "Aucun avis ouvert pour le moment. Les prochains arrivent demain matin.")
+        return
+    pubs.sort(key=_cle_urgence)
+    pubs = pubs[:MAX_RECAP]
+    if len(pubs) == 1:
+        body, buttons, header = _build_alert_message(pubs[0], user)
+        await whatsapp.send_interactive_buttons(user.phone_number, body, buttons, header=header[:60], footer="tendo.shiftup.bj")
+    else:
+        await whatsapp.send_interactive_list(
+            user.phone_number,
+            f"{len(pubs)} avis ouverts vous attendent, du plus urgent au moins urgent.",
+            "Voir les avis",
+            [{"title": "Avis récents", "rows": [_ligne_recap(p) for p in pubs]}],
+            header="Vos avis",
+            footer="tendo.shiftup.bj",
+        )
+
+
 async def process_new_publications(db: AsyncSession) -> int:
     """Envoie des notifications aux utilisateurs pour les publications non encore notifiees."""
     if _notification_lock.locked():
@@ -701,8 +809,6 @@ async def _process_new_publications_inner(db: AsyncSession) -> int:
     sent_count = 0
 
     for user in users:
-        user_sent = 0
-
         # IDs deja notifies
         notified_result = await db.execute(
             select(Notification.publication_id).where(
@@ -711,62 +817,31 @@ async def _process_new_publications_inner(db: AsyncSession) -> int:
         )
         already_notified = set(notified_result.scalars().all())
 
-        for pub in publications:
-            if user_sent >= MAX_PER_USER:
-                break
+        a_envoyer = [
+            pub for pub in publications
+            if pub.id not in already_notified and _should_send_to_user(user, pub)
+        ]
+        if not a_envoyer:
+            continue
+        # Les plus urgents d'abord (date limite la plus proche), puis les plus recents
+        a_envoyer.sort(key=_cle_urgence)
+        a_envoyer = a_envoyer[:MAX_RECAP]
 
-            if pub.id in already_notified:
-                continue
+        try:
+            envoyes = await _envoyer_a_utilisateur(user, a_envoyer)
+        except Exception as e:
+            err_str = str(e)
+            logger.error(f"Erreur envoi user={user.id}: {e}")
+            if "rate limit" in err_str.lower() or "131056" in err_str:
+                logger.warning("[Notifications] Rate limit, pause 30s")
+                await asyncio.sleep(30)
+            continue
 
-            if not _should_send_to_user(user, pub):
-                continue
-
-            # Construire le message adapte au type
-            body, buttons, header = _build_alert_message(pub, user)
-
-            # Ajouter l'invitation a s'abonner pour les gratuits
-            plan = _user_plan(user)
-            footer = "tendo.shiftup.bj"
-            if plan == "gratuit":
-                body += "\n\nPassez a l abonnement pour debloquer toutes les actions."
-
-            try:
-                await whatsapp.send_interactive_buttons(
-                    user.phone_number, body, buttons,
-                    header=header, footer=footer,
-                )
-
-                notification = Notification(
-                    user_id=user.id,
-                    publication_id=pub.id,
-                )
-                db.add(notification)
-                sent_count += 1
-                user_sent += 1
-
-                await asyncio.sleep(SEND_DELAY)
-
-            except Exception as e:
-                err_str = str(e)
-                if "131047" in err_str or "window" in err_str.lower():
-                    try:
-                        await whatsapp.send_proactive_message(user.phone_number, body)
-                        notification = Notification(user_id=user.id, publication_id=pub.id)
-                        db.add(notification)
-                        sent_count += 1
-                        user_sent += 1
-                        await asyncio.sleep(SEND_DELAY)
-                        continue
-                    except Exception:
-                        pass
-                logger.error(f"Erreur envoi user={user.id} pub={pub.id}: {e}")
-                if "rate limit" in err_str.lower() or "131056" in err_str:
-                    logger.warning("[Notifications] Rate limit, pause 30s")
-                    await asyncio.sleep(30)
-                    break
-
-        if user_sent > 0:
-            await db.commit()
+        for pub in envoyes:
+            db.add(Notification(user_id=user.id, publication_id=pub.id))
+        sent_count += len(envoyes)
+        await db.commit()
+        await asyncio.sleep(SEND_DELAY)
 
     logger.info(f"[Notifications] Notifications envoyees: {sent_count}")
     return sent_count

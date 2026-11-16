@@ -75,6 +75,9 @@ class Settings(BaseSettings):
     shiftup_api_url: str = "https://www.shiftup.bj"
     shiftup_api_key: str = ""  # même valeur que TENDO_API_KEY sur Vercel (shiftup.bj)
 
+    # Tableau de bord : outils de code (fichiers, commandes, git) désactivés par défaut
+    admin_code_tools: bool = False
+
     # Notifications : mode test (liste vide = envoi a tous les utilisateurs actifs)
     test_phone_numbers: List[str] = Field(default_factory=list)
 
